@@ -1,5 +1,6 @@
-# Ignorar variables de entorno
+# Archivos temporales o de entorno
 .env
+.DS_Store
 
 # Ignorar dependencias locales
 node_modules/
@@ -8,3 +9,11 @@ npm-debug.log
 # Ignorar archivos de configuración del editor
 .vscode/
 .DS_Store
+
+# Salida de Python
+__pycache__/
+*.pyc
+
+# Datos intermedios
+air_data_csv/
+exploracion_csvs/
