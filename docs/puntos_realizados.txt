@@ -1,0 +1,109 @@
+Resumen del Proyecto Air-Gijón
+1. Descripción General
+El proyecto Air-Gijón es una aplicación web diseñada para proporcionar predicciones diarias sobre la contaminación del aire en Gijón, además de permitir la consulta de datos históricos y actuales.
+
+El cliente principal sería el Ayuntamiento de Gijón, que busca evaluar la viabilidad de una inversión en una plataforma más amplia y robusta.
+
+2. Alcance del Sistema
+Se utilizarán exclusivamente los datos públicos del Ayuntamiento de Gijón a través de su API de transparencia.
+
+El sistema se centrará en la estación de monitorización de calidad del aire de la Avenida de la Constitución.
+
+Se analizarán los contaminantes PM10 y NO2, con datos agregados a nivel diario.
+
+La actualización de los datos será diaria.
+
+Se implementará un diseño Mobile First para optimizar la experiencia en dispositivos móviles.
+
+Los modelos de predicción se desarrollarán en Python o R.
+
+El backend se desarrollará en Node.js y la base de datos será PostgreSQL.
+
+El frontend se desarrollará con JavaScript y tecnologías impartidas en el ciclo formativo.
+
+El despliegue se realizará en Render.
+
+3. Tipologías de Usuarios
+Usuarios externos: Ciudadanos que consultan la información sobre contaminación.
+
+Usuarios anónimos: Pueden acceder a todas las funcionalidades de visualización.
+
+Usuarios registrados: Pueden suscribirse a notificaciones y alertas sobre contaminación.
+
+Usuarios internos / gestores: Pueden modificar los avisos y consejos en función de los niveles de contaminación.
+
+Usuarios internos avanzados: Analizan las predicciones y comparan los datos reales con los estimados, generando informes de seguimiento.
+
+4. Restricciones
+Dependencia de la API del Ayuntamiento para la obtención de datos actualizados.
+
+Proyecto desarrollado y mantenido por una sola persona.
+
+Riesgos asociados a la precisión de las predicciones, lo que puede generar críticas públicas.
+
+Recursos limitados en términos de infraestructura y tiempo de desarrollo.
+
+5. Estado Actual del Proyecto
+Hasta el momento, se ha avanzado en:
+
+Definición de la arquitectura: Estructuración del backend y frontend.
+
+Desarrollo inicial del backend: Creación del entorno con Node.js y PostgreSQL.
+
+Diseño de la base de datos: Estructuración inicial para almacenar datos de contaminación y predicciones futuras.
+
+Preparación del entorno de desarrollo: Configuración del repositorio local y control de versiones con GitHub.
+
+6. Próximos Pasos
+Conectar la aplicación con la API del Ayuntamiento para obtener datos de calidad del aire.
+
+Desarrollar el modelo de predicción en Python o R para estimar la contaminación a un día vista.
+
+Implementar visualizaciones de datos con gráficos sobre la evolución de PM10 y NO2.
+
+Crear el sistema de autenticación para usuarios registrados e internos.
+
+Implementar el sistema de notificaciones y alertas.
+
+Realizar pruebas y optimizaciones antes del despliegue.
+
+7. Avances Realizados en la Implementación de la Base de Datos
+7.1 Estructura de la Base de Datos
+- Creación de tres tablas principales:
+  * estaciones: Almacena información sobre las estaciones de medición (ID, título, dirección, población, provincia, coordenadas)
+  * parametros: Contiene información sobre los parámetros medidos (parámetro, descripción, tag, unidad)
+  * mediciones: Registra todas las mediciones realizadas (estación, fecha, periodo, valores de contaminantes)
+
+7.2 Implementación de Scripts de Inserción de Datos
+- Desarrollo del script insert_data.js para la inserción inicial de datos:
+  * Conexión a PostgreSQL con configuración mediante variables de entorno
+  * Implementación de transacciones para garantizar la integridad de los datos
+  * Funciones específicas para insertar estaciones, parámetros y mediciones
+  * Manejo de errores y cierre adecuado de conexiones
+
+7.3 Procesamiento de Datos Históricos
+- Creación del script insert_historico.js para procesar datos históricos:
+  * Implementación de inserción por lotes (500 registros) para optimizar el rendimiento
+  * Manejo de memoria mejorado con pausa/reanuda del stream de datos
+  * Procesamiento de más de 980,000 registros históricos
+  * Implementación de restricciones únicas para evitar duplicados en parámetros
+
+7.4 Verificación y Validación de Datos
+- Desarrollo de script query_data.js para consultar los datos insertados
+- Verificación de la integridad de los datos en las tres tablas
+- Comprobación de las relaciones entre tablas
+- Validación del formato y tipos de datos
+
+7.5 Optimizaciones Implementadas
+- Uso de transacciones para garantizar la integridad de los datos
+- Implementación de inserción por lotes para mejorar el rendimiento
+- Manejo de valores nulos y conversión de tipos de datos
+- Implementación de restricciones únicas para evitar duplicados
+- Mejora en el manejo de memoria durante el procesamiento de grandes volúmenes de datos
+
+7.6 Próximos Pasos en la Base de Datos
+- Implementación de índices para optimizar las consultas frecuentes
+- Desarrollo de vistas para facilitar el acceso a datos comunes
+- Implementación de triggers para mantener la integridad referencial
+- Preparación para la integración con la API del Ayuntamiento
+- Desarrollo de scripts para la actualización periódica de datos
