@@ -17,3 +17,6 @@ __pycache__/
 # Datos intermedios
 air_data_csv/
 exploracion_csvs/
+
+# Información sensible
+info_api_ayto_gijon.txt
