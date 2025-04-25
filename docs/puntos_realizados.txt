@@ -107,3 +107,137 @@ Realizar pruebas y optimizaciones antes del despliegue.
 - Implementación de triggers para mantener la integridad referencial
 - Preparación para la integración con la API del Ayuntamiento
 - Desarrollo de scripts para la actualización periódica de datos
+
+
+Ideas para enriquecer la app:
+
+- Notificaciones a suscriptores por correo electrónico con la predicción del día.
+- Generación de informes en pdf a petición (Ejemplo aplicación: jasper report). Hacerlo, que a Eduardo le gusta mucho.
+- Fijarse en la usabilidad de la aplicación. Ejemplo: Implementar un sistema de recuperación de la contraseña.
+
+
+8. Avances Realizados (8 de abril de 2024)
+8.1 Implementación del Cliente API
+- Desarrollo del módulo api_client.js para interactuar con la API del Ayuntamiento:
+  * Configuración de conexión a la API de datos abiertos de Gijón
+  * Implementación de paginación para obtener todos los registros disponibles
+  * Manejo de errores y reintentos en las peticiones
+  * Transformación y validación de datos antes de la inserción
+
+8.2 Sistema de Actualización de Datos
+- Creación de la tabla mediciones_api para datos en tiempo real:
+  * Estructura optimizada para almacenar mediciones actuales
+  * Implementación de restricciones para evitar duplicados
+  * Campo de validación para verificar la calidad de los datos
+  * Timestamps para seguimiento de actualizaciones
+
+8.3 Scripts de Procesamiento
+- Desarrollo de utilidades para el manejo de datos:
+  * extraer_muestra.py: Script para generar conjuntos de datos de prueba
+  * join_csvs.py: Herramienta para combinar múltiples fuentes de datos
+  * Implementación de limpieza y validación de datos
+
+8.4 Problemas Identificados y Soluciones Propuestas
+- Detección de inconsistencias en las fechas de los datos:
+  * Identificación de registros con fechas futuras (marzo 2025)
+  * Presencia de datos históricos antiguos (octubre 2021)
+  * Planificada la implementación de validación de fechas
+  * Necesidad de filtrar datos inconsistentes
+
+8.5 Control de Versiones
+- Actualización del repositorio Git:
+  * Configuración mejorada de .gitignore
+  * Documentación de cambios y nuevas funcionalidades
+  * Organización de código en módulos independientes
+  * Preparación para integración continua
+
+8.6 Próximos Pasos
+- Implementar validación de fechas en el cliente API
+- Desarrollar sistema de limpieza automática de datos inconsistentes
+- Crear endpoints REST para acceder a los datos históricos
+- Implementar sistema de caché para optimizar consultas frecuentes
+- Desarrollar interfaz de administración para gestión de datos
+
+8.7 Implementación del Cliente AQICN API (8 de abril de 2024)
+- Análisis del script api_aqicn.js:
+  * Integración con la API WAQI (World Air Quality Index)
+  * Configuración de token de acceso mediante variables de entorno
+  * Consulta específica a la estación ID 6699 (Avenida Constitución)
+  * Obtención de datos en tiempo real:
+    - Índice de calidad del aire (AQI)
+    - Timestamp de la medición
+    - Valores individuales de contaminantes
+
+Observaciones y Recomendaciones:
+1. Seguridad:
+   * El token de API está hardcodeado como fallback
+   * Recomendación: Mover el token a variables de entorno exclusivamente
+
+2. Mejoras Propuestas:
+   * Implementar manejo de errores más robusto
+   * Añadir reintentos en caso de fallos de red
+   * Crear función reutilizable para consultar diferentes estaciones
+   * Integrar con el sistema de logging existente
+   * Documentar los tipos de contaminantes disponibles
+
+3. Integración:
+   * Conectar con la tabla mediciones_api
+   * Implementar sistema de cache para evitar llamadas excesivas
+   * Añadir validación de datos antes de almacenamiento
+   * Crear endpoints REST para exponer estos datos
+
+
+9. Avances Realizados (25 de abril de 2024)
+9.1 Implementación de Integración con AQICN API
+- Desarrollo de un cliente para la API WAQI (World Air Quality Index):
+  * Configuración de conexión segura mediante variables de entorno
+  * Implementación de sistema de reintentos para peticiones fallidas
+  * Parseo y normalización de datos de calidad del aire
+  * Obtención de 10 parámetros críticos (PM2.5, PM10, NO2, SO2, O3, etc.)
+
+9.2 Reestructuración de la Base de Datos
+- Creación y optimización de la tabla mediciones_api:
+  * Estructura optimizada para datos de múltiples parámetros
+  * Restricciones de unicidad para evitar duplicados
+  * Índices para mejorar el rendimiento de consultas
+  * Triggers para gestionar automáticamente los timestamps
+  * Soporte para el índice AQI y valores individuales por contaminante
+
+9.3 Mejoras en el Sistema de Integración
+- Implementación de transacciones para garantizar la integridad de los datos
+- Manejo mejorado de errores y situaciones excepcionales
+- Limpieza previa de la tabla para evitar problemas de formato
+- Logging detallado del proceso de obtención e inserción de datos
+- Configuración centralizada para facilitar el mantenimiento
+
+9.4 Procesamiento de Datos en Tiempo Real
+- Mapeo de valores de la API a la estructura de la base de datos
+- Conversión y validación de tipos de datos
+- Marcado de registros con origen verificado
+- Almacenamiento del AQI general para cada medición
+
+10. Próximos Pasos
+10.1 Automatización
+- Implementar un sistema de programación de tareas (cron) para actualizar datos periódicamente
+- Crear mecanismos de rotación de datos históricos
+- Desarrollar notificaciones automáticas ante cambios significativos en la calidad del aire
+
+10.2 Visualización de Datos
+- Crear endpoints API REST para acceder a los datos de calidad del aire
+- Desarrollar componentes de frontend para mostrar el AQI actual
+- Implementar gráficos de tendencias por hora/día/semana
+- Diseñar dashboard con indicadores clave y alertas visuales
+
+10.3 Mejoras y Validación
+- Incorporar validación de fechas para detectar anomalías en los datos
+- Implementar comparativas entre distintas fuentes de datos (AQICN vs. Ayuntamiento)
+- Desarrollar análisis estadístico básico (medias, máximos, mínimos)
+- Crear sistema de alertas basado en umbrales para los contaminantes críticos
+
+10.4 Integración con el Modelo Predictivo
+- Preparar los datos para alimentar al modelo de predicción
+- Crear sistema de exportación de datos históricos en formato adecuado
+- Desarrollar mecanismos para comparar predicciones vs. datos reales
+- Implementar visualizaciones comparativas
+
+
