@@ -241,3 +241,32 @@ Observaciones y Recomendaciones:
 - Implementar visualizaciones comparativas
 
 
+11. Avances Realizados (20 de mayo de 2025)
+11.1 Estructura mínima de frontend React
+- Creación de la carpeta /frontend con Vite y React
+- Implementación de un componente principal (App.jsx) y una tarjeta de calidad del aire (AirQualityCard.jsx)
+- Configuración de Vite para desarrollo local con proxy al backend
+- Instalación y configuración de dependencias necesarias (react, react-dom, vite, @vitejs/plugin-react)
+
+11.2 Integración frontend-backend
+- Consumo del endpoint /api/air/constitucion/pm10 desde el frontend
+- Visualización en tiempo real del valor de PM10 y su estado
+- Pruebas locales exitosas con datos reales de la base de datos
+
+11.3 Solución de problemas y pruebas
+- Resolución de errores de dependencias y scripts de npm
+- Verificación de la actualización de datos mediante ejecución manual de node api_aqicn.js
+- Comprobación de la correcta visualización de la fecha y el valor de PM10
+
+11.4 Documentación y control de versiones
+- Actualización del README.md para reflejar la estructura real del proyecto y los pasos de uso
+- Actualización de la memoria del proyecto con la documentación técnica de la API
+- Commit y push de todos los cambios a GitHub
+
+Próximos pasos:
+- Ordenar la estructura del monorepo para despliegue en Render
+- Automatizar la actualización de datos (cron)
+- Mejorar el frontend y añadir nuevas visualizaciones
+- Preparar la documentación final para entrega
+
+
