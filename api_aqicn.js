@@ -117,7 +117,7 @@ async function getAirQualityData(stationId) {
             value: value.v
           }))
         };
-      } else {
+} else {
         throw new Error(`API error: ${data.status}`);
       }
     } catch (error) {
