@@ -1,4 +1,3 @@
-
 # Memoria del Proyecto: Air-Gijón
 
 ## 1. Descripción general del proyecto
@@ -16,7 +15,7 @@ El cliente sería el Ayuntamiento de Gijón, cuya intención sería realizar un 
 - Se trabajará con los contaminantes PM10 y NO2.
 - Los datos estarán agregados a nivel diario.
 - Actualización diaria.
-- Enfoque “Mobile First”.
+- Enfoque "Mobile First".
 - Predicción con algoritmos de aprendizaje automático desarrollados en Python.
 - Backend en Node.js, base de datos PostgreSQL.
 - Frontend con JavaScript.
@@ -103,3 +102,29 @@ El desarrollo del proyecto se considera parte del módulo de formación y no est
 ## 16. Documentación técnica
 
 **(Pendiente de añadir: diagramas de clases, casos de uso, tecnologías aplicadas, valoración personal y bibliografía)**
+
+## 16. Documentación técnica de la API
+
+La aplicación expone un endpoint REST para consultar el valor actual de PM10 en la estación Avenida Constitución, alimentado por la API internacional AQICN.
+
+**Endpoint principal:**
+```
+GET /api/air/constitucion/pm10
+```
+
+**Respuesta de ejemplo:**
+```json
+{
+  "estacion": "Avenida Constitución",
+  "fecha": "2025-04-25T15:00:00.000Z",
+  "pm10": 21,
+  "estado": "Buena"
+}
+```
+- **estacion**: Nombre de la estación.
+- **fecha**: Fecha y hora de la medición (ISO).
+- **pm10**: Valor de PM10 en µg/m³.
+- **estado**: Estado de la calidad del aire según el valor de PM10.
+
+Para más detalles técnicos y ejemplos de uso, consultar el archivo `README.md` del repositorio.
+
