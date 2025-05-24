@@ -1,7 +1,13 @@
 const express = require('express');
+const cors = require('cors');
 const { pool } = require('./db');
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Permitir CORS solo desde el frontend en Render
+app.use(cors({
+  origin: 'https://air-gijon-front-end.onrender.com'
+}));
 
 // Función para calcular el estado de calidad del aire según PM10
 function getEstadoPM10(pm10) {
