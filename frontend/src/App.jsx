@@ -1,12 +1,17 @@
 import { useEffect, useState } from "react";
 import AirQualityCard from "./components/AirQualityCard";
 
+const API_URL =
+  import.meta.env.PROD
+    ? "https://air-gijon.onrender.com/api/air/constitucion/pm10"
+    : "/api/air/constitucion/pm10";
+
 function App() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/air/constitucion/pm10")
+    fetch(API_URL)
       .then(res => res.json())
       .then(setData)
       .catch(() => setData(null))
