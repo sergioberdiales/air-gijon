@@ -4,15 +4,15 @@ const dotenv = require('dotenv');
 const path = require('path');
 const { pool } = require('./db');
 
-// Cargar variables de entorno de manera más explícita
-const result = dotenv.config();
-
-// Debug: Mostrar variables de entorno y resultado de carga
-console.log('Resultado de carga .env:', result);
-console.log('Variables de entorno cargadas:', {
-  DB_USER: process.env.DB_USER,
-  DB_HOST: process.env.DB_HOST
-});
+// Cargar variables de entorno solo en desarrollo
+if (process.env.NODE_ENV !== 'production') {
+  const result = dotenv.config();
+  console.log('Resultado de carga .env:', result);
+  console.log('Variables de entorno cargadas:', {
+    DB_USER: process.env.DB_USER,
+    DB_HOST: process.env.DB_HOST
+  });
+}
 
 // TEMPORAL: Usar el token directamente para pruebas
 const TEMP_TOKEN = '4ed30034c188bdd07806729760dc34ab5857725f';
@@ -117,7 +117,7 @@ async function getAirQualityData(stationId) {
             value: value.v
           }))
         };
-} else {
+      } else {
         throw new Error(`API error: ${data.status}`);
       }
     } catch (error) {
@@ -133,37 +133,9 @@ async function getAirQualityData(stationId) {
   throw new Error(`Failed after ${CONFIG.MAX_RETRIES} attempts. Last error: ${lastError.message}`);
 }
 
-/**
- * Función principal
- */
-async function main() {
-  try {
-    const STATION_ID = '6699'; // Avenida Constitución
-    
-    // Primero limpiamos la tabla
-    console.log('🗑️ Limpiando tabla mediciones_api...');
-    await cleanMedicionesApi();
-    
-    // Obtenemos y almacenamos los nuevos datos
-    console.log('📥 Obteniendo datos de la API...');
-    const data = await getAirQualityData(STATION_ID);
-    
-    console.log('📊 Datos obtenidos:');
-    console.log('Timestamp:', data.timestamp);
-    console.log('AQI:', data.aqi);
-    console.log('Hora de medición:', data.measurementTime);
-    console.table(data.parameters);
-    
-    console.log('💾 Almacenando datos en la base de datos...');
-    await storeAirQualityData(data);
-    
-  } catch (error) {
-    console.error('❌ Error en la aplicación:', error.message);
-    process.exit(1);
-  } finally {
-    await pool.end();
-  }
-}
-
-// Ejecutar la aplicación
-main();
+// Exportar las funciones necesarias
+module.exports = {
+  getAirQualityData,
+  storeAirQualityData,
+  cleanMedicionesApi
+};

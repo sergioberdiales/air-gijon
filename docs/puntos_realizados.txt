@@ -270,3 +270,28 @@ Próximos pasos:
 - Preparar la documentación final para entrega
 
 
+12. Avances Realizados (23 de mayo de 2025)
+12.1 Despliegue backend en Render
+- Configuración y despliegue exitoso del backend Node.js en Render
+- Configuración de variables de entorno para producción
+
+12.2 Creación y conexión de base de datos PostgreSQL en Render
+- Creación de instancia PostgreSQL en Render
+- Obtención y uso de la INTERNAL DATABASE URL para el backend
+- Configuración de la conexión en variables de entorno
+
+12.3 Creación de tablas en la nueva base de datos
+- Conexión a la base de datos de Render mediante pgAdmin
+- Ejecución de scripts SQL para crear las tablas necesarias (`estaciones`, `mediciones_api`, triggers, etc.)
+- Verificación de la estructura y correcto funcionamiento
+
+12.4 Verificación y logs
+- Revisión de logs en Render para asegurar la conexión y la creación de tablas
+- Confirmación de que el backend está live y sin errores críticos
+
+Próximos pasos:
+- Poblar la base de datos de Render con datos reales de AQICN
+- Probar el endpoint en producción
+- Desplegar el frontend y conectar con el backend en Render
+
+
