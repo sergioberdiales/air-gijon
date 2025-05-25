@@ -78,3 +78,17 @@ GET /api/air/constitucion/pm10
 
 ## Licencia
 MIT 
+
+## Automatización de la actualización de datos (Cron Job)
+
+Para mantener los datos de calidad del aire siempre actualizados, se ha configurado un cron job en Render llamado `update-aqicn`.
+
+- **Nombre del job:** `update-aqicn`
+- **Comando ejecutado:** `npm run update-aqicn`
+- **Frecuencia:** cada hora (puede ajustarse con una expresión cron)
+
+Este job ejecuta el script `update_aqicn.js`, que descarga los datos de la API AQICN y los almacena en la base de datos PostgreSQL de Render.
+
+**Configuración recomendada:**
+- Añadir las variables de entorno necesarias (`DATABASE_URL`, `AQICN_TOKEN`, etc.) en la configuración del cron job en Render.
+- Para más detalles sobre la lógica del script, consultar el código fuente en el repositorio. 

@@ -148,3 +148,11 @@ app.use(cors({
 
 Esta configuración garantiza la seguridad y el correcto funcionamiento de la aplicación en producción.
 
+## 18. Automatización de la actualización de datos (Cron Job)
+
+Para garantizar que la base de datos de la aplicación se mantenga actualizada con los datos más recientes de calidad del aire, se ha implementado un cron job en Render llamado `update-aqicn`.
+
+Este cron job ejecuta periódicamente un script que descarga los datos de la API internacional AQICN y los almacena en la base de datos PostgreSQL de Render. La frecuencia de actualización puede configurarse según las necesidades del proyecto (por ejemplo, cada hora o cada día).
+
+La configuración técnica detallada del cron job, el script utilizado y el comando de ejecución se encuentran documentados en el archivo `README.md` del repositorio.
+
