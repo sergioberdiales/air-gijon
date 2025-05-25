@@ -150,9 +150,105 @@ Esta configuración garantiza la seguridad y el correcto funcionamiento de la ap
 
 ## 18. Automatización de la actualización de datos (Cron Job)
 
-Para garantizar que la base de datos de la aplicación se mantenga actualizada con los datos más recientes de calidad del aire, se ha implementado un cron job en Render llamado `update-aqicn`.
+Para garantizar que la base de datos de la aplicación se mantenga actualizada con los datos más recientes de calidad del aire, se ha implementado un cron job en Render llamado `update-aqicn`. Este sistema automatizado es crucial para mantener la información actualizada y precisa para los usuarios.
 
-Este cron job ejecuta periódicamente un script que descarga los datos de la API internacional AQICN y los almacena en la base de datos PostgreSQL de Render. La frecuencia de actualización puede configurarse según las necesidades del proyecto (por ejemplo, cada hora o cada día).
+### 18.1 Arquitectura del Sistema
 
-La configuración técnica detallada del cron job, el script utilizado y el comando de ejecución se encuentran documentados en el archivo `README.md` del repositorio.
+El sistema de actualización automática está compuesto por dos componentes principales:
+
+1. **Script Principal (`update_aqicn.js`)**
+   - Orquesta el proceso de actualización
+   - Maneja la conexión a la base de datos
+   - Gestiona errores y reintentos
+   - Genera logs detallados
+
+2. **Módulo de API (`api_aqicn.js`)**
+   - Contiene las funciones de obtención y almacenamiento de datos
+   - Implementa la lógica de comunicación con AQICN
+   - Maneja el procesamiento de datos
+   - Gestiona transacciones en la base de datos
+
+### 18.2 Proceso de Actualización
+
+El cron job ejecuta el siguiente flujo cada hora:
+
+1. **Limpieza de Datos**
+   - Limpia la tabla `mediciones_api` para evitar duplicados
+   - Utiliza transacciones para garantizar la integridad
+
+2. **Obtención de Datos**
+   - Consulta la API de AQICN para la estación 6699
+   - Implementa sistema de reintentos (3 intentos)
+   - Maneja errores de red y API
+
+3. **Almacenamiento**
+   - Guarda múltiples parámetros:
+     - PM10 y PM2.5
+     - NO2 y SO2
+     - O3
+     - Variables meteorológicas
+
+### 18.3 Configuración Técnica
+
+#### Variables de Entorno
+```env
+DATABASE_URL=postgresql://...  # Internal Database URL de Render
+NODE_ENV=production
+AQICN_TOKEN=tu_token_de_aqicn
+```
+
+#### Comando de Ejecución
+```bash
+cd /opt/render/project/src && npm run update-aqicn
+```
+
+### 18.4 Manejo de Errores y Robustez
+
+El sistema implementa varias capas de seguridad:
+
+1. **Validación de Configuración**
+   - Verifica variables de entorno
+   - Comprueba conexión a base de datos
+   - Valida token de API
+
+2. **Reintentos Automáticos**
+   - 3 intentos en caso de fallo
+   - Delay exponencial entre intentos
+   - Logging detallado de errores
+
+3. **Transacciones en Base de Datos**
+   - Rollback automático en caso de error
+   - Liberación de conexiones
+   - Manejo de timeouts
+
+### 18.5 Monitoreo y Logs
+
+El sistema genera logs detallados en cada paso:
+- 🗑️ Limpieza de tabla
+- 📥 Obtención de datos
+- 📊 Visualización de datos
+- 💾 Almacenamiento
+- ✅ Confirmación de éxito
+
+### 18.6 Mantenimiento y Actualizaciones
+
+El sistema está diseñado para ser:
+- Fácil de mantener
+- Escalable
+- Robusto ante fallos
+- Fácil de depurar
+
+### 18.7 Consideraciones de Seguridad
+
+- Validación de datos de entrada
+- Manejo seguro de credenciales
+- Protección contra inyección SQL
+- Logging seguro de errores
+
+### 18.8 Documentación Adicional
+
+Para más detalles técnicos sobre la implementación, consultar:
+- Código fuente en el repositorio
+- Documentación en README.md
+- Logs de ejecución en Render
 

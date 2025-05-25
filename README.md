@@ -81,14 +81,79 @@ MIT
 
 ## Automatización de la actualización de datos (Cron Job)
 
-Para mantener los datos de calidad del aire siempre actualizados, se ha configurado un cron job en Render llamado `update-aqicn`.
+Para mantener los datos de calidad del aire siempre actualizados, se ha configurado un cron job en Render llamado `update-aqicn`. Este job ejecuta periódicamente un script que descarga los datos de la API internacional AQICN y los almacena en la base de datos PostgreSQL.
+
+### Configuración del Cron Job
 
 - **Nombre del job:** `update-aqicn`
 - **Comando ejecutado:** `npm run update-aqicn`
-- **Frecuencia:** cada hora (puede ajustarse con una expresión cron)
+- **Frecuencia:** cada hora (configurable con expresión cron)
+- **Directorio de trabajo:** `/opt/render/project/src`
 
-Este job ejecuta el script `update_aqicn.js`, que descarga los datos de la API AQICN y los almacena en la base de datos PostgreSQL de Render.
+### Script y Funcionalidad
 
-**Configuración recomendada:**
-- Añadir las variables de entorno necesarias (`DATABASE_URL`, `AQICN_TOKEN`, etc.) en la configuración del cron job en Render.
-- Para más detalles sobre la lógica del script, consultar el código fuente en el repositorio. 
+El script `update_aqicn.js` realiza las siguientes operaciones:
+
+1. Limpia la tabla `mediciones_api` para evitar duplicados
+2. Obtiene datos actualizados de la API AQICN para la estación 6699 (Avenida Constitución)
+3. Almacena los siguientes parámetros en la base de datos:
+   - PM10 y PM2.5 (partículas en suspensión)
+   - NO2 (dióxido de nitrógeno)
+   - O3 (ozono)
+   - SO2 (dióxido de azufre)
+   - Temperatura, humedad, presión y viento
+
+### Variables de Entorno Requeridas
+
+En el panel de Render, configurar las siguientes variables:
+
+```env
+DATABASE_URL=postgresql://...  # Internal Database URL de Render
+NODE_ENV=production
+AQICN_TOKEN=tu_token_de_aqicn
+```
+
+### Estructura del Código
+
+El sistema está compuesto por dos archivos principales:
+
+1. **`update_aqicn.js`**: Script principal que orquesta el proceso
+   ```js
+   const { getAirQualityData, storeAirQualityData, cleanMedicionesApi } = require('./api_aqicn');
+   ```
+
+2. **`api_aqicn.js`**: Módulo con las funciones de obtención y almacenamiento de datos
+   ```js
+   module.exports = {
+     getAirQualityData,
+     storeAirQualityData,
+     cleanMedicionesApi
+   };
+   ```
+
+### Logs y Monitoreo
+
+El script genera logs detallados en cada paso:
+- 🗑️ Limpieza de la tabla
+- 📥 Obtención de datos
+- 📊 Visualización de datos obtenidos
+- 💾 Almacenamiento en base de datos
+- ✅ Confirmación de actualización exitosa
+
+### Solución de Problemas
+
+Si el cron job falla, verificar:
+
+1. **Variables de entorno**: Asegurarse de que están correctamente configuradas en Render
+2. **Conexión a la base de datos**: Verificar que la URL de conexión es correcta
+3. **Token de AQICN**: Confirmar que el token es válido y tiene permisos
+4. **Logs en Render**: Revisar los logs del cron job para identificar errores específicos
+
+### Mantenimiento
+
+- El script está diseñado para ser robusto y manejar errores
+- Incluye reintentos automáticos en caso de fallos de red
+- Cierra correctamente las conexiones a la base de datos
+- Limpia la tabla antes de cada actualización para evitar duplicados
+
+Para más detalles sobre la implementación, consultar el código fuente en el repositorio. 
