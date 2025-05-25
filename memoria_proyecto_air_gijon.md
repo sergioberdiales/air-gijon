@@ -128,3 +128,23 @@ GET /api/air/constitucion/pm10
 
 Para más detalles técnicos y ejemplos de uso, consultar el archivo `README.md` del repositorio.
 
+## 17. Consideraciones de Seguridad: CORS
+
+Durante el desarrollo y despliegue de la aplicación, fue necesario configurar el mecanismo de **CORS (Cross-Origin Resource Sharing)** en el backend.
+Esto se debe a que el frontend y el backend están alojados en dominios distintos en Render, lo que provoca que los navegadores bloqueen por defecto las peticiones entre ambos orígenes por motivos de seguridad.
+
+Para permitir que el frontend pueda consumir la API del backend, se configuró el middleware CORS en el servidor Express, permitiendo únicamente el dominio del frontend:
+
+```js
+const cors = require('cors');
+app.use(cors({
+  origin: 'https://air-gijon-front-end.onrender.com'
+}));
+```
+
+**Referencia:**  
+- [MDN Web Docs: Cross-Origin Resource Sharing (CORS)](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS)  
+- [Express.js CORS Middleware](https://expressjs.com/en/resources/middleware/cors.html)
+
+Esta configuración garantiza la seguridad y el correcto funcionamiento de la aplicación en producción.
+
