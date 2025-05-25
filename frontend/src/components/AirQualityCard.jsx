@@ -1,25 +1,24 @@
 function AirQualityCard({ data }) {
+  const estadoClass = {
+    Buena: 'buena',
+    Moderada: 'moderada',
+    Regular: 'regular',
+    Mala: 'mala'
+  }[data.estado] || '';
+
   return (
-    <div style={{
-      border: "1px solid #eee",
-      borderRadius: 12,
-      padding: 24,
-      background: "#fafbfc",
-      marginTop: 24
-    }}>
-      <h2>Estación: {data.estacion}</h2>
-      <p><strong>Fecha:</strong> {new Date(data.fecha).toLocaleString()}</p>
-      <p style={{ fontSize: 32, margin: "1rem 0" }}>
-        PM10: <strong>{data.pm10} µg/m³</strong>
-      </p>
+    <section className="card" aria-label="Calidad del aire">
+      <h2 style={{margin:0}}>Estación: {data.estacion}</h2>
       <p>
-        Estado: <span style={{
-          color: data.estado === "Buena" ? "green" :
-                data.estado === "Moderada" ? "orange" :
-                data.estado === "Regular" ? "goldenrod" : "red"
-        }}>{data.estado}</span>
+        <strong>Fecha:</strong> {new Date(data.fecha).toLocaleString()}
       </p>
-    </div>
+      <div className="pm10-value" aria-live="polite">
+        PM10: <span>{data.pm10}</span> <span style={{fontSize:'1.2rem'}}>µg/m³</span>
+      </div>
+      <div className={`state ${estadoClass}`}>
+        Estado: {data.estado}
+      </div>
+    </section>
   );
 }
 

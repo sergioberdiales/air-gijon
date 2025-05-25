@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import AirQualityCard from "./components/AirQualityCard";
+import './App.css';
 
 const API_URL =
   import.meta.env.PROD
@@ -19,12 +20,12 @@ function App() {
   }, []);
 
   return (
-    <div style={{ maxWidth: 400, margin: "2rem auto", fontFamily: "sans-serif" }}>
-      <h1>Air-Gijón</h1>
-      {loading && <p>Cargando...</p>}
+    <main>
+      <header className="header">Air-Gijón</header>
+      {loading && <p style={{textAlign:'center'}}>Cargando...</p>}
       {!loading && data && !data.error && <AirQualityCard data={data} />}
-      {!loading && data && data.error && <p>No hay datos disponibles.</p>}
-    </div>
+      {!loading && data && data.error && <p style={{textAlign:'center'}}>No hay datos disponibles.</p>}
+    </main>
   );
 }
 
