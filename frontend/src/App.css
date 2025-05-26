@@ -814,4 +814,249 @@ body {
 .error-card small {
   color: var(--gray-500);
   font-size: 0.875rem;
+}
+
+/* Evolution Card Styles */
+.evolution-card {
+  background: var(--white);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--gray-200);
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.evolution-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-xl);
+}
+
+.evolution-card .card-header {
+  padding: 1.5rem;
+  border-bottom: 1px solid var(--gray-200);
+  background: linear-gradient(135deg, var(--gray-50) 0%, var(--white) 100%);
+}
+
+.evolution-card .card-header h3 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--gray-900);
+  margin-bottom: 0.25rem;
+}
+
+.evolution-card .card-header p {
+  color: var(--gray-600);
+  font-size: 0.875rem;
+}
+
+.chart-container {
+  padding: 1.5rem;
+  background: var(--white);
+}
+
+.evolution-chart {
+  width: 100%;
+  height: auto;
+  max-height: 300px;
+}
+
+.data-point {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.data-point:hover {
+  r: 6;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+}
+
+.date-label, .value-label {
+  font-family: inherit;
+  user-select: none;
+}
+
+.value-label {
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
+}
+
+.legend {
+  display: flex;
+  justify-content: center;
+  gap: 1.5rem;
+  padding: 1rem 1.5rem;
+  background: var(--gray-50);
+  border-top: 1px solid var(--gray-200);
+  flex-wrap: wrap;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--gray-700);
+}
+
+.legend-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid var(--white);
+}
+
+.legend-dot.historical {
+  background: var(--primary-blue);
+}
+
+.legend-dot.prediction {
+  background: var(--warning-yellow);
+  border: 2px solid var(--warning-yellow);
+  position: relative;
+}
+
+.legend-dot.prediction::after {
+  content: '';
+  position: absolute;
+  top: -3px;
+  left: -3px;
+  right: -3px;
+  bottom: -3px;
+  border: 2px dashed var(--warning-yellow);
+  border-radius: 50%;
+  opacity: 0.6;
+}
+
+.legend-line {
+  width: 20px;
+  height: 2px;
+  border-radius: 1px;
+}
+
+.legend-line.good-limit {
+  background: var(--success-green);
+  position: relative;
+}
+
+.legend-line.good-limit::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: repeating-linear-gradient(
+    90deg,
+    var(--success-green) 0px,
+    var(--success-green) 3px,
+    transparent 3px,
+    transparent 6px
+  );
+}
+
+.prediction-info {
+  padding: 1rem 1.5rem;
+  background: linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%);
+  border-top: 1px solid var(--gray-200);
+}
+
+.prediction-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.prediction-item:last-child {
+  border-bottom: none;
+}
+
+.prediction-date {
+  font-weight: 600;
+  color: var(--gray-900);
+  font-size: 0.875rem;
+}
+
+.prediction-value {
+  font-weight: 700;
+  color: var(--warning-yellow);
+  font-size: 1rem;
+}
+
+.prediction-confidence {
+  font-size: 0.75rem;
+  color: var(--gray-600);
+  background: rgba(255, 255, 255, 0.7);
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--radius-sm);
+}
+
+.loading-content, .error-content {
+  padding: 3rem 1.5rem;
+  text-align: center;
+}
+
+.error-content .error-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.error-content h4 {
+  color: var(--gray-900);
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+}
+
+.error-content p {
+  color: var(--gray-600);
+  font-size: 0.875rem;
+}
+
+/* Responsive adjustments for evolution card */
+@media (max-width: 768px) {
+  .evolution-card .card-header {
+    padding: 1rem;
+  }
+  
+  .chart-container {
+    padding: 1rem;
+  }
+  
+  .legend {
+    gap: 1rem;
+    padding: 0.75rem 1rem;
+  }
+  
+  .legend-item {
+    font-size: 0.8rem;
+  }
+  
+  .prediction-info {
+    padding: 0.75rem 1rem;
+  }
+  
+  .prediction-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
+  }
+  
+  .evolution-chart {
+    max-height: 250px;
+  }
+}
+
+@media (max-width: 480px) {
+  .evolution-card .card-header h3 {
+    font-size: 1.1rem;
+  }
+  
+  .legend {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  
+  .prediction-item {
+    padding: 0.5rem 0;
+  }
 } 

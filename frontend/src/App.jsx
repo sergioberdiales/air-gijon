@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import Header from "./components/Header";
 import TabNavigation from "./components/TabNavigation";
 import AirQualityCard from "./components/AirQualityCard";
+import EvolutionCard from "./components/EvolutionCard";
 import InfoSection from "./components/InfoSection";
 import UpdatesSection from "./components/UpdatesSection";
 import LoadingCard from "./components/LoadingCard";
@@ -56,12 +57,7 @@ function App() {
               )}
               
               {activeTab === 'prediccion' && (
-                <div className="coming-soon-card">
-                  <div className="coming-soon-icon">📊</div>
-                  <h3>Predicción disponible</h3>
-                  <p>Previsión para las próximas 24 horas.</p>
-                  <small>Funcionalidad en desarrollo</small>
-                </div>
+                <EvolutionCard />
               )}
             </div>
 
