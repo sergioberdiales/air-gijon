@@ -1,9 +1,24 @@
-require('dotenv').config();
+// Cargar variables de entorno solo en desarrollo
+if (process.env.NODE_ENV !== 'production') {
+  require('dotenv').config();
+}
+
 const { getAirQualityData, storeAirQualityData, cleanMedicionesApi } = require('./api_aqicn');
-const { pool } = require('./db');
+const { pool, testConnection } = require('./db');
 
 async function main() {
+  console.log('🚀 Iniciando actualización de datos AQICN...');
+  console.log('NODE_ENV:', process.env.NODE_ENV);
+  console.log('DATABASE_URL configurada:', process.env.DATABASE_URL ? 'Sí' : 'No');
+  
   try {
+    // Verificar conexión a la base de datos
+    console.log('🔍 Verificando conexión a la base de datos...');
+    const connectionOk = await testConnection();
+    if (!connectionOk) {
+      throw new Error('No se pudo conectar a la base de datos');
+    }
+
     const STATION_ID = '6699'; // Avenida Constitución
     
     // Primero limpiamos la tabla
@@ -26,9 +41,15 @@ async function main() {
     console.log('✅ Datos de AQICN actualizados correctamente');
   } catch (error) {
     console.error('❌ Error actualizando datos de AQICN:', error);
+    console.error('Stack trace:', error.stack);
     process.exit(1);
   } finally {
-    await pool.end();
+    try {
+      await pool.end();
+      console.log('🔌 Conexión a la base de datos cerrada');
+    } catch (error) {
+      console.error('⚠️ Error cerrando conexión:', error);
+    }
   }
 }
 
