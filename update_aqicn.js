@@ -3,7 +3,7 @@ if (process.env.NODE_ENV !== 'production') {
   require('dotenv').config();
 }
 
-const { getAirQualityData, storeAirQualityData, cleanMedicionesApi } = require('./api_aqicn');
+const { getAirQualityData, storeAirQualityData, cleanOldData, getDataStats } = require('./api_aqicn');
 const { pool, testConnection } = require('./db');
 
 async function main() {
@@ -21,9 +21,25 @@ async function main() {
 
     const STATION_ID = '6699'; // Avenida Constitución
     
-    // Primero limpiamos la tabla
-    console.log('🗑️ Limpiando tabla mediciones_api...');
-    await cleanMedicionesApi();
+    // Mostrar estadísticas actuales
+    console.log('📊 Estadísticas actuales de la base de datos:');
+    const stats = await getDataStats();
+    if (stats) {
+      console.log(`   • Total registros: ${stats.total_registros}`);
+      console.log(`   • Estaciones: ${stats.estaciones}`);
+      console.log(`   • Días con datos: ${stats.dias_con_datos}`);
+      console.log(`   • Fecha más antigua: ${stats.fecha_mas_antigua}`);
+      console.log(`   • Fecha más reciente: ${stats.fecha_mas_reciente}`);
+    }
+    
+    // Limpiar datos antiguos (>30 días) para optimizar la tabla
+    console.log('🧹 Limpiando datos antiguos (>30 días)...');
+    const deletedCount = await cleanOldData();
+    if (deletedCount > 0) {
+      console.log(`   • Eliminados ${deletedCount} registros antiguos`);
+    } else {
+      console.log('   • No hay datos antiguos para eliminar');
+    }
     
     // Obtenemos y almacenamos los nuevos datos
     console.log('📥 Obteniendo datos de la API...');
@@ -37,6 +53,15 @@ async function main() {
     
     console.log('💾 Almacenando datos en la base de datos...');
     await storeAirQualityData(data);
+    
+    // Mostrar estadísticas finales
+    console.log('📊 Estadísticas finales:');
+    const finalStats = await getDataStats();
+    if (finalStats) {
+      console.log(`   • Total registros: ${finalStats.total_registros}`);
+      console.log(`   • Días con datos: ${finalStats.dias_con_datos}`);
+      console.log(`   • Fecha más reciente: ${finalStats.fecha_mas_reciente}`);
+    }
     
     console.log('✅ Datos de AQICN actualizados correctamente');
   } catch (error) {

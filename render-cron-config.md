@@ -40,6 +40,23 @@ npm run check-env
 npm run test-db
 ```
 
+## Sistema de Datos Históricos
+
+### 🔄 **Nuevo Comportamiento**
+- **Acumulación**: Los datos se acumulan en lugar de eliminarse
+- **Detección de duplicados**: Si ya existen datos para una fecha, se actualizan
+- **Limpieza automática**: Solo se eliminan datos antiguos (>30 días)
+- **Optimización**: Índices creados para consultas históricas eficientes
+
+### 📊 **Estructura de Datos**
+Cada ejecución del cron job:
+1. Muestra estadísticas actuales de la base de datos
+2. Limpia datos antiguos (>30 días) para optimización
+3. Obtiene nuevos datos de la API AQICN
+4. Verifica si ya existen datos para esa fecha/hora
+5. Inserta nuevos datos o actualiza existentes
+6. Muestra estadísticas finales
+
 ## Solución de Problemas
 
 ### Error: ECONNREFUSED ::1:5432 o 127.0.0.1:5432
@@ -72,19 +89,26 @@ Para verificar que todo funciona correctamente:
 
 ## Estructura de la Base de Datos
 
-La tabla `mediciones_api` tiene la siguiente estructura:
+La tabla `mediciones_api` tiene la siguiente estructura optimizada:
 ```sql
 CREATE TABLE mediciones_api (
     id SERIAL PRIMARY KEY,
-    estacion_id VARCHAR(50),
-    fecha TIMESTAMP WITH TIME ZONE,
-    parametro VARCHAR(50),
+    estacion_id VARCHAR(50) NOT NULL,
+    fecha TIMESTAMP WITH TIME ZONE NOT NULL,
+    parametro VARCHAR(50) NOT NULL,
     valor DECIMAL(10,2),
     aqi INTEGER,
     is_validated BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(estacion_id, fecha, parametro)
 );
+
+-- Índices para consultas históricas optimizadas
+CREATE INDEX idx_mediciones_api_estacion_fecha ON mediciones_api(estacion_id, fecha DESC);
+CREATE INDEX idx_mediciones_api_parametro_fecha ON mediciones_api(parametro, fecha DESC);
+CREATE INDEX idx_mediciones_api_fecha ON mediciones_api(fecha DESC);
+CREATE INDEX idx_mediciones_api_created_at ON mediciones_api(created_at);
 ```
 
 ## Logs Esperados
@@ -96,15 +120,37 @@ NODE_ENV: production
 DATABASE_URL configurada: Sí
 🔍 Verificando conexión a la base de datos...
 ✅ Conexión a PostgreSQL exitosa: [timestamp]
-🗑️ Limpiando tabla mediciones_api...
-✅ Tabla mediciones_api limpiada correctamente
+📊 Estadísticas actuales de la base de datos:
+   • Total registros: X
+   • Estaciones: Y
+   • Días con datos: Z
+   • Fecha más antigua: [fecha]
+   • Fecha más reciente: [fecha]
+🧹 Limpiando datos antiguos (>30 días)...
+   • Eliminados N registros antiguos (o "No hay datos antiguos para eliminar")
 📥 Obteniendo datos de la API...
 📊 Datos obtenidos:
-Timestamp: [timestamp]
-AQI: [valor]
-Hora de medición: [timestamp]
 💾 Almacenando datos en la base de datos...
-✅ Datos almacenados correctamente para X parámetros
+ℹ️ Los datos para [fecha] ya existen, actualizando... (o "📝 Insertando nuevos datos...")
+✅ Datos actualizados/almacenados correctamente para X parámetros
+📊 Estadísticas finales:
+   • Total registros: X
+   • Días con datos: Z
+   • Fecha más reciente: [fecha]
 ✅ Datos de AQICN actualizados correctamente
 🔌 Conexión a la base de datos cerrada
-``` 
+```
+
+## Ventajas del Nuevo Sistema
+
+### 🎯 **Para Análisis y Predicciones**
+- **Datos históricos**: Acumulación de datos para análisis temporales
+- **Tendencias**: Posibilidad de identificar patrones y tendencias
+- **Predicciones**: Base de datos para modelos de machine learning
+- **Comparaciones**: Análisis de calidad del aire a lo largo del tiempo
+
+### ⚡ **Para Rendimiento**
+- **Índices optimizados**: Consultas históricas rápidas
+- **Limpieza automática**: Mantiene la tabla optimizada
+- **Sin duplicados**: Constraint UNIQUE evita datos redundantes
+- **Actualizaciones inteligentes**: Solo actualiza cuando es necesario 

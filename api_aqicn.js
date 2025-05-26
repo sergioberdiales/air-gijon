@@ -31,59 +31,151 @@ if (!CONFIG.TOKEN) {
 }
 
 /**
- * Limpia la tabla mediciones_api
+ * Limpia datos antiguos (más de 30 días) para mantener la tabla optimizada
  */
-async function cleanMedicionesApi() {
+async function cleanOldData() {
   try {
-    await pool.query('TRUNCATE TABLE mediciones_api');
-    console.log('✅ Tabla mediciones_api limpiada correctamente');
+    const result = await pool.query(`
+      DELETE FROM mediciones_api 
+      WHERE created_at < NOW() - INTERVAL '30 days'
+    `);
+    console.log(`✅ Eliminados ${result.rowCount} registros antiguos (>30 días)`);
+    return result.rowCount;
   } catch (error) {
-    throw new Error(`Error al limpiar la tabla mediciones_api: ${error.message}`);
+    console.error('⚠️ Error al limpiar datos antiguos:', error.message);
+    // No lanzamos error para que no interrumpa el proceso principal
+    return 0;
   }
 }
 
 /**
- * Almacena los datos de calidad del aire en la base de datos
+ * Verifica si ya existen datos para una fecha y estación específica
+ */
+async function checkExistingData(stationId, measurementTime) {
+  try {
+    const result = await pool.query(`
+      SELECT COUNT(*) as count 
+      FROM mediciones_api 
+      WHERE estacion_id = $1 AND fecha = $2
+    `, [stationId, measurementTime]);
+    
+    return parseInt(result.rows[0].count) > 0;
+  } catch (error) {
+    console.error('Error verificando datos existentes:', error.message);
+    return false;
+  }
+}
+
+/**
+ * Almacena los datos de calidad del aire en la base de datos (solo si no existen)
  * @param {Object} data - Datos de calidad del aire
  */
 async function storeAirQualityData(data) {
   const client = await pool.connect();
   
   try {
-    await client.query('BEGIN');
+    // Verificar si ya existen datos para esta fecha y estación
+    const dataExists = await checkExistingData(data.stationId, data.measurementTime);
+    
+    if (dataExists) {
+      console.log(`ℹ️ Los datos para ${data.measurementTime} ya existen, actualizando...`);
+      
+      // Actualizar datos existentes
+      await client.query('BEGIN');
+      
+      // Primero eliminar los datos existentes para esta fecha y estación
+      await client.query(`
+        DELETE FROM mediciones_api 
+        WHERE estacion_id = $1 AND fecha = $2
+      `, [data.stationId, data.measurementTime]);
+      
+      // Luego insertar los nuevos datos
+      for (const param of data.parameters) {
+        const query = `
+          INSERT INTO mediciones_api (
+            estacion_id,
+            fecha,
+            parametro,
+            valor,
+            aqi,
+            is_validated
+          ) VALUES ($1, $2, $3, $4, $5, $6)
+        `;
 
-    // Insertar cada parámetro como un registro separado
-    for (const param of data.parameters) {
-      const query = `
-        INSERT INTO mediciones_api (
-          estacion_id,
-          fecha,
-          parametro,
-          valor,
-          aqi,
-          is_validated
-        ) VALUES ($1, $2, $3, $4, $5, $6)
-      `;
+        const values = [
+          data.stationId,
+          data.measurementTime,
+          param.parameter,
+          param.value,
+          data.aqi,
+          true
+        ];
 
-      const values = [
-        data.stationId,
-        data.measurementTime,
-        param.parameter,
-        param.value,
-        data.aqi,
-        true
-      ];
+        await client.query(query, values);
+      }
+      
+      await client.query('COMMIT');
+      console.log(`✅ Datos actualizados correctamente para ${data.parameters.length} parámetros`);
+    } else {
+      console.log(`📝 Insertando nuevos datos para ${data.measurementTime}...`);
+      
+      await client.query('BEGIN');
 
-      await client.query(query, values);
+      // Insertar cada parámetro como un registro separado
+      for (const param of data.parameters) {
+        const query = `
+          INSERT INTO mediciones_api (
+            estacion_id,
+            fecha,
+            parametro,
+            valor,
+            aqi,
+            is_validated
+          ) VALUES ($1, $2, $3, $4, $5, $6)
+        `;
+
+        const values = [
+          data.stationId,
+          data.measurementTime,
+          param.parameter,
+          param.value,
+          data.aqi,
+          true
+        ];
+
+        await client.query(query, values);
+      }
+
+      await client.query('COMMIT');
+      console.log(`✅ Nuevos datos almacenados correctamente para ${data.parameters.length} parámetros`);
     }
-
-    await client.query('COMMIT');
-    console.log(`✅ Datos almacenados correctamente para ${data.parameters.length} parámetros`);
   } catch (error) {
     await client.query('ROLLBACK');
     throw new Error(`Error al almacenar datos: ${error.message}`);
   } finally {
     client.release();
+  }
+}
+
+/**
+ * Obtiene estadísticas de la tabla de datos
+ */
+async function getDataStats() {
+  try {
+    const result = await pool.query(`
+      SELECT 
+        COUNT(*) as total_registros,
+        COUNT(DISTINCT estacion_id) as estaciones,
+        COUNT(DISTINCT DATE(fecha)) as dias_con_datos,
+        MIN(fecha) as fecha_mas_antigua,
+        MAX(fecha) as fecha_mas_reciente
+      FROM mediciones_api
+    `);
+    
+    return result.rows[0];
+  } catch (error) {
+    console.error('Error obteniendo estadísticas:', error.message);
+    return null;
   }
 }
 
@@ -133,9 +225,18 @@ async function getAirQualityData(stationId) {
   throw new Error(`Failed after ${CONFIG.MAX_RETRIES} attempts. Last error: ${lastError.message}`);
 }
 
+// Función legacy mantenida para compatibilidad (pero ya no se usa)
+async function cleanMedicionesApi() {
+  console.log('⚠️ cleanMedicionesApi está deprecada. Ahora se mantienen datos históricos.');
+  console.log('💡 Usa cleanOldData() para limpiar solo datos antiguos.');
+}
+
 // Exportar las funciones necesarias
 module.exports = {
   getAirQualityData,
   storeAirQualityData,
-  cleanMedicionesApi
+  cleanMedicionesApi, // Mantenida para compatibilidad
+  cleanOldData,
+  getDataStats,
+  checkExistingData
 };

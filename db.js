@@ -26,15 +26,29 @@ async function createMedicionesApiTable() {
         await pool.query(`
             CREATE TABLE IF NOT EXISTS mediciones_api (
                 id SERIAL PRIMARY KEY,
-                estacion_id VARCHAR(50),
-                fecha TIMESTAMP WITH TIME ZONE,
-                parametro VARCHAR(50),
+                estacion_id VARCHAR(50) NOT NULL,
+                fecha TIMESTAMP WITH TIME ZONE NOT NULL,
+                parametro VARCHAR(50) NOT NULL,
                 valor DECIMAL(10,2),
                 aqi INTEGER,
                 is_validated BOOLEAN DEFAULT TRUE,
                 created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+                updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(estacion_id, fecha, parametro)
             );
+
+            -- Índices para optimizar consultas históricas
+            CREATE INDEX IF NOT EXISTS idx_mediciones_api_estacion_fecha 
+                ON mediciones_api(estacion_id, fecha DESC);
+            
+            CREATE INDEX IF NOT EXISTS idx_mediciones_api_parametro_fecha 
+                ON mediciones_api(parametro, fecha DESC);
+            
+            CREATE INDEX IF NOT EXISTS idx_mediciones_api_fecha 
+                ON mediciones_api(fecha DESC);
+            
+            CREATE INDEX IF NOT EXISTS idx_mediciones_api_created_at 
+                ON mediciones_api(created_at);
 
             -- Trigger para actualizar updated_at automáticamente
             CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -53,6 +67,7 @@ async function createMedicionesApiTable() {
                 EXECUTE FUNCTION update_updated_at_column();
         `);
         console.log('✅ Tabla mediciones_api creada/actualizada correctamente');
+        console.log('✅ Índices para consultas históricas creados');
     } catch (error) {
         console.error('❌ Error creando tabla mediciones_api:', error);
         throw error;
