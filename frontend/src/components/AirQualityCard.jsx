@@ -1,22 +1,30 @@
 function AirQualityCard({ data }) {
   const estadoConfig = {
-    Buena: { class: 'buena', icon: '✅', color: '#10B981' },
-    Moderada: { class: 'moderada', icon: '⚠️', color: '#F59E0B' },
-    Regular: { class: 'regular', icon: '🟠', color: '#EF4444' },
-    Mala: { class: 'mala', icon: '❌', color: '#DC2626' }
+    Buena: { class: 'buena', icon: '🌿', color: '#22C55E', description: 'Calidad del aire excelente' },
+    Moderada: { class: 'moderada', icon: '🟡', color: '#F59E0B', description: 'Calidad del aire aceptable' },
+    Regular: { class: 'regular', icon: '🟠', color: '#F97316', description: 'Calidad del aire regular' },
+    Mala: { class: 'mala', icon: '🔴', color: '#EF4444', description: 'Calidad del aire deficiente' }
   };
 
-  const config = estadoConfig[data.estado] || { class: '', icon: '❓', color: '#6B7280' };
+  const config = estadoConfig[data.estado] || { class: '', icon: '❓', color: '#6B7280', description: 'Estado desconocido' };
   const fecha = new Date(data.fecha);
+
+  // Calcular el porcentaje para la barra de progreso
+  const getProgressPercentage = (value) => {
+    if (value <= 25) return (value / 25) * 25;
+    if (value <= 50) return 25 + ((value - 25) / 25) * 25;
+    if (value <= 75) return 50 + ((value - 50) / 25) * 25;
+    return 75 + Math.min(((value - 75) / 25) * 25, 25);
+  };
 
   return (
     <div className="air-quality-card">
       <div className="card-header">
         <div className="station-info">
-          <span className="station-icon">🌡️</span>
+          <div className="station-icon">🏢</div>
           <div>
-            <h2>Calidad del aire</h2>
-            <p className="station-name">Estación Av. Constitución</p>
+            <h2>Estación Av. Constitución</h2>
+            <p className="station-name">Gijón, Asturias</p>
           </div>
         </div>
         <div className="timestamp">
@@ -34,18 +42,32 @@ function AirQualityCard({ data }) {
         
         <div className="quality-indicator">
           <div className="quality-bar">
-            <div className="quality-fill" style={{ width: `${Math.min((data.pm10 / 100) * 100, 100)}%`, backgroundColor: config.color }}></div>
-            <div className="quality-markers">
-              <span className="marker" style={{ left: '0%' }}>0</span>
-              <span className="marker" style={{ left: '50%' }}>50</span>
-              <span className="marker" style={{ left: '100%' }}>100+</span>
+            <div 
+              className="quality-fill" 
+              style={{ 
+                width: `${getProgressPercentage(data.pm10)}%`
+              }}
+            ></div>
+          </div>
+          <div className="quality-markers">
+            <div className="marker">
+              <span>0</span>
+            </div>
+            <div className="marker">
+              <span>50</span>
+            </div>
+            <div className="marker">
+              <span>100+</span>
             </div>
           </div>
         </div>
 
         <div className={`quality-status ${config.class}`}>
           <span className="status-icon">{config.icon}</span>
-          <span className="status-text">{data.estado}</span>
+          <div className="status-content">
+            <span className="status-text">{data.estado}</span>
+            <span className="status-description">{config.description}</span>
+          </div>
         </div>
       </div>
     </div>

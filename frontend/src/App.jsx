@@ -4,6 +4,7 @@ import TabNavigation from "./components/TabNavigation";
 import AirQualityCard from "./components/AirQualityCard";
 import InfoSection from "./components/InfoSection";
 import UpdatesSection from "./components/UpdatesSection";
+import LoadingCard from "./components/LoadingCard";
 import './App.css';
 
 const API_URL =
@@ -41,16 +42,14 @@ function App() {
             <div className="main-column">
               {activeTab === 'actual' && (
                 <>
-                  {loading && (
-                    <div className="loading-card">
-                      <div className="loading-spinner"></div>
-                      <p>Cargando datos...</p>
-                    </div>
-                  )}
+                  {loading && <LoadingCard />}
                   {!loading && data && !data.error && <AirQualityCard data={data} />}
                   {!loading && data && data.error && (
                     <div className="error-card">
-                      <p>No hay datos disponibles en este momento.</p>
+                      <div className="error-icon">⚠️</div>
+                      <h3>No hay datos disponibles</h3>
+                      <p>No se pudieron obtener los datos de calidad del aire en este momento.</p>
+                      <small>Inténtalo de nuevo más tarde</small>
                     </div>
                   )}
                 </>

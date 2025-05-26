@@ -10,27 +10,27 @@ function Header() {
           <nav className="nav">
             <a href="#" className="nav-link active">
               <span className="nav-icon">🏠</span>
-              Inicio
+              <span className="nav-text">Inicio</span>
             </a>
             <a href="#" className="nav-link">
               <span className="nav-icon">🗺️</span>
-              Mapa
+              <span className="nav-text">Mapa</span>
             </a>
             <a href="#" className="nav-link">
               <span className="nav-icon">📈</span>
-              Predicción
+              <span className="nav-text">Predicción</span>
             </a>
             <a href="#" className="nav-link">
               <span className="nav-icon">🔔</span>
-              Alertas
+              <span className="nav-text">Alertas</span>
             </a>
             <a href="#" className="nav-link">
               <span className="nav-icon">👤</span>
-              Perfil
+              <span className="nav-text">Perfil</span>
             </a>
           </nav>
 
-          <button className="login-btn">
+          <button className="login-btn desktop-only">
             Iniciar sesión
           </button>
         </div>

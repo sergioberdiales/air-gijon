@@ -148,107 +148,197 @@ app.use(cors({
 
 Esta configuración garantiza la seguridad y el correcto funcionamiento de la aplicación en producción.
 
-## 18. Automatización de la actualización de datos (Cron Job)
+## 18. Sistema de Datos Históricos y Automatización (Cron Job)
 
-Para garantizar que la base de datos de la aplicación se mantenga actualizada con los datos más recientes de calidad del aire, se ha implementado un cron job en Render llamado `update-aqicn`. Este sistema automatizado es crucial para mantener la información actualizada y precisa para los usuarios.
+Para garantizar que la aplicación mantenga un historial completo de datos de calidad del aire para análisis temporales y predicciones, se ha implementado un sistema avanzado de gestión de datos históricos con actualización automática mediante cron job en Render.
 
-### 18.1 Arquitectura del Sistema
+### 18.1 Arquitectura del Sistema de Datos Históricos
 
-El sistema de actualización automática está compuesto por dos componentes principales:
+El sistema está diseñado para **acumular datos históricos** en lugar de eliminarlos, permitiendo:
+- Análisis de tendencias temporales
+- Desarrollo de modelos predictivos
+- Comparaciones históricas
+- Visualizaciones de evolución temporal
+
+#### Componentes Principales:
 
 1. **Script Principal (`update_aqicn.js`)**
-   - Orquesta el proceso de actualización
-   - Maneja la conexión a la base de datos
-   - Gestiona errores y reintentos
-   - Genera logs detallados
+   - Orquesta el proceso de actualización histórica
+   - Maneja estadísticas antes y después de cada actualización
+   - Gestiona la limpieza inteligente de datos antiguos
+   - Genera logs detallados del proceso
 
 2. **Módulo de API (`api_aqicn.js`)**
-   - Contiene las funciones de obtención y almacenamiento de datos
-   - Implementa la lógica de comunicación con AQICN
-   - Maneja el procesamiento de datos
-   - Gestiona transacciones en la base de datos
+   - Implementa detección de duplicados
+   - Gestiona actualización vs inserción de datos
+   - Maneja limpieza automática de datos antiguos (>30 días)
+   - Proporciona estadísticas de la base de datos
 
-### 18.2 Proceso de Actualización
+3. **Base de Datos Optimizada (`db.js`)**
+   - Estructura optimizada para consultas históricas
+   - Índices específicos para análisis temporal
+   - Constraints para evitar duplicados
+   - Triggers automáticos para auditoría
 
-El cron job ejecuta el siguiente flujo cada hora:
+### 18.2 Proceso de Actualización Histórica
 
-1. **Limpieza de Datos**
-   - Limpia la tabla `mediciones_api` para evitar duplicados
-   - Utiliza transacciones para garantizar la integridad
+El cron job ejecuta el siguiente flujo optimizado cada 6 horas:
 
-2. **Obtención de Datos**
-   - Consulta la API de AQICN para la estación 6699
+1. **Verificación y Estadísticas Iniciales**
+   - Muestra estadísticas actuales de la base de datos
+   - Verifica conexión y configuración
+   - Reporta total de registros, estaciones y días con datos
+
+2. **Limpieza Inteligente**
+   - Elimina únicamente datos antiguos (>30 días) para optimización
+   - Mantiene todo el historial reciente para análisis
+   - Reporta cantidad de registros eliminados
+
+3. **Obtención y Procesamiento de Datos**
+   - Consulta la API de AQICN para la estación 6699 (Avenida Constitución)
    - Implementa sistema de reintentos (3 intentos)
-   - Maneja errores de red y API
+   - Procesa múltiples parámetros ambientales
 
-3. **Almacenamiento**
-   - Guarda múltiples parámetros:
-     - PM10 y PM2.5
-     - NO2 y SO2
-     - O3
-     - Variables meteorológicas
+4. **Almacenamiento Inteligente**
+   - **Detección de duplicados**: Verifica si ya existen datos para la fecha/hora
+   - **Inserción**: Nuevos datos se añaden al historial
+   - **Actualización**: Datos existentes se actualizan si es necesario
+   - **Transacciones**: Garantiza integridad de datos
 
-### 18.3 Configuración Técnica
+5. **Estadísticas Finales**
+   - Muestra el estado final de la base de datos
+   - Confirma la actualización exitosa
+   - Reporta crecimiento del historial
 
-#### Variables de Entorno
+### 18.3 Estructura de Base de Datos Optimizada
+
+#### Tabla `mediciones_api`
+```sql
+CREATE TABLE mediciones_api (
+    id SERIAL PRIMARY KEY,
+    estacion_id VARCHAR(50) NOT NULL,
+    fecha TIMESTAMP WITH TIME ZONE NOT NULL,
+    parametro VARCHAR(50) NOT NULL,
+    valor DECIMAL(10,2),
+    aqi INTEGER,
+    is_validated BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(estacion_id, fecha, parametro)  -- Previene duplicados
+);
+```
+
+#### Índices para Consultas Históricas
+```sql
+-- Optimización para consultas por estación y fecha
+CREATE INDEX idx_mediciones_api_estacion_fecha 
+    ON mediciones_api(estacion_id, fecha DESC);
+
+-- Optimización para consultas por parámetro y fecha
+CREATE INDEX idx_mediciones_api_parametro_fecha 
+    ON mediciones_api(parametro, fecha DESC);
+
+-- Optimización para consultas temporales generales
+CREATE INDEX idx_mediciones_api_fecha 
+    ON mediciones_api(fecha DESC);
+
+-- Optimización para limpieza de datos antiguos
+CREATE INDEX idx_mediciones_api_created_at 
+    ON mediciones_api(created_at);
+```
+
+### 18.4 Configuración Técnica
+
+#### Variables de Entorno Requeridas
 ```env
-DATABASE_URL=postgresql://...  # Internal Database URL de Render
+DATABASE_URL=postgresql://...  # URL de PostgreSQL en Render
 NODE_ENV=production
-AQICN_TOKEN=tu_token_de_aqicn
 ```
 
-#### Comando de Ejecución
+#### Comando de Ejecución del Cron Job
 ```bash
-cd /opt/render/project/src && npm run update-aqicn
+npm run update-aqicn
 ```
 
-### 18.4 Manejo de Errores y Robustez
+#### Frecuencia Recomendada
+```cron
+0 */6 * * *  # Cada 6 horas
+```
 
-El sistema implementa varias capas de seguridad:
+### 18.5 Funcionalidades Avanzadas
 
-1. **Validación de Configuración**
-   - Verifica variables de entorno
-   - Comprueba conexión a base de datos
-   - Valida token de API
+#### Scripts de Gestión
+- `npm run update-aqicn`: Actualización completa con historial
+- `npm run stats`: Consultar estadísticas de datos históricos
+- `npm run check-env`: Verificar configuración
+- `npm run test-db`: Probar conexión a base de datos
 
-2. **Reintentos Automáticos**
-   - 3 intentos en caso de fallo
-   - Delay exponencial entre intentos
-   - Logging detallado de errores
+#### Gestión de Datos Históricos
+- **Acumulación**: Los datos se mantienen indefinidamente (hasta 30 días)
+- **Optimización**: Limpieza automática de datos muy antiguos
+- **Integridad**: Sistema de constraints y transacciones
+- **Auditoría**: Timestamps automáticos de creación y actualización
 
-3. **Transacciones en Base de Datos**
-   - Rollback automático en caso de error
-   - Liberación de conexiones
-   - Manejo de timeouts
+### 18.6 Manejo de Errores y Robustez
 
-### 18.5 Monitoreo y Logs
+#### Validaciones Múltiples
+1. **Configuración**: Verifica DATABASE_URL antes de proceder
+2. **Conexión**: Test de conectividad a PostgreSQL
+3. **Datos**: Validación de respuesta de API AQICN
+4. **Transacciones**: Rollback automático en caso de error
 
-El sistema genera logs detallados en cada paso:
-- 🗑️ Limpieza de tabla
-- 📥 Obtención de datos
-- 📊 Visualización de datos
-- 💾 Almacenamiento
-- ✅ Confirmación de éxito
+#### Sistema de Logs Detallado
+```
+🚀 Iniciando actualización de datos AQICN...
+📊 Estadísticas actuales: X registros, Y días con datos
+🧹 Limpiando datos antiguos: N registros eliminados
+📥 Obteniendo datos de la API...
+💾 Almacenando datos: Nuevos/Actualizados
+📊 Estadísticas finales: X registros totales
+✅ Actualización completada exitosamente
+```
 
-### 18.6 Mantenimiento y Actualizaciones
+### 18.7 Ventajas del Sistema Histórico
 
-El sistema está diseñado para ser:
-- Fácil de mantener
-- Escalable
-- Robusto ante fallos
-- Fácil de depurar
+#### Para Análisis y Predicciones
+- **Tendencias**: Identificación de patrones temporales
+- **Estacionalidad**: Análisis de variaciones por época del año
+- **Correlaciones**: Relación entre diferentes parámetros
+- **Machine Learning**: Base de datos para modelos predictivos
 
-### 18.7 Consideraciones de Seguridad
+#### Para Rendimiento
+- **Consultas Optimizadas**: Índices específicos para análisis temporal
+- **Escalabilidad**: Diseño preparado para grandes volúmenes de datos
+- **Mantenimiento**: Limpieza automática para optimización
+- **Integridad**: Prevención de duplicados y corrupción de datos
 
-- Validación de datos de entrada
-- Manejo seguro de credenciales
-- Protección contra inyección SQL
-- Logging seguro de errores
+### 18.8 Consideraciones de Seguridad y Mantenimiento
 
-### 18.8 Documentación Adicional
+#### Seguridad
+- Validación de datos de entrada de la API
+- Manejo seguro de credenciales de base de datos
+- Protección contra inyección SQL mediante parámetros
+- Logging seguro sin exposición de datos sensibles
 
-Para más detalles técnicos sobre la implementación, consultar:
-- Código fuente en el repositorio
-- Documentación en README.md
-- Logs de ejecución en Render
+#### Mantenimiento
+- Código modular y bien documentado
+- Funciones reutilizables para diferentes operaciones
+- Sistema de monitoreo mediante logs
+- Fácil escalabilidad para múltiples estaciones
+
+### 18.9 Futuras Mejoras
+
+El sistema está preparado para:
+- Incorporar múltiples estaciones de monitoreo
+- Implementar alertas automáticas basadas en umbrales
+- Desarrollar APIs para consultas históricas específicas
+- Integrar con sistemas de machine learning para predicciones
+
+### 18.10 Documentación Técnica Adicional
+
+Para implementación y configuración detallada, consultar:
+- `render-cron-config.md`: Guía completa de configuración en Render
+- `README.md`: Documentación general del proyecto
+- Código fuente comentado en el repositorio
+- Logs de ejecución en el dashboard de Render
 

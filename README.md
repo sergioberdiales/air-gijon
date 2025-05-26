@@ -1,12 +1,15 @@
 # Air-Gijón
 
-Air-Gijón es una aplicación web para la consulta y predicción de la calidad del aire en Gijón, centrada en la estación de la Avenida Constitución. Permite visualizar datos actuales de contaminantes (como PM10) y servirá de base para modelos predictivos y notificaciones a la ciudadanía.
+Air-Gijón es una aplicación web para la consulta y predicción de la calidad del aire en Gijón, centrada en la estación de la Avenida Constitución. Permite visualizar datos actuales de contaminantes (como PM10) y mantiene un historial completo para análisis temporales y modelos predictivos.
 
 ## Características principales
 - Consulta de datos actuales de calidad del aire (PM10, NO2, etc.)
-- Backend en Node.js con Express y PostgreSQL
+- **Sistema de datos históricos** para análisis temporales y predicciones
+- Backend en Node.js con Express y PostgreSQL optimizado
 - Integración con la API internacional AQICN
-- Preparado para visualización y predicción
+- Base de datos optimizada para consultas históricas
+- Actualización automática cada 6 horas
+- Scripts de gestión y monitoreo
 
 ## Instalación y ejecución
 
@@ -38,6 +41,15 @@ Air-Gijón es una aplicación web para la consulta y predicción de la calidad d
    node server.js
    ```
    El servidor escuchará por defecto en `http://localhost:3000`.
+
+## Scripts disponibles
+
+- `npm start`: Ejecutar el servidor en producción
+- `npm run dev`: Ejecutar en modo desarrollo con nodemon
+- `npm run update-aqicn`: Actualizar datos históricos de AQICN
+- `npm run stats`: Ver estadísticas de datos históricos
+- `npm run check-env`: Verificar configuración de variables de entorno
+- `npm run test-db`: Probar conexión a base de datos
 
 ## Documentación de la API
 
@@ -72,88 +84,140 @@ GET /api/air/constitucion/pm10
 { "error": "Error consultando la base de datos" }
 ```
 
+## Sistema de Datos Históricos
+
+### Características del Sistema
+
+Air-Gijón implementa un **sistema avanzado de gestión de datos históricos** que:
+
+- **Acumula datos** en lugar de eliminarlos para permitir análisis temporales
+- **Detecta y actualiza duplicados** automáticamente
+- **Optimiza el rendimiento** con índices específicos para consultas históricas
+- **Limpia datos antiguos** (>30 días) automáticamente para mantener la eficiencia
+- **Proporciona estadísticas** detalladas del historial de datos
+
+### Estructura de Base de Datos
+
+#### Tabla `mediciones_api`
+```sql
+CREATE TABLE mediciones_api (
+    id SERIAL PRIMARY KEY,
+    estacion_id VARCHAR(50) NOT NULL,
+    fecha TIMESTAMP WITH TIME ZONE NOT NULL,
+    parametro VARCHAR(50) NOT NULL,
+    valor DECIMAL(10,2),
+    aqi INTEGER,
+    is_validated BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(estacion_id, fecha, parametro)
+);
+```
+
+#### Índices Optimizados
+- `idx_mediciones_api_estacion_fecha`: Para consultas por estación y fecha
+- `idx_mediciones_api_parametro_fecha`: Para consultas por parámetro específico
+- `idx_mediciones_api_fecha`: Para consultas temporales generales
+- `idx_mediciones_api_created_at`: Para limpieza de datos antiguos
+
+### Parámetros Almacenados
+
+El sistema almacena los siguientes parámetros de calidad del aire:
+- **PM10** y **PM2.5**: Partículas en suspensión
+- **NO2**: Dióxido de nitrógeno
+- **SO2**: Dióxido de azufre
+- **O3**: Ozono
+- **Variables meteorológicas**: Temperatura, humedad, presión, viento
+
+## Automatización y Cron Job
+
+### Configuración del Cron Job en Render
+
+- **Nombre del job:** `update-aqicn`
+- **Comando ejecutado:** `npm run update-aqicn`
+- **Frecuencia recomendada:** `0 */6 * * *` (cada 6 horas)
+- **Variables de entorno requeridas:**
+  ```env
+  DATABASE_URL=postgresql://...  # URL de PostgreSQL en Render
+  NODE_ENV=production
+  ```
+
+### Proceso de Actualización
+
+El cron job ejecuta el siguiente flujo optimizado:
+
+1. **📊 Estadísticas iniciales**: Muestra el estado actual de la base de datos
+2. **🧹 Limpieza inteligente**: Elimina solo datos antiguos (>30 días)
+3. **📥 Obtención de datos**: Consulta la API AQICN con reintentos automáticos
+4. **💾 Almacenamiento inteligente**: Detecta duplicados y actualiza/inserta según corresponda
+5. **📊 Estadísticas finales**: Confirma el crecimiento del historial
+
+### Logs del Sistema
+
+Ejemplo de logs exitosos:
+```
+🚀 Iniciando actualización de datos AQICN...
+📊 Estadísticas actuales: 150 registros, 15 días con datos
+🧹 Limpiando datos antiguos: 0 registros eliminados
+📥 Obteniendo datos de la API...
+💾 Almacenando datos: Nuevos datos insertados
+📊 Estadísticas finales: 160 registros, 16 días con datos
+✅ Actualización completada exitosamente
+```
+
+## Ventajas del Sistema Histórico
+
+### Para Análisis y Predicciones
+- **Tendencias temporales**: Identificación de patrones de contaminación
+- **Análisis estacional**: Variaciones por época del año
+- **Correlaciones**: Relación entre diferentes parámetros ambientales
+- **Machine Learning**: Base sólida para modelos predictivos
+
+### Para Rendimiento
+- **Consultas optimizadas**: Índices específicos para análisis temporal
+- **Escalabilidad**: Preparado para grandes volúmenes de datos
+- **Mantenimiento automático**: Limpieza de datos antiguos
+- **Integridad garantizada**: Prevención de duplicados y corrupción
+
+## Solución de Problemas
+
+### Verificación del Sistema
+
+1. **Verificar configuración:**
+   ```bash
+   npm run check-env
+   ```
+
+2. **Probar conexión a base de datos:**
+   ```bash
+   npm run test-db
+   ```
+
+3. **Ver estadísticas de datos:**
+   ```bash
+   npm run stats
+   ```
+
+4. **Ejecutar actualización manual:**
+   ```bash
+   npm run update-aqicn
+   ```
+
+### Problemas Comunes
+
+- **Error ECONNREFUSED**: Verificar que `DATABASE_URL` esté configurada en Render
+- **Datos no actualizados**: Revisar logs del cron job en Render Dashboard
+- **Duplicados**: El sistema los maneja automáticamente con constraints UNIQUE
+
+## Documentación Adicional
+
+- **`render-cron-config.md`**: Guía completa de configuración en Render
+- **`memoria_proyecto_air_gijon.md`**: Documentación técnica detallada
+- **Código fuente**: Comentado y documentado en el repositorio
+
 ## Créditos
 - Sergio Berdiales
 - Basado en datos de AQICN y Ayuntamiento de Gijón
 
 ## Licencia
 MIT 
-
-## Automatización de la actualización de datos (Cron Job)
-
-Para mantener los datos de calidad del aire siempre actualizados, se ha configurado un cron job en Render llamado `update-aqicn`. Este job ejecuta periódicamente un script que descarga los datos de la API internacional AQICN y los almacena en la base de datos PostgreSQL.
-
-### Configuración del Cron Job
-
-- **Nombre del job:** `update-aqicn`
-- **Comando ejecutado:** `npm run update-aqicn`
-- **Frecuencia:** cada hora (configurable con expresión cron)
-- **Directorio de trabajo:** `/opt/render/project/src`
-
-### Script y Funcionalidad
-
-El script `update_aqicn.js` realiza las siguientes operaciones:
-
-1. Limpia la tabla `mediciones_api` para evitar duplicados
-2. Obtiene datos actualizados de la API AQICN para la estación 6699 (Avenida Constitución)
-3. Almacena los siguientes parámetros en la base de datos:
-   - PM10 y PM2.5 (partículas en suspensión)
-   - NO2 (dióxido de nitrógeno)
-   - O3 (ozono)
-   - SO2 (dióxido de azufre)
-   - Temperatura, humedad, presión y viento
-
-### Variables de Entorno Requeridas
-
-En el panel de Render, configurar las siguientes variables:
-
-```env
-DATABASE_URL=postgresql://...  # Internal Database URL de Render
-NODE_ENV=production
-AQICN_TOKEN=tu_token_de_aqicn
-```
-
-### Estructura del Código
-
-El sistema está compuesto por dos archivos principales:
-
-1. **`update_aqicn.js`**: Script principal que orquesta el proceso
-   ```js
-   const { getAirQualityData, storeAirQualityData, cleanMedicionesApi } = require('./api_aqicn');
-   ```
-
-2. **`api_aqicn.js`**: Módulo con las funciones de obtención y almacenamiento de datos
-   ```js
-   module.exports = {
-     getAirQualityData,
-     storeAirQualityData,
-     cleanMedicionesApi
-   };
-   ```
-
-### Logs y Monitoreo
-
-El script genera logs detallados en cada paso:
-- 🗑️ Limpieza de la tabla
-- 📥 Obtención de datos
-- 📊 Visualización de datos obtenidos
-- 💾 Almacenamiento en base de datos
-- ✅ Confirmación de actualización exitosa
-
-### Solución de Problemas
-
-Si el cron job falla, verificar:
-
-1. **Variables de entorno**: Asegurarse de que están correctamente configuradas en Render
-2. **Conexión a la base de datos**: Verificar que la URL de conexión es correcta
-3. **Token de AQICN**: Confirmar que el token es válido y tiene permisos
-4. **Logs en Render**: Revisar los logs del cron job para identificar errores específicos
-
-### Mantenimiento
-
-- El script está diseñado para ser robusto y manejar errores
-- Incluye reintentos automáticos en caso de fallos de red
-- Cierra correctamente las conexiones a la base de datos
-- Limpia la tabla antes de cada actualización para evitar duplicados
-
-Para más detalles sobre la implementación, consultar el código fuente en el repositorio. 
