@@ -45,7 +45,7 @@ function App() {
                 <>
                   {loading && <LoadingCard />}
                   {!loading && data && !data.error && <AirQualityCard data={data} />}
-                  {!loading && data && data.error && (
+                  {!loading && (data?.error || !data) && (
                     <div className="error-card">
                       <div className="error-icon">⚠️</div>
                       <h3>No hay datos disponibles</h3>

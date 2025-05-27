@@ -5,9 +5,11 @@ const { obtenerEvolucion } = require('./promedios_predicciones');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Permitir CORS solo desde el frontend en Render
+// Permitir CORS desde el frontend en Render y localhost en desarrollo
 app.use(cors({
-  origin: 'https://air-gijon-front-end.onrender.com'
+  origin: process.env.NODE_ENV === 'production' 
+    ? 'https://air-gijon-front-end.onrender.com'
+    : ['http://localhost:5173', 'http://localhost:3000', 'http://127.0.0.1:5173']
 }));
 
 // Función para calcular el estado de calidad del aire según PM2.5
