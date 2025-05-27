@@ -9,12 +9,12 @@ function AirQualityCard({ data }) {
   const config = estadoConfig[data.estado] || { class: '', icon: '❓', color: '#6B7280', description: 'Estado desconocido' };
   const fecha = new Date(data.fecha);
 
-  // Calcular el porcentaje para la barra de progreso
+  // Calcular el porcentaje para la barra de progreso (PM2.5: 0-15 Buena, 15-25 Moderada, 25-50 Regular, 50+ Mala)
   const getProgressPercentage = (value) => {
-    if (value <= 25) return (value / 25) * 25;
-    if (value <= 50) return 25 + ((value - 25) / 25) * 25;
-    if (value <= 75) return 50 + ((value - 50) / 25) * 25;
-    return 75 + Math.min(((value - 75) / 25) * 25, 25);
+    if (value <= 15) return (value / 15) * 25;
+    if (value <= 25) return 25 + ((value - 15) / 10) * 25;
+    if (value <= 50) return 50 + ((value - 25) / 25) * 25;
+    return 75 + Math.min(((value - 50) / 25) * 25, 25);
   };
 
   return (
@@ -33,10 +33,10 @@ function AirQualityCard({ data }) {
         </div>
       </div>
 
-      <div className="pm10-section">
-        <div className="pm10-label">PM10</div>
-        <div className="pm10-value">
-          <span className="value">{data.pm10}</span>
+      <div className="pm25-section">
+        <div className="pm25-label">PM2.5</div>
+        <div className="pm25-value">
+          <span className="value">{data.pm25}</span>
           <span className="unit">µg/m³</span>
         </div>
         
@@ -45,7 +45,7 @@ function AirQualityCard({ data }) {
             <div 
               className="quality-fill" 
               style={{ 
-                width: `${getProgressPercentage(data.pm10)}%`
+                width: `${getProgressPercentage(data.pm25)}%`
               }}
             ></div>
           </div>
@@ -54,10 +54,10 @@ function AirQualityCard({ data }) {
               <span>0</span>
             </div>
             <div className="marker">
-              <span>50</span>
+              <span>25</span>
             </div>
             <div className="marker">
-              <span>100+</span>
+              <span>50+</span>
             </div>
           </div>
         </div>

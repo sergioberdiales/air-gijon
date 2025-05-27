@@ -10,7 +10,15 @@ app.use(cors({
   origin: 'https://air-gijon-front-end.onrender.com'
 }));
 
-// Función para calcular el estado de calidad del aire según PM10
+// Función para calcular el estado de calidad del aire según PM2.5
+function getEstadoPM25(pm25) {
+  if (pm25 <= 15) return 'Buena';
+  if (pm25 <= 25) return 'Moderada';
+  if (pm25 <= 50) return 'Regular';
+  return 'Mala';
+}
+
+// Función para calcular el estado de calidad del aire según PM10 (mantener para compatibilidad)
 function getEstadoPM10(pm10) {
   if (pm10 <= 40) return 'Buena';
   if (pm10 <= 50) return 'Moderada';
@@ -18,7 +26,32 @@ function getEstadoPM10(pm10) {
   return 'Mala';
 }
 
-// Endpoint para obtener el último valor de PM10 de AQICN para la estación Constitución
+// Endpoint para obtener el último valor de PM2.5 de AQICN para la estación Constitución
+app.get('/api/air/constitucion/pm25', async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT fecha, valor AS pm25
+       FROM mediciones_api
+       WHERE estacion_id = '6699' AND parametro = 'pm25'
+       ORDER BY fecha DESC
+       LIMIT 1`
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'No hay datos disponibles' });
+    }
+    const pm25 = parseFloat(result.rows[0].pm25);
+    res.json({
+      estacion: "Avenida Constitución",
+      fecha: result.rows[0].fecha,
+      pm25,
+      estado: getEstadoPM25(pm25)
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Error consultando la base de datos' });
+  }
+});
+
+// Endpoint para obtener el último valor de PM10 de AQICN para la estación Constitución (mantener para compatibilidad)
 app.get('/api/air/constitucion/pm10', async (req, res) => {
   try {
     const result = await pool.query(
@@ -43,7 +76,7 @@ app.get('/api/air/constitucion/pm10', async (req, res) => {
   }
 });
 
-// Endpoint para obtener evolución de PM10 (últimos 5 días + predicciones)
+// Endpoint para obtener evolución de PM2.5 (últimos 5 días + predicciones)
 app.get('/api/air/constitucion/evolucion', async (req, res) => {
   try {
     const evolucion = await obtenerEvolucion();
@@ -55,9 +88,9 @@ app.get('/api/air/constitucion/evolucion', async (req, res) => {
     // Formatear datos para el frontend
     const datosFormateados = evolucion.map(dia => ({
       fecha: dia.fecha,
-      promedio_pm10: parseFloat(dia.promedio_pm10),
+      promedio_pm10: parseFloat(dia.promedio_pm10), // Mantener nombre por compatibilidad, pero contiene datos PM2.5
       tipo: dia.tipo,
-      estado: getEstadoPM10(parseFloat(dia.promedio_pm10)),
+      estado: getEstadoPM25(parseFloat(dia.promedio_pm10)), // Usar función PM2.5 para calcular estado
       confianza: dia.confianza ? parseFloat(dia.confianza) : null,
       datos_utilizados: dia.datos_utilizados || null,
       algoritmo: dia.algoritmo || null

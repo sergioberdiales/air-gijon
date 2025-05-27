@@ -21,7 +21,7 @@ async function calcularPromediosHistoricos() {
         ) as detalles
       FROM mediciones_api 
       WHERE estacion_id = '6699' 
-        AND parametro = 'pm10' 
+        AND parametro = 'pm25' 
         AND valor IS NOT NULL
       GROUP BY DATE(fecha)
       ON CONFLICT (fecha) 

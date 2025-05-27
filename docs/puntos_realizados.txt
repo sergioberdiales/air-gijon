@@ -295,3 +295,72 @@ Próximos pasos:
 - Desplegar el frontend y conectar con el backend en Render
 
 
+13. Avances Realizados (26 de mayo de 2025)
+13.1 Diagnóstico y Solución de Problemas del Cron Job
+- Identificación del problema: Cron job configurado en Render fallando con "Exited with status 1"
+- Análisis de la causa: Falta de variables de entorno (DATABASE_URL) en el contexto del cron job
+- Creación de script de diagnóstico (debug_cron.js) para identificar problemas específicos
+- Desarrollo de script robusto alternativo (cron_update.js) con mejor manejo de errores
+
+13.2 Mejoras en el Sistema de Datos Históricos
+- Confirmación del funcionamiento del sistema de acumulación de datos históricos
+- Verificación de que los datos se mantienen sin eliminarse (solo limpieza >30 días)
+- Comprobación de la detección de duplicados y actualización inteligente
+- Validación del crecimiento de registros: de 10 a 20 registros tras nueva ejecución
+
+13.3 Análisis de la Base de Datos en Producción
+- Investigación sobre por qué solo aparecen 10 registros en pgAdmin
+- Confirmación de que es normal: 10 parámetros por cada consulta a AQICN API
+- Explicación de la estructura: cada hora genera 10 registros (h, no2, o3, p, pm10, pm25, so2, t, w, wg)
+- Verificación de que el sistema funciona correctamente, solo necesita más ejecuciones
+
+13.4 Mejoras en el Frontend
+- Modernización del diseño con paleta de colores más suave (azules #3B82F6, #60A5FA)
+- Implementación de gradientes elegantes en logo, botones y fondos
+- Mejora de la tipografía con efecto degradado en "AirWise Gijón"
+- Header modernizado con fondo translúcido y efecto backdrop-filter
+- Navegación en píldoras con diseño más elegante
+- Tarjeta de calidad del aire rediseñada con sombras dramáticas y efecto hover
+- Navegación móvil elegante con efecto glassmorphism
+- Componentes de estado mejorados (LoadingCard con shimmer, error cards elegantes)
+- Optimización responsive con mobile-first approach
+
+13.5 Corrección del Layout Móvil
+- Solución del problema de orden en móvil: tarjeta principal ahora aparece primero
+- Implementación de order CSS para priorizar información principal sin scroll
+- Mejora de la experiencia de usuario en dispositivos móviles
+
+13.6 Scripts de Gestión y Diagnóstico Creados
+- debug_cron.js: Diagnóstico completo del entorno del cron job
+- cron_update.js: Versión robusta del script de actualización
+- Actualización de package.json con nuevos scripts:
+  * npm run debug-cron: Para diagnosticar problemas
+  * npm run cron-update: Script alternativo más robusto
+
+13.7 Documentación y Preparación para Predicciones
+- Clarificación de la diferencia entre dos cron jobs:
+  * Cron Job 1: Importación de datos AQICN (fallando, necesita arreglo)
+  * Cron Job 2: Sistema de predicciones (para configurar mañana)
+- Preparación de la infraestructura para el sistema de predicciones diarias
+- Sistema de promedios diarios y algoritmo ponderado semanal ya implementado
+
+13.8 Problemas Identificados y Pendientes
+- Cron job de importación AQICN fallando por falta de variables de entorno
+- Necesidad de configurar DATABASE_URL en las variables de entorno del cron job en Render
+- Errores locales de conexión en desarrollo (ECONNREFUSED) - normales en desarrollo
+- Error "tuple concurrently updated" en base de datos local - problema de concurrencia
+
+13.9 Despliegue y Control de Versiones
+- Commit exitoso: "feat: Mejorar diseño del frontend con estilo moderno"
+- 8 archivos modificados, 750 inserciones, 301 eliminaciones
+- 1 archivo nuevo: LoadingCard.jsx
+- Push exitoso a GitHub para despliegue automático en Render
+
+Próximos pasos para mañana:
+- Configurar variables de entorno DATABASE_URL en el cron job de Render
+- Usar script de diagnóstico temporalmente para identificar problemas específicos
+- Una vez solucionado, configurar el segundo cron job para predicciones diarias
+- Monitorear el funcionamiento de ambos cron jobs
+- Continuar con el desarrollo del sistema de predicciones y visualizaciones
+
+

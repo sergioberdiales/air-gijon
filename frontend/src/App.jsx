@@ -10,8 +10,8 @@ import './App.css';
 
 const API_URL =
   import.meta.env.PROD
-    ? "https://air-gijon.onrender.com/api/air/constitucion/pm10"
-    : "/api/air/constitucion/pm10";
+    ? "https://air-gijon.onrender.com/api/air/constitucion/pm25"
+    : "/api/air/constitucion/pm25";
 
 function App() {
   const [data, setData] = useState(null);
@@ -34,7 +34,7 @@ function App() {
         <div className="container">
           <div className="hero-section">
             <h1>Calidad del aire en Gijón</h1>
-            <p className="subtitle">Consulta los datos de PM10 de la estación en Av. Constitución</p>
+            <p className="subtitle">Consulta los datos de PM2.5 de la estación en Av. Constitución</p>
           </div>
 
           <TabNavigation activeTab={activeTab} setActiveTab={setActiveTab} />

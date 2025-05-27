@@ -36,17 +36,17 @@ function EvolutionCard() {
     });
   };
 
-  const getQualityColor = (pm10) => {
-    if (pm10 <= 40) return '#10B981'; // Verde - Buena
-    if (pm10 <= 50) return '#F59E0B'; // Amarillo - Moderada
-    if (pm10 <= 100) return '#EF4444'; // Rojo - Regular
+  const getQualityColor = (pm25) => {
+    if (pm25 <= 15) return '#10B981'; // Verde - Buena
+    if (pm25 <= 25) return '#F59E0B'; // Amarillo - Moderada
+    if (pm25 <= 50) return '#EF4444'; // Rojo - Regular
     return '#7C2D12'; // Marrón - Mala
   };
 
   const getMaxValue = () => {
-    if (!data?.datos) return 60;
-    const maxPm10 = Math.max(...data.datos.map(d => d.promedio_pm10));
-    return Math.max(60, Math.ceil(maxPm10 / 10) * 10);
+    if (!data?.datos) return 30;
+    const maxPm25 = Math.max(...data.datos.map(d => d.promedio_pm10)); // API devuelve promedio_pm10 pero contiene datos PM2.5
+    return Math.max(30, Math.ceil(maxPm25 / 10) * 10);
   };
 
   const getYPosition = (value, maxValue) => {
@@ -99,14 +99,14 @@ function EvolutionCard() {
   return (
     <div className="evolution-card">
       <div className="card-header">
-        <h3>📈 Evolución y Predicción PM10</h3>
+        <h3>📈 Evolución y Predicción PM2.5</h3>
         <p>Últimos {data.historicos} días + {data.predicciones} predicciones</p>
       </div>
 
       <div className="chart-container">
         <svg viewBox="0 0 450 220" className="evolution-chart">
           {/* Grid lines */}
-          {[0, 20, 40, 60].map(value => (
+          {[0, 10, 15, 25, 50].map(value => (
             <g key={value}>
               <line
                 x1="30"
@@ -115,7 +115,7 @@ function EvolutionCard() {
                 y2={getYPosition(value, maxValue)}
                 stroke="#E5E7EB"
                 strokeWidth="1"
-                strokeDasharray={value === 40 ? "5,5" : "none"}
+                strokeDasharray={value === 15 ? "5,5" : "none"}
               />
               <text
                 x="25"
@@ -129,12 +129,12 @@ function EvolutionCard() {
             </g>
           ))}
 
-          {/* Línea de referencia PM10 = 40 (límite buena calidad) */}
+          {/* Línea de referencia PM2.5 = 15 (límite buena calidad) */}
           <line
             x1="30"
-            y1={getYPosition(40, maxValue)}
+            y1={getYPosition(15, maxValue)}
             x2="420"
-            y2={getYPosition(40, maxValue)}
+            y2={getYPosition(15, maxValue)}
             stroke="#10B981"
             strokeWidth="2"
             strokeDasharray="5,5"
@@ -191,7 +191,7 @@ function EvolutionCard() {
                 {formatDate(point.fecha)}
               </text>
 
-              {/* Valores PM10 */}
+              {/* Valores PM2.5 */}
               <text
                 x={point.x}
                 y={point.y - 12}
@@ -219,7 +219,7 @@ function EvolutionCard() {
         </div>
         <div className="legend-item">
           <div className="legend-line good-limit"></div>
-          <span>Límite calidad buena (40 µg/m³)</span>
+          <span>Límite calidad buena (15 µg/m³)</span>
         </div>
       </div>
 

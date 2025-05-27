@@ -4,17 +4,13 @@ function Header() {
       <div className="container">
         <div className="header-content">
           <div className="logo">
-            <span className="logo-text">AirWise Gijón</span>
+            <span className="logo-text">Air Gijón</span>
           </div>
           
           <nav className="nav">
             <a href="#" className="nav-link active">
               <span className="nav-icon">🏠</span>
               <span className="nav-text">Inicio</span>
-            </a>
-            <a href="#" className="nav-link">
-              <span className="nav-icon">🗺️</span>
-              <span className="nav-text">Mapa</span>
             </a>
             <a href="#" className="nav-link">
               <span className="nav-icon">📈</span>
