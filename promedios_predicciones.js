@@ -42,6 +42,87 @@ async function calcularPromediosHistoricos() {
 }
 
 /**
+ * Valida si hay suficientes datos del día anterior para hacer predicciones
+ */
+async function validarDatosAyer(fechaAyer) {
+  try {
+    const fechaAyerStr = fechaAyer.toISOString().split('T')[0];
+    
+    // Obtener todas las mediciones del día anterior
+    const result = await pool.query(`
+      SELECT EXTRACT(HOUR FROM fecha) as hora, valor
+      FROM mediciones_api 
+      WHERE estacion_id = '6699' 
+        AND parametro = 'pm25' 
+        AND DATE(fecha) = $1
+        AND valor IS NOT NULL
+      ORDER BY hora
+    `, [fechaAyerStr]);
+    
+    const mediciones = result.rows;
+    const totalEsperado = 24; // 24 horas
+    const totalObtenido = mediciones.length;
+    
+    // Crear array de horas presentes
+    const horasPresentes = mediciones.map(m => parseInt(m.hora));
+    const horasFaltantes = [];
+    
+    for (let hora = 0; hora < 24; hora++) {
+      if (!horasPresentes.includes(hora)) {
+        horasFaltantes.push(hora);
+      }
+    }
+    
+    const totalFaltantes = horasFaltantes.length;
+    
+    // Verificar datos consecutivos faltantes
+    let maxConsecutivos = 0;
+    let consecutivosActuales = 0;
+    
+    for (let hora = 0; hora < 24; hora++) {
+      if (horasFaltantes.includes(hora)) {
+        consecutivosActuales++;
+        maxConsecutivos = Math.max(maxConsecutivos, consecutivosActuales);
+      } else {
+        consecutivosActuales = 0;
+      }
+    }
+    
+    // Determinar estado
+    let estado = 'completo';
+    let mensaje = '';
+    let puedeGenerarPredicciones = true;
+    
+    if (totalFaltantes === 0) {
+      estado = 'completo';
+      mensaje = 'Datos del día anterior completos (24/24 horas)';
+    } else if (maxConsecutivos >= 3 || totalFaltantes >= 6) {
+      estado = 'insuficiente';
+      puedeGenerarPredicciones = false;
+      mensaje = `Datos insuficientes: ${totalFaltantes} horas faltantes, máximo ${maxConsecutivos} consecutivas`;
+    } else {
+      estado = 'incompleto';
+      mensaje = `Datos incompletos: faltan ${totalFaltantes} horas (${horasFaltantes.join(', ')})`;
+    }
+    
+    return {
+      puedeGenerarPredicciones,
+      estado,
+      mensaje,
+      totalObtenido,
+      totalEsperado,
+      totalFaltantes,
+      horasFaltantes,
+      maxConsecutivos,
+      promedio: totalObtenido > 0 ? parseFloat((mediciones.reduce((sum, m) => sum + parseFloat(m.valor), 0) / totalObtenido).toFixed(2)) : null
+    };
+  } catch (error) {
+    console.error('❌ Error validando datos del día anterior:', error);
+    throw error;
+  }
+}
+
+/**
  * Calcula predicciones usando el algoritmo ponderado semanal
  */
 async function calcularPredicciones() {
@@ -97,7 +178,7 @@ async function calcularPrediccionDia(fecha, valorDiaAnterior = null) {
     // Si tenemos valor del día anterior (para predicción de mañana), usarlo
     let promedioAyer = valorDiaAnterior;
     
-    // Si no, obtener de la base de datos
+    // Si no, usar el promedio de la validación o obtener de la base de datos
     if (!promedioAyer) {
       const resultAyer = await pool.query(
         'SELECT promedio_pm10 FROM promedios_diarios WHERE fecha = $1',
@@ -140,9 +221,15 @@ async function calcularPrediccionDia(fecha, valorDiaAnterior = null) {
       const promedioHace7 = parseFloat(fallbackResult.rows[0].promedio_fallback);
       const prediccion = (promedioAyer * pesoAyer) + (promedioHace7 * pesoSemanaAnterior);
       
+      // Determinar confianza basada en validación
+      let confianza = 0.6; // Menor confianza por usar fallback
+      if (esSabadoOLunes) {
+        confianza = 0.5; // Aún menor si es sábado o lunes
+      }
+      
       return {
         valor: Math.round(prediccion * 100) / 100,
-        confianza: 0.6, // Menor confianza por usar fallback
+        confianza,
         algoritmo: 'ponderado_semanal_fallback',
         detalles: {
           promedio_ayer: promedioAyer,
@@ -159,9 +246,15 @@ async function calcularPrediccionDia(fecha, valorDiaAnterior = null) {
     const promedioHace7 = parseFloat(resultHace7.rows[0].promedio_pm10);
     const prediccion = (promedioAyer * pesoAyer) + (promedioHace7 * pesoSemanaAnterior);
     
+    // Determinar confianza basada en validación
+    let confianza = 0.8;
+    if (esSabadoOLunes) {
+      confianza = 0.7; // Menor confianza si es sábado o lunes
+    }
+    
     return {
       valor: Math.round(prediccion * 100) / 100,
-      confianza: 0.8,
+      confianza,
       algoritmo: 'ponderado_semanal',
       detalles: {
         promedio_ayer: promedioAyer,
@@ -207,7 +300,7 @@ async function guardarPrediccion(fecha, prediccion) {
 }
 
 /**
- * Obtiene datos de evolución (últimos 5 días + 2 predicciones)
+ * Obtiene datos de evolución (últimos 5 días + 2 predicciones: hoy y mañana)
  */
 async function obtenerEvolucion() {
   try {
@@ -220,7 +313,7 @@ async function obtenerEvolucion() {
       LIMIT 5
     `);
     
-    // Obtener predicciones (hoy y mañana)
+    // Obtener predicciones (solo hoy y mañana)
     const hoy = new Date().toISOString().split('T')[0];
     const mañana = new Date();
     mañana.setDate(mañana.getDate() + 1);

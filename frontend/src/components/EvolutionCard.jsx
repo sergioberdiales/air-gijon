@@ -21,15 +21,13 @@ function EvolutionCard() {
   }, []);
 
   const formatDate = (dateStr) => {
+    // Las fechas vienen en UTC (22:00:00.000Z = medianoche en España UTC+2)
     const date = new Date(dateStr);
-    const today = new Date();
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
     
-    if (date.toDateString() === today.toDateString()) return 'Hoy';
-    if (date.toDateString() === tomorrow.toDateString()) return 'Mañana';
+    // Convertir a fecha local española para mostrar
+    const localDate = new Date(date.getTime() + (2 * 60 * 60 * 1000)); // UTC+2
     
-    return date.toLocaleDateString('es-ES', { 
+    return localDate.toLocaleDateString('es-ES', { 
       weekday: 'short', 
       day: 'numeric',
       month: 'short'
@@ -158,25 +156,37 @@ function EvolutionCard() {
               <circle
                 cx={point.x}
                 cy={point.y}
-                r={point.tipo === 'prediccion' ? "6" : "4"}
+                r={point.tipo === 'prediccion' ? "7" : "5"}
                 fill={point.tipo === 'prediccion' ? "#F59E0B" : getQualityColor(point.promedio_pm10)}
-                stroke="white"
-                strokeWidth="2"
+                stroke={point.tipo === 'prediccion' ? "#D97706" : "white"}
+                strokeWidth="3"
                 className="data-point"
               />
               
-              {/* Indicador de predicción */}
+              {/* Indicador de predicción más visible */}
               {point.tipo === 'prediccion' && (
-                <circle
-                  cx={point.x}
-                  cy={point.y}
-                  r="8"
-                  fill="none"
-                  stroke="#F59E0B"
-                  strokeWidth="2"
-                  strokeDasharray="3,3"
-                  opacity="0.6"
-                />
+                <>
+                  <circle
+                    cx={point.x}
+                    cy={point.y}
+                    r="11"
+                    fill="none"
+                    stroke="#F59E0B"
+                    strokeWidth="2"
+                    strokeDasharray="4,2"
+                    opacity="0.8"
+                  />
+                  {/* Icono de predicción */}
+                  <text
+                    x={point.x}
+                    y={point.y - 20}
+                    fontSize="12"
+                    textAnchor="middle"
+                    fill="#F59E0B"
+                  >
+                    🔮
+                  </text>
+                </>
               )}
 
               {/* Etiquetas de fecha */}
@@ -187,6 +197,7 @@ function EvolutionCard() {
                 fill="#6B7280"
                 textAnchor="middle"
                 className="date-label"
+                fontWeight={point.tipo === 'prediccion' ? "600" : "normal"}
               >
                 {formatDate(point.fecha)}
               </text>
@@ -194,11 +205,11 @@ function EvolutionCard() {
               {/* Valores PM2.5 */}
               <text
                 x={point.x}
-                y={point.y - 12}
+                y={point.y - (point.tipo === 'prediccion' ? 35 : 12)}
                 fontSize="11"
-                fill="#1F2937"
+                fill={point.tipo === 'prediccion' ? "#D97706" : "#1F2937"}
                 textAnchor="middle"
-                fontWeight="600"
+                fontWeight="700"
                 className="value-label"
               >
                 {Math.round(point.promedio_pm10)}
@@ -218,8 +229,8 @@ function EvolutionCard() {
           <span>Predicciones</span>
         </div>
         <div className="legend-item">
-          <div className="legend-line good-limit"></div>
-          <span>Límite calidad buena (15 µg/m³)</span>
+          <div className="legend-line reference"></div>
+          <span>Límite calidad buena (15 μg/m³)</span>
         </div>
       </div>
 

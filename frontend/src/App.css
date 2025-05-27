@@ -953,6 +953,53 @@ body {
   );
 }
 
+.legend-line.confidence {
+  background: var(--warning-yellow);
+  position: relative;
+  opacity: 0.6;
+}
+
+.legend-line.confidence::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: 8px;
+  width: 2px;
+  height: 6px;
+  background: var(--warning-yellow);
+}
+
+.legend-line.confidence::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 8px;
+  width: 2px;
+  height: 6px;
+  background: var(--warning-yellow);
+}
+
+.legend-line.reference {
+  background: var(--success-green);
+  position: relative;
+}
+
+.legend-line.reference::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: repeating-linear-gradient(
+    90deg,
+    var(--success-green) 0px,
+    var(--success-green) 3px,
+    transparent 3px,
+    transparent 6px
+  );
+}
+
 .prediction-info {
   padding: 1rem 1.5rem;
   background: linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%);
