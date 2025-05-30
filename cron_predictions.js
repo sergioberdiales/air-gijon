@@ -37,7 +37,41 @@ async function ejecutarCronPredicciones() {
     const { sendDailyPredictions } = require('./email_service');
     const { format } = require('date-fns');
     const { es } = require('date-fns/locale');
-    const { pool } = require('./db');
+    const { pool, createTables, createIndexes } = require('./db');
+    
+    // Verificar/crear esquema de base de datos antes de continuar
+    console.log('🔧 Verificando esquema de base de datos...');
+    try {
+      await createTables();
+      await createIndexes();
+      console.log('✅ Esquema de base de datos verificado/actualizado');
+    } catch (schemaError) {
+      console.error('⚠️ Error verificando esquema:', schemaError.message);
+      // Continuar de todas formas, puede que ya exista
+    }
+    
+    // Verificar que la tabla promedios_diarios existe con las columnas correctas
+    console.log('🔍 Verificando tabla promedios_diarios...');
+    const tableCheck = await pool.query(`
+      SELECT column_name, data_type 
+      FROM information_schema.columns 
+      WHERE table_name = 'promedios_diarios' 
+      AND column_name IN ('pm25_promedio', 'fecha', 'tipo', 'confianza')
+      ORDER BY column_name
+    `);
+    
+    if (tableCheck.rows.length < 4) {
+      console.error('❌ ERROR: La tabla promedios_diarios no tiene las columnas requeridas');
+      console.log('Columnas encontradas:', tableCheck.rows.map(r => r.column_name));
+      
+      // Intentar crear la tabla
+      console.log('🔧 Intentando crear/actualizar tabla...');
+      await createTables();
+      console.log('✅ Tabla creada/actualizada');
+    } else {
+      console.log('✅ Tabla promedios_diarios verificada con columnas:', 
+        tableCheck.rows.map(r => r.column_name).join(', '));
+    }
     
     // Generar predicciones usando la función completa
     console.log('⚙️ Ejecutando actualización y generación de predicciones...');
