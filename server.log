@@ -1,0 +1,38 @@
+🔗 Conectando a la base de datos...
+DATABASE_URL configurada: Sí
+🔗 Inicializando servidor...
+DATABASE_URL configurada: Sí
+✅ Conexión a PostgreSQL exitosa: 2025-05-28T19:56:00.147Z
+✅ Conexión a PostgreSQL exitosa: 2025-05-28T19:56:00.224Z
+⏳ Las tablas ya están siendo inicializadas por otro proceso...
+⚠️ Las tablas no están inicializadas, saltando creación de índices
+✅ Tabla mediciones_api creada/actualizada correctamente
+✅ Tabla promedios_diarios creada/actualizada correctamente
+✅ Índices para consultas históricas creados
+✅ Índices para promedios diarios creados
+✅ Inicialización de tablas completada exitosamente
+✅ Índices para consultas históricas creados
+✅ Índices para promedios diarios creados
+✅ Servidor escuchando en http://localhost:3000
+❌ Error obteniendo evolución PM2.5: TypeError: utcToZonedTime is not a function
+    at obtenerEvolucion (/Users/sergio/projects/air-gijon/promedios_predicciones.js:316:20)
+    at /Users/sergio/projects/air-gijon/server.js:105:29
+    at Layer.handle [as handle_request] (/Users/sergio/projects/air-gijon/node_modules/express/lib/router/layer.js:95:5)
+    at next (/Users/sergio/projects/air-gijon/node_modules/express/lib/router/route.js:149:13)
+    at Route.dispatch (/Users/sergio/projects/air-gijon/node_modules/express/lib/router/route.js:119:3)
+    at Layer.handle [as handle_request] (/Users/sergio/projects/air-gijon/node_modules/express/lib/router/layer.js:95:5)
+    at /Users/sergio/projects/air-gijon/node_modules/express/lib/router/index.js:284:15
+    at Function.process_params (/Users/sergio/projects/air-gijon/node_modules/express/lib/router/index.js:346:12)
+    at next (/Users/sergio/projects/air-gijon/node_modules/express/lib/router/index.js:280:10)
+    at cors (/Users/sergio/projects/air-gijon/node_modules/cors/lib/index.js:188:7)
+Error obteniendo evolución: TypeError: utcToZonedTime is not a function
+    at obtenerEvolucion (/Users/sergio/projects/air-gijon/promedios_predicciones.js:316:20)
+    at /Users/sergio/projects/air-gijon/server.js:105:29
+    at Layer.handle [as handle_request] (/Users/sergio/projects/air-gijon/node_modules/express/lib/router/layer.js:95:5)
+    at next (/Users/sergio/projects/air-gijon/node_modules/express/lib/router/route.js:149:13)
+    at Route.dispatch (/Users/sergio/projects/air-gijon/node_modules/express/lib/router/route.js:119:3)
+    at Layer.handle [as handle_request] (/Users/sergio/projects/air-gijon/node_modules/express/lib/router/layer.js:95:5)
+    at /Users/sergio/projects/air-gijon/node_modules/express/lib/router/index.js:284:15
+    at Function.process_params (/Users/sergio/projects/air-gijon/node_modules/express/lib/router/index.js:346:12)
+    at next (/Users/sergio/projects/air-gijon/node_modules/express/lib/router/index.js:280:10)
+    at cors (/Users/sergio/projects/air-gijon/node_modules/cors/lib/index.js:188:7)

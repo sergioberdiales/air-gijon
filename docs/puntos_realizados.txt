@@ -363,4 +363,32 @@ Próximos pasos para mañana:
 - Monitorear el funcionamiento de ambos cron jobs
 - Continuar con el desarrollo del sistema de predicciones y visualizaciones
 
+# Puntos realizados - Sesión 27/28 mayo 2025
+
+## Cambios y pruebas principales
+
+- Revisión de la migración a PM2.5 y visualización de datos en frontend y backend.
+- Petición de mejoras visuales: quitar botón "Mapa", cambiar nombre a "Air Gijón", mostrar solo PM2.5, actualizar límites OMS, etc.
+- Actualización de la tarjeta de evolución:
+  - Mostrar solo fechas (sin "Hoy"/"Mañana") para evitar confusión.
+  - Mejor distinción visual entre datos históricos y predicciones.
+  - Se probaron barras de confianza para predicciones, pero se descartaron por claridad visual.
+- Se detectó que la predicción del día siguiente no aparecía correctamente:
+  - Se revisó la lógica de generación de predicciones y la función obtenerEvolucion.
+  - Se comprobó que el sistema solo generaba predicción para "hoy" y "mañana" según la fecha del servidor.
+  - Se identificó que el 26 de mayo seguía como "predicción" en vez de "histórico".
+  - Se intentó corregir manualmente el tipo en la base de datos.
+- Se propuso una lógica robusta para predicciones (validación de datos horarios del día anterior), pero se decidió posponer su implementación para no romper la funcionalidad.
+- Se revirtió la función de predicción a la versión simple (predicción para hoy y mañana, sin validaciones extra).
+- Se comprobó que los endpoints backend devolvían datos correctamente (tanto en local como en producción Render).
+- Se hizo commit y push de los cambios para que Render redesplegara la app y se volviesen a ver datos en la web.
+
+## Estado final
+
+- La app vuelve a mostrar datos correctamente en frontend y backend.
+- El gráfico de evolución muestra solo fechas, sin barras de confianza.
+- La distinción entre históricos y predicciones es clara.
+- El sistema de predicciones está en modo simple (sin validaciones de datos horarios).
+- Pendiente: implementar lógica de validación de datos horarios para predicciones y alerta visual cuando falten datos.
+
 

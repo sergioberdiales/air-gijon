@@ -1,4 +1,12 @@
-const { pool } = require('./db');
+const { pool, getPromediosDiariosAnteriores, insertarPredicciones, getPromedioDiarioPorFecha, upsertPromedioDiario, upsertWaqiDailyAverage, batchInsertHourlyWaqiReadings, getHourlyReadingsForDate } = require('./db');
+const { estaciones, getEstadoPM25 } = require('./utils');
+const { fetchAndProcessWaqiData, TIMEZONE: WAQI_TIMEZONE } = require('./waqiDataFetcher.js');
+const { subDays, startOfDay, addDays, format } = require('date-fns');
+
+const PESO_RECIENTE = 0.7; // Factor de ponderación para el promedio más reciente
+const PESO_ANTIGUO = 0.3;  // Factor de ponderación para el promedio más antiguo
+const DIAS_HISTORICOS_PARA_PROMEDIO_AYER = 7; // Número de días históricos para calcular el promedio de ayer si WAQI falla
+const MAIN_TIMEZONE = 'Europe/Madrid'; // Usar una constante consistente
 
 /**
  * Calcula promedios diarios históricos desde mediciones_api
@@ -300,40 +308,50 @@ async function guardarPrediccion(fecha, prediccion) {
 }
 
 /**
- * Obtiene datos de evolución (últimos 5 días + 2 predicciones: hoy y mañana)
+ * Obtiene datos de evolución de PM2.5 (últimos 5 días históricos + predicciones para hoy y mañana).
  */
 async function obtenerEvolucion() {
   try {
-    // Obtener últimos 5 días históricos
-    const historicos = await pool.query(`
-      SELECT fecha, promedio_pm10, tipo, confianza, datos_utilizados
-      FROM promedios_diarios 
-      WHERE tipo = 'historico'
-      ORDER BY fecha DESC 
-      LIMIT 5
-    `);
+    // Usar un enfoque más simple para las fechas
+    const hoy = new Date();
+    const hoyStr = hoy.toISOString().split('T')[0]; // YYYY-MM-DD
     
-    // Obtener predicciones (solo hoy y mañana)
-    const hoy = new Date().toISOString().split('T')[0];
-    const mañana = new Date();
-    mañana.setDate(mañana.getDate() + 1);
-    const mañanaStr = mañana.toISOString().split('T')[0];
-    
-    const predicciones = await pool.query(`
-      SELECT fecha, promedio_pm10, tipo, confianza, algoritmo
-      FROM promedios_diarios 
-      WHERE tipo = 'prediccion' 
-        AND fecha IN ($1, $2)
+    const manana = new Date(hoy);
+    manana.setDate(manana.getDate() + 1);
+    const mananaStr = manana.toISOString().split('T')[0];
+
+    // Obtener directamente los datos con una query SQL
+    // Usar los nombres de columna reales: promedio_pm10 (que contiene PM2.5), tipo, confianza, etc.
+    const result = await pool.query(`
+      (SELECT fecha, promedio_pm10, tipo, confianza, created_at, updated_at 
+       FROM promedios_diarios 
+       WHERE tipo = 'historico' AND fecha < $1 
+       ORDER BY fecha DESC 
+       LIMIT 5) 
+      UNION ALL 
+      (SELECT fecha, promedio_pm10, tipo, confianza, created_at, updated_at 
+       FROM promedios_diarios 
+       WHERE tipo = 'prediccion' AND fecha IN ($1, $2)) 
       ORDER BY fecha ASC
-    `, [hoy, mañanaStr]);
+    `, [hoyStr, mananaStr]);
+
+    if (!result.rows || result.rows.length === 0) {
+      return [];
+    }
     
-    // Combinar y ordenar por fecha
-    const todos = [...historicos.rows, ...predicciones.rows]
-      .sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
-    
-    return todos;
+    // Mapeo final para asegurar la estructura esperada, enfocada en PM2.5
+    const datosFormateados = result.rows.map(dia => ({
+      fecha: dia.fecha instanceof Date ? dia.fecha.toISOString().split('T')[0] : dia.fecha,
+      promedio_pm10: dia.promedio_pm10 !== null ? parseFloat(dia.promedio_pm10) : null, // Mantener el nombre original
+      tipo: dia.tipo,
+      estado: dia.promedio_pm10 !== null ? getEstadoPM25(parseFloat(dia.promedio_pm10)) : null,
+      confianza: dia.confianza !== null ? parseFloat(dia.confianza) : null,
+    }));
+
+    return datosFormateados;
+
   } catch (error) {
-    console.error('❌ Error obteniendo evolución:', error);
+    console.error('❌ Error obteniendo evolución PM2.5:', error);
     throw error;
   }
 }
@@ -342,25 +360,224 @@ async function obtenerEvolucion() {
  * Proceso completo de actualización diaria
  */
 async function actualizacionDiaria() {
-  try {
-    console.log('🌅 Iniciando actualización diaria de promedios y predicciones...');
+  console.warn('DEPRECATED: actualizacionDiaria() ha sido reemplazada por runDailyUpdateAndPredictions(). Ejecutando la nueva función...');
+  await runDailyUpdateAndPredictions();
+}
+
+/**
+ * Orquesta la actualización diaria de datos y la generación de predicciones.
+ * 1. Intenta obtener datos de WAQI.
+ * 2. Almacena el promedio diario de ayer y los datos horarios de WAQI.
+ * 3. Calcula las predicciones basadas en los datos más fiables disponibles.
+ */
+async function runDailyUpdateAndPredictions() {
+    console.log('Iniciando el proceso diario de actualización de datos y predicciones...');
+    let yesterdayPm25AverageFromWaqi = null;
+    let yesterdayDateWaqi = null;
+
+    try {
+        const waqiResult = await fetchAndProcessWaqiData();
+        if (waqiResult && waqiResult.yesterdayPm25Average !== null) {
+            yesterdayPm25AverageFromWaqi = waqiResult.yesterdayPm25Average;
+            yesterdayDateWaqi = waqiResult.yesterdayDate; // 'YYYY-MM-DD'
+            console.log(`Promedio PM2.5 de ayer (WAQI - ${yesterdayDateWaqi}): ${yesterdayPm25AverageFromWaqi.toFixed(2)} µg/m³`);
+            await upsertWaqiDailyAverage(yesterdayDateWaqi, yesterdayPm25AverageFromWaqi);
+            
+            if (waqiResult.hourlyData && waqiResult.hourlyData.length > 0) {
+                await batchInsertHourlyWaqiReadings(waqiResult.hourlyData);
+            }
+        } else {
+            console.warn('No se pudo obtener el promedio de ayer desde WAQI. Se intentarán métodos alternativos.');
+        }
+    } catch (error) {
+        console.error('Error durante la obtención o almacenamiento de datos de WAQI:', error);
+        // Continuar para intentar calcular predicciones con datos existentes si es posible
+    }
+
+    // Ahora, con el promedio de ayer (idealmente de WAQI) o mediante fallback, calcular predicciones.
+    try {
+        // calcularPromedioAyer ahora debe ser más inteligente o esta lógica se integra aquí.
+        const promedioAyer = await obtenerMejorPromedioAyer(yesterdayDateWaqi, yesterdayPm25AverageFromWaqi);
+
+        if (promedioAyer && promedioAyer.valor !== null) {
+            console.log(`Valor base para predicción (Ayer - ${promedioAyer.fecha}): ${promedioAyer.valor.toFixed(2)} µg/m³ (Fuente: ${promedioAyer.source})`);
+            const datosHistoricos = await getPromediosDiariosAnteriores(promedioAyer.fecha, 7, 'pm25'); 
+            // Pasar el promedio de ayer y los datos históricos relevantes a calcularPredicciones
+            await calcularPredicciones(promedioAyer, datosHistoricos);
+        } else {
+            console.error('No se pudo obtener un promedio de PM2.5 para ayer. No se pueden generar predicciones.');
+        }
+    } catch (error) {
+        console.error('Error durante el cálculo de predicciones:', error);
+    }
+    console.log('Proceso diario de actualización y predicciones completado.');
+}
+
+/**
+ * Obtiene el mejor promedio de PM2.5 disponible para ayer.
+ * Prioriza: WAQI directo -> WAQI de DB -> Cálculo desde mediciones_api.
+ * @param {string | null} yesterdayDateWaqi - Fecha 'YYYY-MM-DD' de ayer según WAQI.
+ * @param {number | null} yesterdayPm25FromWaqi - Promedio PM2.5 de ayer de WAQI (directo).
+ * @returns {Promise<{fecha: string, valor: number | null, source: string} | null>}
+ */
+async function obtenerMejorPromedioAyer(yesterdayDateWaqi, yesterdayPm25FromWaqi) {
+    const today = new Date();
+    const yesterday = subDays(today, 1);
+    const yesterdayFormatted = format(yesterday, 'yyyy-MM-dd');
+
+    if (yesterdayPm25FromWaqi !== null && yesterdayDateWaqi === yesterdayFormatted) {
+        console.log(`Usando promedio PM2.5 de ayer (directo de WAQI): ${yesterdayPm25FromWaqi}`);
+        return { fecha: yesterdayFormatted, valor: yesterdayPm25FromWaqi, source: 'WAQI_direct' };
+    }
+
+    // Intentar obtener de la DB un registro de WAQI para ayer
+    const promedioAyerDbWaqi = await getPromedioDiarioPorFecha(yesterdayFormatted);
+    if (promedioAyerDbWaqi && promedioAyerDbWaqi.source === 'WAQI' && promedioAyerDbWaqi.pm25_promedio !== null) {
+        console.log(`Usando promedio PM2.5 de ayer (WAQI desde DB): ${promedioAyerDbWaqi.pm25_promedio}`);
+        return { fecha: yesterdayFormatted, valor: promedioAyerDbWaqi.pm25_promedio, source: 'WAQI_DB' };
+    }
+
+    // Fallback: Calcular promedio de ayer desde mediciones_api (lógica anterior adaptada)
+    console.log('Fallback: Calculando promedio PM2.5 de ayer desde mediciones_api.');
+    const promedioCalculado = await calcularPromedioPm25AyerDesdeHorarios(yesterdayFormatted);
+    if (promedioCalculado !== null) {
+        console.log(`Usando promedio PM2.5 de ayer (calculado de horarios DB): ${promedioCalculado}`);
+        return { fecha: yesterdayFormatted, valor: promedioCalculado, source: 'calculated_hourly' };
+    }
+
+    console.warn('No se pudo obtener ningún promedio de PM2.5 para ayer.');
+    return { fecha: yesterdayFormatted, valor: null, source: 'none' };
+}
+
+/**
+ * Calcula el promedio de PM2.5 para una fecha dada a partir de los datos horarios en mediciones_api.
+ * @param {string} fechaStr - Fecha en formato 'YYYY-MM-DD'.
+ * @returns {Promise<number | null>} El promedio de PM2.5 o null si no hay datos suficientes.
+ */
+async function calcularPromedioPm25AyerDesdeHorarios(fechaStr) {
+    console.log(`Calculando promedio PM2.5 para ${fechaStr} desde datos horarios locales.`);
+    try {
+        const hourlyReadings = await getHourlyReadingsForDate(fechaStr);
+        
+        if (!hourlyReadings || hourlyReadings.length === 0) {
+            console.warn(`No se encontraron lecturas horarias de PM2.5 para ${fechaStr} en la DB local.`);
+            return null;
+        }
+
+        const validPm25Readings = hourlyReadings.filter(r => r.pm25 !== null && typeof r.pm25 === 'number');
+
+        if (validPm25Readings.length < 1) { // Podríamos poner un umbral más alto, ej. 18 lecturas (75% del día)
+            console.warn(`Muy pocas lecturas horarias válidas de PM2.5 (${validPm25Readings.length}) para ${fechaStr}. No se calculará el promedio.`);
+            return null;
+        }
+        
+        const sum = validPm25Readings.reduce((acc, curr) => acc + curr.pm25, 0);
+        const average = sum / validPm25Readings.length;
+        
+        console.log(`Promedio PM2.5 calculado para ${fechaStr} desde ${validPm25Readings.length} lecturas horarias locales: ${average.toFixed(2)} µg/m³`);
+        return parseFloat(average.toFixed(2));
+
+    } catch (error) {
+        console.error(`Error calculando promedio PM2.5 desde horarios para ${fechaStr}:`, error);
+        return null;
+    }
+}
+
+/**
+ * Calcula la predicción de PM2.5 para un día específico.
+ * @param {Date} fechaPrediccion - La fecha para la cual calcular la predicción.
+ * @param {number} valorAyer - El valor de PM2.5 del día anterior.
+ * @param {number} valorHace7Dias - El valor de PM2.5 de hace 7 días.
+ * @returns {{prediccion: number, confianza: number}} - La predicción y un valor de confianza (placeholder).
+ */
+function calcularPrediccionDia(fechaPrediccion, valorAyer, valorHace7Dias) {
+    let prediccion;
+    // Lógica de predicción simple: promedio ponderado del valor de ayer y hace 7 días.
+    if (valorAyer !== null && valorHace7Dias !== null) {
+        prediccion = (valorAyer * PESO_RECIENTE) + (valorHace7Dias * PESO_ANTIGUO);
+    } else if (valorAyer !== null) {
+        prediccion = valorAyer; // Si solo tenemos el de ayer, lo usamos con un pequeño ajuste al alza (ejemplo)
+        prediccion *= 1.05; 
+    } else {
+        console.warn(`No hay suficientes datos para calcular la predicción del ${format(fechaPrediccion, 'yyyy-MM-dd')}. Usando fallback simple.`);
+        prediccion = 15; // Un valor de fallback muy genérico, idealmente se mejoraría
+    }
+    // Simulación de confianza basada en la disponibilidad de datos
+    let confianza = 0.5; // Confianza base
+    if (valorAyer !== null) confianza += 0.2;
+    if (valorHace7Dias !== null) confianza += 0.2;
+    confianza = Math.min(confianza, 0.9); // Capar confianza en 0.9
+
+    console.log(`Predicción PM2.5 para ${format(fechaPrediccion, 'yyyy-MM-dd')}: ${prediccion.toFixed(2)} µg/m³, Confianza: ${confianza.toFixed(2)}`);
+    return { prediccion: parseFloat(prediccion.toFixed(2)), confianza: parseFloat(confianza.toFixed(2)) };
+}
+
+/**
+ * Calcula y almacena las predicciones de PM2.5 para hoy y mañana.
+ * @param {{fecha: string, valor: number}} promedioAyerInfo - Info del promedio de PM2.5 de ayer.
+ * @param {Array<object>} datosHistoricos - Array de promedios diarios históricos (para obtener valor de hace 7 días).
+ */
+async function calcularPredicciones(promedioAyerInfo, datosHistoricos) {
+    if (!promedioAyerInfo || promedioAyerInfo.valor === null) {
+        console.error('Promedio de ayer no disponible, no se pueden generar predicciones.');
+        return;
+    }
+
+    const valorAyer = promedioAyerInfo.valor;
+    // const fechaAyer = new Date(promedioAyerInfo.fecha + 'T00:00:00Z');
+    // Convertir la fecha de ayer (que es YYYY-MM-DD para MAIN_TIMEZONE) a un objeto Date correcto.
+    // startOfDay asegura que estamos al inicio del día en la zona horaria correcta antes de sumar días.
+    const fechaAyer = startOfDay(new Date(promedioAyerInfo.fecha));
+
+    const hoy = addDays(fechaAyer, 1);
+    const manana = addDays(fechaAyer, 2);
+
+    // Encontrar el valor de hace 7 días respecto a 'ayer' para la predicción de 'hoy'
+    const hace7DiasParaHoyTargetDate = format(subDays(fechaAyer, 6), 'yyyy-MM-dd'); 
+    // Encontrar el valor de hace 7 días respecto a 'hoy' para la predicción de 'mañana'
+    const hace7DiasParaMananaTargetDate = format(subDays(hoy, 6), 'yyyy-MM-dd');
+
+    const valorHace7DiasParaHoy = datosHistoricos.find(d => d.fecha === hace7DiasParaHoyTargetDate)?.pm25_promedio || null;
+    const valorHace7DiasParaManana = datosHistoricos.find(d => d.fecha === hace7DiasParaMananaTargetDate)?.pm25_promedio || null;
     
-    // 1. Calcular promedios históricos
-    await calcularPromediosHistoricos();
-    
-    // 2. Calcular predicciones
-    await calcularPredicciones();
-    
-    console.log('✅ Actualización diaria completada');
-  } catch (error) {
-    console.error('❌ Error en actualización diaria:', error);
-    throw error;
-  }
+    if(valorHace7DiasParaHoy === null){
+        console.warn(`No se encontró el valor de PM2.5 para ${hace7DiasParaHoyTargetDate} (necesario para la predicción de hoy).`);
+    }
+    if(valorHace7DiasParaManana === null){
+        console.warn(`No se encontró el valor de PM2.5 para ${hace7DiasParaMananaTargetDate} (necesario para la predicción de mañana).`);
+    }
+
+    const prediccionHoy = calcularPrediccionDia(hoy, valorAyer, valorHace7DiasParaHoy);
+    const prediccionManana = calcularPrediccionDia(manana, prediccionHoy.prediccion, valorHace7DiasParaManana); // Usar la predicción de hoy como base para mañana
+
+    const prediccionesParaGuardar = [
+        {
+            fecha: format(hoy, 'yyyy-MM-dd'),
+            pm25Promedio: prediccionHoy.prediccion,
+            tipo: 'prediccion',
+            confianza: prediccionHoy.confianza,
+            source: 'model_v2' // Identificar la fuente del modelo
+        },
+        {
+            fecha: format(manana, 'yyyy-MM-dd'),
+            pm25Promedio: prediccionManana.prediccion,
+            tipo: 'prediccion',
+            confianza: prediccionManana.confianza,
+            source: 'model_v2'
+        }
+    ];
+
+    console.log('Predicciones PM2.5 generadas:', prediccionesParaGuardar);
+    await insertarPredicciones(prediccionesParaGuardar, 'pm25'); // Modificar insertarPredicciones para que acepte el tipo de contaminante
 }
 
 module.exports = {
   calcularPromediosHistoricos,
   calcularPredicciones,
   obtenerEvolucion,
-  actualizacionDiaria
+  actualizacionDiaria,
+  runDailyUpdateAndPredictions,
+  obtenerMejorPromedioAyer,
+  calcularPrediccionDia,
+  calcularPredicciones
 }; 
