@@ -41,36 +41,67 @@ async function ejecutarCronPredicciones() {
     
     // Verificar/crear esquema de base de datos antes de continuar
     console.log('🔧 Verificando esquema de base de datos...');
-    try {
-      await createTables();
-      await createIndexes();
-      console.log('✅ Esquema de base de datos verificado/actualizado');
-    } catch (schemaError) {
-      console.error('⚠️ Error verificando esquema:', schemaError.message);
-      // Continuar de todas formas, puede que ya exista
-    }
     
-    // Verificar que la tabla promedios_diarios existe con las columnas correctas
-    console.log('🔍 Verificando tabla promedios_diarios...');
-    const tableCheck = await pool.query(`
-      SELECT column_name, data_type 
-      FROM information_schema.columns 
-      WHERE table_name = 'promedios_diarios' 
-      AND column_name IN ('pm25_promedio', 'fecha', 'tipo', 'confianza')
-      ORDER BY column_name
+    // Verificar si la tabla promedios_diarios existe
+    const tableExists = await pool.query(`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_name = 'promedios_diarios'
+      );
     `);
     
-    if (tableCheck.rows.length < 4) {
-      console.error('❌ ERROR: La tabla promedios_diarios no tiene las columnas requeridas');
-      console.log('Columnas encontradas:', tableCheck.rows.map(r => r.column_name));
-      
-      // Intentar crear la tabla
-      console.log('🔧 Intentando crear/actualizar tabla...');
+    let hasPm25Promedio = false;
+    let hasPromedioPm10 = false;
+    
+    if (!tableExists.rows[0].exists) {
+      console.log('⚠️ Tabla promedios_diarios no existe. Creando...');
       await createTables();
-      console.log('✅ Tabla creada/actualizada');
+      await createIndexes();
+      console.log('✅ Tabla promedios_diarios creada exitosamente');
+      hasPm25Promedio = true; // La tabla nueva tiene pm25_promedio
     } else {
-      console.log('✅ Tabla promedios_diarios verificada con columnas:', 
-        tableCheck.rows.map(r => r.column_name).join(', '));
+      console.log('✅ Tabla promedios_diarios ya existe');
+      
+      // Mostrar TODAS las columnas que existen para debug
+      const allColumns = await pool.query(`
+        SELECT column_name, data_type 
+        FROM information_schema.columns 
+        WHERE table_name = 'promedios_diarios'
+        ORDER BY ordinal_position
+      `);
+      
+      console.log('📋 Columnas existentes en promedios_diarios:');
+      allColumns.rows.forEach(col => {
+        console.log(`   - ${col.column_name} (${col.data_type})`);
+      });
+      
+      // Verificar que tenga las columnas necesarias
+      const columns = await pool.query(`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'promedios_diarios' 
+        AND column_name IN ('pm25_promedio', 'promedio_pm10', 'fecha', 'tipo', 'confianza')
+      `);
+      
+      console.log(`✅ Columnas verificadas: ${columns.rows.map(r => r.column_name).join(', ')}`);
+      
+      // Verificar si existe pm25_promedio o promedio_pm10
+      hasPm25Promedio = columns.rows.some(r => r.column_name === 'pm25_promedio');
+      hasPromedioPm10 = columns.rows.some(r => r.column_name === 'promedio_pm10');
+      
+      console.log(`🔍 pm25_promedio existe: ${hasPm25Promedio}`);
+      console.log(`🔍 promedio_pm10 existe: ${hasPromedioPm10}`);
+      
+      if (!hasPm25Promedio && hasPromedioPm10) {
+        console.log('⚠️ ESQUEMA INCONSISTENTE: Usando promedio_pm10 en lugar de pm25_promedio');
+      }
+      
+      if (columns.rows.length < 3) {
+        console.log('⚠️ Faltan columnas básicas. Recreando tabla...');
+        await createTables();
+        console.log('✅ Tabla actualizada con todas las columnas');
+        hasPm25Promedio = true; // Después de recrear, tendrá pm25_promedio
+      }
     }
     
     // Generar predicciones usando la función completa
@@ -79,8 +110,13 @@ async function ejecutarCronPredicciones() {
     
     // Obtener las predicciones recién generadas para envío por email
     console.log('📥 Obteniendo predicciones generadas...');
+    
+    // Usar la columna correcta según el esquema existente
+    const columnName = hasPm25Promedio ? 'pm25_promedio' : 'promedio_pm10';
+    console.log(`🔍 Usando columna: ${columnName}`);
+    
     const result = await pool.query(`
-      SELECT fecha, pm25_promedio, tipo, confianza
+      SELECT fecha, ${columnName} as valor_pm, tipo, confianza
       FROM promedios_diarios 
       WHERE tipo = 'prediccion' 
       AND fecha >= CURRENT_DATE
@@ -92,8 +128,8 @@ async function ejecutarCronPredicciones() {
       const predicciones = result.rows;
       console.log(`✅ ${predicciones.length} predicciones encontradas:`);
       predicciones.forEach(pred => {
-        const estado = getEstadoPM25(pred.pm25_promedio);
-        console.log(`   📅 ${pred.fecha}: ${pred.pm25_promedio} µg/m³ (${estado})`);
+        const estado = getEstadoPM25(pred.valor_pm);
+        console.log(`   📅 ${pred.fecha}: ${pred.valor_pm} µg/m³ (${estado})`);
       });
       
       // Identificar predicciones para hoy y mañana
@@ -107,11 +143,11 @@ async function ejecutarCronPredicciones() {
         const emailData = {
           hoy: {
             fecha: format(new Date(prediccionHoy.fecha), 'dd/MM/yyyy', { locale: es }),
-            valor: prediccionHoy.pm25_promedio
+            valor: prediccionHoy.valor_pm
           },
           manana: {
             fecha: format(new Date(prediccionManana.fecha), 'dd/MM/yyyy', { locale: es }),
-            valor: prediccionManana.pm25_promedio
+            valor: prediccionManana.valor_pm
           },
           fecha: format(new Date(), 'dd \'de\' MMMM, yyyy', { locale: es })
         };
