@@ -92,8 +92,21 @@ async function ejecutarCronPredicciones() {
       console.log(`🔍 pm25_promedio existe: ${hasPm25Promedio}`);
       console.log(`🔍 promedio_pm10 existe: ${hasPromedioPm10}`);
       
+      // MIGRACIÓN: Renombrar promedio_pm10 a pm25_promedio si es necesario
       if (!hasPm25Promedio && hasPromedioPm10) {
-        console.log('⚠️ ESQUEMA INCONSISTENTE: Usando promedio_pm10 en lugar de pm25_promedio');
+        console.log('🔄 MIGRANDO: Renombrando promedio_pm10 a pm25_promedio...');
+        try {
+          await pool.query(`
+            ALTER TABLE promedios_diarios 
+            RENAME COLUMN promedio_pm10 TO pm25_promedio;
+          `);
+          console.log('✅ Columna renombrada exitosamente: promedio_pm10 → pm25_promedio');
+          hasPm25Promedio = true;
+          hasPromedioPm10 = false;
+        } catch (renameError) {
+          console.error('❌ Error renombrando columna:', renameError.message);
+          // Si falla el rename, continuar usando promedio_pm10
+        }
       }
       
       if (columns.rows.length < 3) {
@@ -111,12 +124,8 @@ async function ejecutarCronPredicciones() {
     // Obtener las predicciones recién generadas para envío por email
     console.log('📥 Obteniendo predicciones generadas...');
     
-    // Usar la columna correcta según el esquema existente
-    const columnName = hasPm25Promedio ? 'pm25_promedio' : 'promedio_pm10';
-    console.log(`🔍 Usando columna: ${columnName}`);
-    
     const result = await pool.query(`
-      SELECT fecha, ${columnName} as valor_pm, tipo, confianza
+      SELECT fecha, pm25_promedio, tipo, confianza
       FROM promedios_diarios 
       WHERE tipo = 'prediccion' 
       AND fecha >= CURRENT_DATE
@@ -128,8 +137,8 @@ async function ejecutarCronPredicciones() {
       const predicciones = result.rows;
       console.log(`✅ ${predicciones.length} predicciones encontradas:`);
       predicciones.forEach(pred => {
-        const estado = getEstadoPM25(pred.valor_pm);
-        console.log(`   📅 ${pred.fecha}: ${pred.valor_pm} µg/m³ (${estado})`);
+        const estado = getEstadoPM25(pred.pm25_promedio);
+        console.log(`   📅 ${pred.fecha}: ${pred.pm25_promedio} µg/m³ (${estado})`);
       });
       
       // Identificar predicciones para hoy y mañana
@@ -143,11 +152,11 @@ async function ejecutarCronPredicciones() {
         const emailData = {
           hoy: {
             fecha: format(new Date(prediccionHoy.fecha), 'dd/MM/yyyy', { locale: es }),
-            valor: prediccionHoy.valor_pm
+            valor: prediccionHoy.pm25_promedio
           },
           manana: {
             fecha: format(new Date(prediccionManana.fecha), 'dd/MM/yyyy', { locale: es }),
-            valor: prediccionManana.valor_pm
+            valor: prediccionManana.pm25_promedio
           },
           fecha: format(new Date(), 'dd \'de\' MMMM, yyyy', { locale: es })
         };
