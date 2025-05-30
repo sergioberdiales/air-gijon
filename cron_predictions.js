@@ -19,42 +19,65 @@ if (!process.env.DATABASE_URL) {
   process.exit(1);
 }
 
+// Función para calcular el estado de calidad del aire según PM2.5
+function getEstadoPM25(pm25) {
+  if (pm25 <= 15) return 'Buena';
+  if (pm25 <= 25) return 'Moderada';
+  if (pm25 <= 50) return 'Regular';
+  return 'Mala';
+}
+
 // Función principal del cron job
 async function ejecutarCronPredicciones() {
   try {
     console.log('\n🔮 INICIANDO GENERACIÓN DE PREDICCIONES...');
     
     // Importar funciones necesarias
-    const { insertarPredicciones } = require('./promedios_predicciones');
+    const { runDailyUpdateAndPredictions } = require('./promedios_predicciones');
     const { sendDailyPredictions } = require('./email_service');
     const { format } = require('date-fns');
     const { es } = require('date-fns/locale');
+    const { pool } = require('./db');
     
-    // Generar predicciones
-    console.log('⚙️ Generando predicciones de PM2.5...');
-    const resultados = await insertarPredicciones();
+    // Generar predicciones usando la función completa
+    console.log('⚙️ Ejecutando actualización y generación de predicciones...');
+    await runDailyUpdateAndPredictions();
     
-    if (resultados && resultados.length > 0) {
-      console.log(`✅ ${resultados.length} predicciones generadas exitosamente:`);
-      resultados.forEach(pred => {
-        console.log(`   📅 ${pred.fecha}: ${pred.valor} µg/m³ (${pred.estado})`);
+    // Obtener las predicciones recién generadas para envío por email
+    console.log('📥 Obteniendo predicciones generadas...');
+    const result = await pool.query(`
+      SELECT fecha, pm25_promedio, tipo, confianza
+      FROM promedios_diarios 
+      WHERE tipo = 'prediccion' 
+      AND fecha >= CURRENT_DATE
+      ORDER BY fecha ASC
+      LIMIT 2
+    `);
+    
+    if (result.rows && result.rows.length > 0) {
+      const predicciones = result.rows;
+      console.log(`✅ ${predicciones.length} predicciones encontradas:`);
+      predicciones.forEach(pred => {
+        const estado = getEstadoPM25(pred.pm25_promedio);
+        console.log(`   📅 ${pred.fecha}: ${pred.pm25_promedio} µg/m³ (${estado})`);
       });
       
-      // Preparar datos para email
-      const hoy = resultados.find(p => p.tipo === 'prediccion' && 
-        new Date(p.fecha).toDateString() === new Date().toDateString());
-      const manana = resultados.find(p => p.tipo === 'prediccion' && 
-        new Date(p.fecha).getTime() === new Date(Date.now() + 24*60*60*1000).setHours(0,0,0,0));
+      // Identificar predicciones para hoy y mañana
+      const hoy = new Date().toISOString().split('T')[0];
+      const manana = new Date(Date.now() + 24*60*60*1000).toISOString().split('T')[0];
       
-      if (hoy && manana) {
+      const prediccionHoy = predicciones.find(p => p.fecha.toISOString().split('T')[0] === hoy);
+      const prediccionManana = predicciones.find(p => p.fecha.toISOString().split('T')[0] === manana);
+      
+      if (prediccionHoy && prediccionManana) {
         const emailData = {
           hoy: {
-            fecha: format(new Date(hoy.fecha), 'dd/MM/yyyy', { locale: es }),
-            valor: hoy.valor
+            fecha: format(new Date(prediccionHoy.fecha), 'dd/MM/yyyy', { locale: es }),
+            valor: prediccionHoy.pm25_promedio
           },
           manana: {
-            fecha: format(new Date(manana.fecha), 'dd/MM/yyyy', { locale: es }),
-            valor: manana.valor
+            fecha: format(new Date(prediccionManana.fecha), 'dd/MM/yyyy', { locale: es }),
+            valor: prediccionManana.pm25_promedio
           },
           fecha: format(new Date(), 'dd \'de\' MMMM, yyyy', { locale: es })
         };
@@ -79,10 +102,10 @@ async function ejecutarCronPredicciones() {
         console.log('⚠️ No se encontraron predicciones para hoy y mañana para envío de emails');
       }
     } else {
-      console.log('⚠️ No se generaron predicciones');
+      console.log('⚠️ No se encontraron predicciones generadas');
     }
 
-    // ... existing verification code ...
+    console.log('\n✅ CRON JOB COMPLETADO EXITOSAMENTE');
 
   } catch (error) {
     console.error('❌ ERROR EN CRON JOB:', error);
