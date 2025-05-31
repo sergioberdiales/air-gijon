@@ -20,7 +20,8 @@
     "populate-historical": "node scripts/populate_historical.js",
     "generate-historical": "node scripts/generate_historical_data.js",
     "create-manager": "node create_manager.js",
-    "generate-sample-data": "node generate_sample_data.js"
+    "generate-sample-data": "node generate_sample_data.js",
+    "migrate-predictions": "node migrate_to_new_predictions.js"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^4.3.4",

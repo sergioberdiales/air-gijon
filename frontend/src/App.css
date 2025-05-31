@@ -1059,7 +1059,8 @@ body {
   font-size: 0.875rem;
 }
 
-/* Responsive adjustments for evolution card */
+/* ===== REGLAS RESPONSIVE ADICIONALES PARA GRÁFICO DE EVOLUCIÓN ===== */
+
 @media (max-width: 768px) {
   .evolution-card .card-header {
     padding: 1rem;
@@ -1067,15 +1068,30 @@ body {
   
   .chart-container {
     padding: 1rem;
+    /* Permitir scroll horizontal si es necesario */
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .evolution-chart {
+    max-height: 250px;
+    /* Asegurar que el SVG se escale correctamente */
+    width: 100%;
+    height: auto;
+    min-width: 300px; /* Mínimo para legibilidad */
   }
   
   .legend {
     gap: 1rem;
     padding: 0.75rem 1rem;
+    /* Mejorar wrap en móviles */
+    justify-content: space-around;
   }
   
   .legend-item {
     font-size: 0.8rem;
+    /* Asegurar que no se rompan en líneas múltiples */
+    white-space: nowrap;
   }
   
   .prediction-info {
@@ -1087,10 +1103,6 @@ body {
     align-items: flex-start;
     gap: 0.25rem;
   }
-  
-  .evolution-chart {
-    max-height: 250px;
-  }
 }
 
 @media (max-width: 480px) {
@@ -1098,13 +1110,96 @@ body {
     font-size: 1.1rem;
   }
   
+  .evolution-card .card-header p {
+    font-size: 0.85rem;
+  }
+  
+  .chart-container {
+    padding: 0.75rem;
+    /* Eliminar scroll horizontal innecesario */
+    overflow-x: visible;
+    overflow-y: hidden;
+  }
+  
+  .evolution-chart {
+    max-height: 220px;
+    /* Ancho más ajustado sin mínimo fijo */
+    width: 100%;
+    height: auto;
+  }
+  
+  /* Mejorar legibilidad de fechas rotadas en móvil */
+  .date-label {
+    font-weight: 500;
+    letter-spacing: 0.25px;
+  }
+  
   .legend {
     flex-direction: column;
     gap: 0.75rem;
+    align-items: center;
+    padding: 1rem;
+  }
+  
+  .legend-item {
+    font-size: 0.75rem;
+    justify-content: center;
   }
   
   .prediction-item {
     padding: 0.5rem 0;
+    text-align: center;
+  }
+  
+  .prediction-date {
+    font-size: 0.8rem;
+  }
+  
+  .prediction-value {
+    font-size: 0.9rem;
+  }
+  
+  .prediction-confidence {
+    font-size: 0.7rem;
+  }
+}
+
+/* Mejoras para tablets */
+@media (min-width: 481px) and (max-width: 768px) {
+  .chart-container {
+    padding: 1.25rem;
+  }
+  
+  .evolution-chart {
+    max-height: 280px;
+  }
+  
+  .legend {
+    gap: 1.25rem;
+    padding: 1rem 1.25rem;
+  }
+  
+  .legend-item {
+    font-size: 0.85rem;
+  }
+}
+
+/* Asegurar que el SVG sea responsive en todos los casos */
+.evolution-chart {
+  display: block;
+  max-width: 100%;
+}
+
+/* Mejorar la interacción táctil en móviles */
+@media (hover: none) and (pointer: coarse) {
+  .data-point {
+    /* Hacer los puntos un poco más grandes en dispositivos táctiles */
+    r: 6;
+  }
+  
+  .data-point:active {
+    r: 8;
+    filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.15));
   }
 }
 

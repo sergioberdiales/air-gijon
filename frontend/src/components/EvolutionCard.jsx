@@ -51,6 +51,54 @@ function EvolutionCard() {
     return 180 - (value / maxValue) * 160; // 180 es la altura del gráfico, 160 el área útil
   };
 
+  // Detectar tamaño de pantalla para responsive design
+  const [windowWidth, setWindowWidth] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth;
+    }
+    return 1200; // Valor por defecto para SSR
+  });
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
+    const handleResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Configuración responsive
+  const getResponsiveConfig = () => {
+    if (windowWidth <= 480) {
+      return {
+        pointSpacing: 50,     // Aumentado de 45 a 50px
+        fontSize: 9,          // Texto más pequeño
+        valueOffset: 30,      // Menos offset para valores
+        svgPadding: 35,       // Padding ajustado
+        dateRotation: -90,    // Rotación vertical completa
+        dateYOffset: 8        // Offset extra para fechas rotadas
+      };
+    } else if (windowWidth <= 768) {
+      return {
+        pointSpacing: 60,     // Aumentado de 55 a 60px
+        fontSize: 10,
+        valueOffset: 32,
+        svgPadding: 40,
+        dateRotation: 0,
+        dateYOffset: 0
+      };
+    } else {
+      return {
+        pointSpacing: 70,
+        fontSize: 11,
+        valueOffset: 35,
+        svgPadding: 50,
+        dateRotation: 0,
+        dateYOffset: 0
+      };
+    }
+  };
+
   if (loading) {
     return (
       <div className="evolution-card">
@@ -83,8 +131,14 @@ function EvolutionCard() {
   }
 
   const maxValue = getMaxValue();
+  const totalPoints = data.datos.length;
+  const config = getResponsiveConfig();
+  
+  // Ancho dinámico más preciso - eliminar espacio vacío
+  const svgWidth = (config.svgPadding * 2) + ((totalPoints - 1) * config.pointSpacing);
+  
   const points = data.datos.map((item, index) => ({
-    x: 50 + (index * 80), // Espaciado de 80px entre puntos
+    x: config.svgPadding + (index * config.pointSpacing),
     y: getYPosition(item.promedio_pm10, maxValue),
     ...item
   }));
@@ -98,27 +152,27 @@ function EvolutionCard() {
     <div className="evolution-card">
       <div className="card-header">
         <h3>📈 Evolución y Predicción PM2.5</h3>
-        <p>Últimos {data.historicos} días + {data.predicciones} predicciones</p>
+        <p>Últimos {data.datos.filter(d => d.tipo === 'historico').length} días + {data.datos.filter(d => d.tipo === 'prediccion').length} predicciones</p>
       </div>
 
       <div className="chart-container">
-        <svg viewBox="0 0 450 220" className="evolution-chart">
+        <svg viewBox={`0 0 ${svgWidth} 220`} className="evolution-chart">
           {/* Grid lines */}
           {[0, 10, 15, 25, 50].map(value => (
             <g key={value}>
               <line
-                x1="30"
+                x1={config.svgPadding - 20}
                 y1={getYPosition(value, maxValue)}
-                x2="420"
+                x2={svgWidth - config.svgPadding + 20}
                 y2={getYPosition(value, maxValue)}
                 stroke="#E5E7EB"
                 strokeWidth="1"
                 strokeDasharray={value === 15 ? "5,5" : "none"}
               />
               <text
-                x="25"
+                x={config.svgPadding - 25}
                 y={getYPosition(value, maxValue) + 4}
-                fontSize="10"
+                fontSize={config.fontSize}
                 fill="#6B7280"
                 textAnchor="end"
               >
@@ -129,9 +183,9 @@ function EvolutionCard() {
 
           {/* Línea de referencia PM2.5 = 15 (límite buena calidad) */}
           <line
-            x1="30"
+            x1={config.svgPadding - 20}
             y1={getYPosition(15, maxValue)}
-            x2="420"
+            x2={svgWidth - config.svgPadding + 20}
             y2={getYPosition(15, maxValue)}
             stroke="#10B981"
             strokeWidth="2"
@@ -192,21 +246,26 @@ function EvolutionCard() {
               {/* Etiquetas de fecha */}
               <text
                 x={point.x}
-                y="210"
-                fontSize="10"
+                y={210 + (config.dateYOffset || 0)}
+                fontSize={config.fontSize}
                 fill="#6B7280"
                 textAnchor="middle"
                 className="date-label"
                 fontWeight={point.tipo === 'prediccion' ? "600" : "normal"}
+                transform={config.dateRotation !== 0 ? `rotate(${config.dateRotation} ${point.x} ${210 + (config.dateYOffset || 0)})` : ''}
               >
-                {formatDate(point.fecha)}
+                {windowWidth <= 480 ? 
+                  // En móvil: formato más corto y claro
+                  formatDate(point.fecha).split(' ')[0] + ' ' + formatDate(point.fecha).split(' ')[1] : 
+                  formatDate(point.fecha) // Completo en desktop
+                }
               </text>
 
               {/* Valores PM2.5 */}
               <text
                 x={point.x}
-                y={point.y - (point.tipo === 'prediccion' ? 35 : 12)}
-                fontSize="11"
+                y={point.y - (point.tipo === 'prediccion' ? config.valueOffset : 12)}
+                fontSize={config.fontSize}
                 fill={point.tipo === 'prediccion' ? "#D97706" : "#1F2937"}
                 textAnchor="middle"
                 fontWeight="700"
@@ -232,19 +291,6 @@ function EvolutionCard() {
           <div className="legend-line reference"></div>
           <span>Límite calidad buena (15 μg/m³)</span>
         </div>
-      </div>
-
-      {/* Información adicional */}
-      <div className="prediction-info">
-        {data.datos.filter(d => d.tipo === 'prediccion').map(pred => (
-          <div key={pred.fecha} className="prediction-item">
-            <span className="prediction-date">{formatDate(pred.fecha)}</span>
-            <span className="prediction-value">{Math.round(pred.promedio_pm10)} µg/m³</span>
-            <span className="prediction-confidence">
-              {pred.confianza ? `${Math.round(pred.confianza * 100)}% confianza` : ''}
-            </span>
-          </div>
-        ))}
       </div>
     </div>
   );

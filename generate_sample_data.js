@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
-// Script para generar datos de muestra en promedios_diarios
-// Útil para testing y asegurar que el sistema tenga datos básicos
+// Script para generar datos de muestra usando la nueva arquitectura
+// Crea modelo inicial y genera datos históricos y predicciones
 
 const { pool } = require('./db');
 
@@ -13,15 +13,55 @@ function getEstadoPM25(pm25) {
   return 'Mala';
 }
 
+async function crearModeloInicial() {
+  try {
+    console.log('🤖 Creando modelo inicial...');
+    
+    const result = await pool.query(`
+      INSERT INTO modelos_prediccion (
+        nombre_modelo, 
+        fecha_inicio_produccion, 
+        descripcion, 
+        activo,
+        roc_index
+      ) VALUES (
+        'Modelo_0.0',
+        CURRENT_DATE,
+        'Modelo inicial basado en datos históricos con variación aleatoria. Algoritmo simple de promedio móvil.',
+        true,
+        0.6500
+      )
+      ON CONFLICT (nombre_modelo) DO UPDATE SET
+        activo = true,
+        descripcion = EXCLUDED.descripcion,
+        roc_index = EXCLUDED.roc_index,
+        updated_at = CURRENT_TIMESTAMP
+      RETURNING id, nombre_modelo
+    `);
+    
+    console.log(`✅ Modelo ${result.rows[0].nombre_modelo} creado/actualizado con ID: ${result.rows[0].id}`);
+    return result.rows[0].id;
+  } catch (error) {
+    console.error('❌ Error creando modelo:', error);
+    throw error;
+  }
+}
+
 async function generateSampleData() {
   try {
-    console.log('🔄 Generando datos de muestra para promedios_diarios...');
+    console.log('🔄 Generando datos de muestra para nueva arquitectura...');
+    
+    // 1. Crear modelo inicial
+    const modeloId = await crearModeloInicial();
     
     const hoy = new Date();
-    const datos = [];
+    const estacionId = '6699'; // Avenida Constitución
     
-    // Generar 10 días históricos (hace 10 días hasta ayer)
-    for (let i = 10; i >= 1; i--) {
+    // 2. Generar datos históricos en promedios_diarios
+    console.log('📈 Generando datos históricos...');
+    
+    const datosHistoricos = [];
+    for (let i = 15; i >= 1; i--) {
       const fecha = new Date();
       fecha.setDate(hoy.getDate() - i);
       const fechaStr = fecha.toISOString().split('T')[0];
@@ -30,16 +70,36 @@ async function generateSampleData() {
       const valor = Math.round((12 + Math.random() * 8) * 100) / 100; // 12-20 µg/m³
       const estado = getEstadoPM25(valor);
       
-      datos.push({
+      datosHistoricos.push({
         fecha: fechaStr,
         pm25_promedio: valor,
-        tipo: 'historico',
-        confianza: 0.85,
         estado: estado
       });
     }
     
-    // Generar predicciones para hoy y mañana
+    console.log(`📊 Insertando ${datosHistoricos.length} registros históricos...`);
+    
+    for (const dato of datosHistoricos) {
+      await pool.query(`
+        INSERT INTO promedios_diarios (fecha, pm25_promedio, pm25_estado, source)
+        VALUES ($1, $2, $3, $4)
+        ON CONFLICT (fecha) DO UPDATE SET
+          pm25_promedio = EXCLUDED.pm25_promedio,
+          pm25_estado = EXCLUDED.pm25_estado,
+          source = EXCLUDED.source,
+          updated_at = CURRENT_TIMESTAMP
+      `, [
+        dato.fecha,
+        dato.pm25_promedio,
+        dato.estado,
+        'sample_generator'
+      ]);
+    }
+    
+    // 3. Generar predicciones en tabla predicciones
+    console.log('🔮 Generando predicciones...');
+    
+    const predicciones = [];
     for (let i = 0; i <= 1; i++) {
       const fecha = new Date();
       fecha.setDate(hoy.getDate() + i);
@@ -49,71 +109,109 @@ async function generateSampleData() {
       const valor = Math.round((15 + Math.random() * 10) * 100) / 100; // 15-25 µg/m³
       const estado = getEstadoPM25(valor);
       
-      datos.push({
+      predicciones.push({
         fecha: fechaStr,
-        pm25_promedio: valor,
-        tipo: 'prediccion',
-        confianza: 0.75,
+        valor: valor,
         estado: estado
       });
     }
     
-    console.log(`📊 Insertando ${datos.length} registros...`);
+    console.log(`🎯 Insertando ${predicciones.length} predicciones...`);
     
-    // Insertar datos usando upsert para evitar duplicados
-    for (const dato of datos) {
-      const query = `
-        INSERT INTO promedios_diarios (fecha, pm25_promedio, tipo, confianza, pm25_estado, source)
-        VALUES ($1, $2, $3, $4, $5, $6)
-        ON CONFLICT (fecha) DO UPDATE SET
-          pm25_promedio = EXCLUDED.pm25_promedio,
-          tipo = EXCLUDED.tipo,
-          confianza = EXCLUDED.confianza,
-          pm25_estado = EXCLUDED.pm25_estado,
-          source = EXCLUDED.source,
-          updated_at = CURRENT_TIMESTAMP
-      `;
-      
-      await pool.query(query, [
-        dato.fecha,
-        dato.pm25_promedio,
-        dato.tipo,
-        dato.confianza,
-        dato.estado,
-        'sample_generator'
+    for (const pred of predicciones) {
+      await pool.query(`
+        INSERT INTO predicciones (
+          fecha, 
+          estacion_id, 
+          modelo_id, 
+          parametro, 
+          valor,
+          fecha_generacion
+        ) VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)
+        ON CONFLICT (fecha, estacion_id, modelo_id, parametro) 
+        DO UPDATE SET
+          valor = EXCLUDED.valor,
+          fecha_generacion = CURRENT_TIMESTAMP
+      `, [
+        pred.fecha,
+        estacionId,
+        modeloId,
+        'pm25',
+        pred.valor
       ]);
     }
     
     console.log('✅ Datos de muestra generados exitosamente');
     
-    // Mostrar resumen
-    const resumen = await pool.query(`
-      SELECT tipo, COUNT(*) as cantidad, MIN(fecha) as desde, MAX(fecha) as hasta
+    // 4. Mostrar resumen
+    console.log('\n📋 Resumen de datos generados:');
+    
+    // Resumen históricos
+    const resumenHistoricos = await pool.query(`
+      SELECT COUNT(*) as cantidad, MIN(fecha) as desde, MAX(fecha) as hasta
       FROM promedios_diarios
       WHERE source = 'sample_generator'
-      GROUP BY tipo
-      ORDER BY tipo
     `);
     
-    console.log('\n📋 Resumen de datos generados:');
-    resumen.rows.forEach(row => {
-      console.log(`   ${row.tipo}: ${row.cantidad} registros (${row.desde} a ${row.hasta})`);
+    console.log(`📈 Datos históricos: ${resumenHistoricos.rows[0].cantidad} registros (${resumenHistoricos.rows[0].desde} a ${resumenHistoricos.rows[0].hasta})`);
+    
+    // Resumen predicciones
+    const resumenPredicciones = await pool.query(`
+      SELECT 
+        p.parametro,
+        COUNT(*) as cantidad, 
+        MIN(p.fecha) as desde, 
+        MAX(p.fecha) as hasta,
+        m.nombre_modelo
+      FROM predicciones p
+      JOIN modelos_prediccion m ON p.modelo_id = m.id
+      WHERE m.activo = true
+      GROUP BY p.parametro, m.nombre_modelo
+    `);
+    
+    console.log('\n🔮 Predicciones:');
+    resumenPredicciones.rows.forEach(row => {
+      console.log(`   ${row.parametro}: ${row.cantidad} registros (${row.desde} a ${row.hasta}) - ${row.nombre_modelo}`);
     });
     
     // Mostrar datos recientes
     const recientes = await pool.query(`
-      SELECT fecha, pm25_promedio, tipo, pm25_estado
+      SELECT 
+        'historico' as tipo,
+        fecha, 
+        pm25_promedio as valor, 
+        pm25_estado as estado,
+        'N/A' as modelo
       FROM promedios_diarios
+      WHERE fecha >= CURRENT_DATE - INTERVAL '3 days'
+      
+      UNION ALL
+      
+      SELECT 
+        'prediccion' as tipo,
+        p.fecha, 
+        p.valor, 
+        'calculado' as estado,
+        m.nombre_modelo as modelo
+      FROM predicciones p
+      JOIN modelos_prediccion m ON p.modelo_id = m.id
+      WHERE p.fecha >= CURRENT_DATE
+        AND p.parametro = 'pm25'
+        AND m.activo = true
+      
       ORDER BY fecha DESC
-      LIMIT 7
+      LIMIT 10
     `);
     
-    console.log('\n📅 Últimos 7 registros:');
+    console.log('\n📅 Últimos registros:');
     recientes.rows.forEach(row => {
-      console.log(`   ${row.fecha}: ${row.pm25_promedio} µg/m³ (${row.tipo}, ${row.pm25_estado})`);
+      const valor = parseFloat(row.valor);
+      const estado = row.tipo === 'historico' ? row.estado : getEstadoPM25(valor);
+      console.log(`   ${row.fecha}: ${valor} µg/m³ (${estado}) - ${row.tipo} ${row.modelo !== 'N/A' ? `[${row.modelo}]` : ''}`);
     });
     
     console.log('\n🎯 Listo para probar el endpoint /api/air/constitucion/evolucion');
+    console.log('🎯 También listo para ejecutar: npm run cron-predictions');
     
   } catch (error) {
     console.error('❌ Error generando datos:', error);
@@ -128,4 +226,4 @@ if (require.main === module) {
   generateSampleData();
 }
 
-module.exports = { generateSampleData }; 
+module.exports = { generateSampleData, crearModeloInicial }; 

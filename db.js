@@ -56,6 +56,55 @@ async function createTables() {
     await createUsersTable();
     await createPredictionMetricsTable();
     await createNotificationsTable();
+
+    // Nueva tabla para modelos de predicción
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS modelos_prediccion (
+        id SERIAL PRIMARY KEY,
+        nombre_modelo VARCHAR(100) NOT NULL UNIQUE,
+        fecha_inicio_produccion DATE NOT NULL,
+        fecha_fin_produccion DATE,
+        roc_index DECIMAL(5,4),
+        descripcion TEXT,
+        activo BOOLEAN DEFAULT false,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Nueva tabla para predicciones
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS predicciones (
+        id SERIAL PRIMARY KEY,
+        fecha DATE NOT NULL,
+        estacion_id VARCHAR(20) NOT NULL,
+        modelo_id INTEGER NOT NULL REFERENCES modelos_prediccion(id),
+        parametro VARCHAR(20) NOT NULL,
+        valor DECIMAL(10,4) NOT NULL,
+        fecha_generacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(fecha, estacion_id, modelo_id, parametro)
+      )
+    `);
+
+    // Actualizar trigger para updated_at en modelos_prediccion
+    await pool.query(`
+      CREATE OR REPLACE FUNCTION update_updated_at_column()
+      RETURNS TRIGGER AS $$
+      BEGIN
+        NEW.updated_at = CURRENT_TIMESTAMP;
+        RETURN NEW;
+      END;
+      $$ language 'plpgsql'
+    `);
+
+    await pool.query(`
+      DROP TRIGGER IF EXISTS update_modelos_updated_at ON modelos_prediccion;
+      CREATE TRIGGER update_modelos_updated_at
+        BEFORE UPDATE ON modelos_prediccion
+        FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()
+    `);
+
     isInitialized = true;
   } catch (error) {
     console.error('❌ Error creando tablas:', error);
@@ -79,11 +128,47 @@ async function createIndexes() {
   }
   
   try {
+    console.log('Creando índices...');
+    
     await createHistoricalIndexes();
     await createDailyAveragesIndexes();
     await createUserIndexes();
+
+    // Índices para la nueva tabla predicciones
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_predicciones_fecha 
+      ON predicciones(fecha)
+    `);
+    
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_predicciones_estacion_fecha 
+      ON predicciones(estacion_id, fecha)
+    `);
+    
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_predicciones_parametro_fecha 
+      ON predicciones(parametro, fecha)
+    `);
+    
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_predicciones_modelo_fecha 
+      ON predicciones(modelo_id, fecha)
+    `);
+
+    // Índices para la tabla modelos_prediccion
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_modelos_activo 
+      ON modelos_prediccion(activo)
+    `);
+    
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_modelos_fechas 
+      ON modelos_prediccion(fecha_inicio_produccion, fecha_fin_produccion)
+    `);
+
+    console.log('✅ Índices creados');
   } catch (error) {
-    console.error('❌ Error creando índices:', error);
+    console.error('Error creando índices:', error);
     throw error;
   }
 }
@@ -150,8 +235,8 @@ async function createHistoricalIndexes() {
 async function createDailyAveragesIndexes() {
   const indexes = [
     'CREATE INDEX IF NOT EXISTS idx_promedios_fecha ON promedios_diarios(fecha DESC);',
-    'CREATE INDEX IF NOT EXISTS idx_promedios_tipo ON promedios_diarios(tipo);',
-    'CREATE INDEX IF NOT EXISTS idx_promedios_tipo_fecha ON promedios_diarios(tipo, fecha DESC);'
+    'CREATE INDEX IF NOT EXISTS idx_promedios_source ON promedios_diarios(source);',
+    'CREATE INDEX IF NOT EXISTS idx_promedios_source_fecha ON promedios_diarios(source, fecha DESC);'
   ];
   
   for (const indexSQL of indexes) {
