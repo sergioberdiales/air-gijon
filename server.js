@@ -432,6 +432,18 @@ async function initializeServer() {
       console.log('⚠️ Tablas ya existen o error de concurrencia (continuando)');
     }
     
+    // Ejecutar migración automáticamente en producción
+    if (process.env.NODE_ENV === 'production' || process.env.RENDER) {
+      console.log('🔄 Ejecutando migración de predicciones en producción...');
+      try {
+        const { migrateToPredictionsArchitecture } = require('./migrate_to_new_predictions');
+        await migrateToPredictionsArchitecture();
+        console.log('✅ Migración completada exitosamente');
+      } catch (migrationError) {
+        console.log('⚠️ Error en migración (puede ser normal si ya se ejecutó):', migrationError.message);
+      }
+    }
+    
     // Usar puerto del entorno o buscar uno libre
     const PORT = process.env.PORT || 3000;
     
