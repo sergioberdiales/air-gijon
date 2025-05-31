@@ -3,7 +3,8 @@
 // Script para generar predicciones diarias usando la nueva arquitectura
 // Se ejecuta automáticamente para generar predicciones de PM2.5
 
-const { pool } = require('./db');
+const { pool, getUsersForDailyPredictions } = require('./db');
+const { sendNotificationEmail } = require('./mailer');
 
 // Función para calcular el estado de calidad del aire según PM2.5
 function getEstadoPM25(pm25) {
@@ -124,8 +125,10 @@ async function generarPrediccionesDiarias() {
     
     const estacionId = '6699'; // Avenida Constitución
     const parametro = 'pm25';
+    const UMBRAL_ALERTA_PM25 = 25; // µg/m³ (Moderada o peor)
     
     let prediccionesGeneradas = 0;
+    let alertasEnviadas = 0;
     
     for (const fecha of fechasPrediccion) {
       // Generar predicción
@@ -143,9 +146,41 @@ async function generarPrediccionesDiarias() {
       
       console.log(`✅ Predicción ${fecha}: ${valorPM25} µg/m³ (${estado}) - ID: ${prediccionId}`);
       prediccionesGeneradas++;
+
+      // Enviar alertas si se supera el umbral
+      if (valorPM25 > UMBRAL_ALERTA_PM25) {
+        console.log(`🔔 ALERTA: PM2.5 (${valorPM25} µg/m³) supera el umbral de ${UMBRAL_ALERTA_PM25} µg/m³ para el ${fecha}`);
+        const usuariosSuscritos = await getUsersForDailyPredictions(); // Obtener usuarios con email_notifications_active = true
+        
+        if (usuariosSuscritos.length > 0) {
+          console.log(`📨 Enviando alertas a ${usuariosSuscritos.length} usuarios...`);
+          const asunto = `Alerta Calidad del Aire Gijón: PM2.5 ${estado} el ${fecha}`;
+          const mensajeTexto = 
+`Hola,
+
+Te informamos que la predicción de PM2.5 para la estación Avenida Constitución el ${fecha} es de ${valorPM25} µg/m³ (estado: ${estado}).
+
+Este valor supera el umbral de ${UMBRAL_ALERTA_PM25} µg/m³.
+
+Para más detalles, visita la web.
+
+Saludos,
+Equipo Air Gijón.`
+          ;
+          // Podríamos añadir un mensaje HTML más elaborado aquí
+
+          for (const usuario of usuariosSuscritos) {
+            await sendNotificationEmail(usuario.email, asunto, mensajeTexto);
+            alertasEnviadas++;
+          }
+        }
+      }
     }
     
     console.log(`🎯 Generadas ${prediccionesGeneradas} predicciones exitosamente`);
+    if (alertasEnviadas > 0) {
+      console.log(`📨 ${alertasEnviadas} alertas por correo enviadas.`);
+    }
     
     // 4. Mostrar resumen de predicciones activas
     const resumen = await pool.query(`

@@ -450,19 +450,39 @@ async function createUsersTable() {
       id SERIAL PRIMARY KEY,
       email VARCHAR(255) UNIQUE NOT NULL,
       password_hash VARCHAR(255) NOT NULL,
-      role VARCHAR(20) DEFAULT 'external' CHECK (role IN ('external', 'manager')),
-      name VARCHAR(255),
-      email_verified BOOLEAN DEFAULT false,
-      email_alerts BOOLEAN DEFAULT false,
-      daily_predictions BOOLEAN DEFAULT false,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      last_login TIMESTAMP
+      role VARCHAR(50) DEFAULT 'user', -- 'user', 'admin', 'external'
+      name VARCHAR(100),
+      preferences JSONB,
+      email_notifications_active BOOLEAN DEFAULT false, -- Nueva columna
+      created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
     );
   `;
   
   await pool.query(createTableSQL);
   console.log('✅ Tabla users creada/actualizada correctamente');
+
+  // Trigger para updated_at (si no existe globalmente)
+  // Considera moverlo a una función general si se usa en más tablas
+  const triggerFunctionSQL = `
+    CREATE OR REPLACE FUNCTION update_updated_at_column()
+    RETURNS TRIGGER AS $$
+    BEGIN
+       NEW.updated_at = NOW();
+       RETURN NEW;
+    END;
+    $$ language 'plpgsql';
+  `;
+  await pool.query(triggerFunctionSQL);
+
+  const triggerSQL = `
+    DROP TRIGGER IF EXISTS update_users_updated_at ON users;
+    CREATE TRIGGER update_users_updated_at
+    BEFORE UPDATE ON users
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+  `;
+  await pool.query(triggerSQL);
 }
 
 // Crear tabla de métricas de predicciones
@@ -510,17 +530,13 @@ async function createUserIndexes() {
   const indexes = [
     'CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);',
     'CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);',
-    'CREATE INDEX IF NOT EXISTS idx_users_email_alerts ON users(email_alerts) WHERE email_alerts = true;',
-    'CREATE INDEX IF NOT EXISTS idx_prediction_metrics_fecha ON prediction_metrics(fecha_prediccion, fecha_real);',
-    'CREATE INDEX IF NOT EXISTS idx_prediction_metrics_modelo ON prediction_metrics(modelo_version);',
-    'CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications_sent(user_id);',
-    'CREATE INDEX IF NOT EXISTS idx_notifications_type ON notifications_sent(type);'
+    'CREATE INDEX IF NOT EXISTS idx_users_email_notifications ON users(email_notifications_active);' // Nuevo índice
   ];
   
   for (const indexSQL of indexes) {
     await pool.query(indexSQL);
   }
-  console.log('✅ Índices para sistema de usuarios creados');
+  console.log('✅ Índices de usuarios creados');
 }
 
 // Función para crear usuario
@@ -571,14 +587,16 @@ async function updateUserPreferences(userId, preferences) {
 }
 
 // Función para obtener usuarios suscritos a predicciones diarias
-async function getUsersForDailyPredictions() {
-  const result = await pool.query(`
-    SELECT id, email, name
-    FROM users 
-    WHERE daily_predictions = true AND email_verified = true
-  `);
-  
-  return result.rows;
+async function getUsersForDailyPredictions() { // Esta función podría renombrarse o adaptarse
+  const query = `
+    SELECT id, email, preferences 
+    FROM users
+    WHERE email_notifications_active = true 
+      AND (preferences->>'receiveDailySummary' = 'true' OR preferences->>'receiveAlerts' = 'true'); 
+      -- Adaptar según la lógica de suscripción final
+  `;
+  const { rows } = await pool.query(query);
+  return rows;
 }
 
 // Función para registrar métricas de predicción
