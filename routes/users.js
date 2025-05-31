@@ -13,9 +13,11 @@ const {
   updateUserPreferences, 
   getPredictionMetrics, 
   getModelAccuracyStats,
-  getUserById
+  getUserById,
+  getUserByConfirmationToken,
+  confirmUserEmail
 } = require('../db');
-const { sendWelcomeEmail } = require('../email_service');
+const { sendConfirmationEmail, sendWelcomeEmail } = require('../email_service');
 
 // POST /api/users/register - Registro de usuario
 router.post('/register', async (req, res) => {
@@ -32,7 +34,7 @@ router.post('/register', async (req, res) => {
       });
     }
 
-    // Registrar usuario
+    // Registrar usuario (ahora devuelve también confirmation_token)
     const result = await registerUser(email, password, 'external', name?.trim() || null);
 
     if (!result.success) {
@@ -42,13 +44,22 @@ router.post('/register', async (req, res) => {
       });
     }
 
-    // Enviar email de bienvenida (no bloqueante)
+    // Construir el enlace de confirmación
+    // Asegúrate de que process.env.BASE_URL esté configurado (ej: http://localhost:3000 o tu dominio de producción)
+    const confirmationLink = `${process.env.BASE_URL || 'http://localhost:3000'}/api/users/confirmar-correo/${result.confirmation_token}`;
+
+    // Enviar email de confirmación (no bloqueante)
+    sendConfirmationEmail(result.user.email, result.user.name, confirmationLink, result.user.id)
+      .catch(error => console.error('Error enviando email de confirmación:', error));
+    
+    // Opcional: Aún podemos enviar el de bienvenida, o esperar a la confirmación.
+    // Por ahora, lo dejamos para dar feedback inmediato.
     sendWelcomeEmail(result.user.email, result.user.name, result.user.id)
-      .catch(error => console.error('Error enviando email de bienvenida:', error));
+      .catch(error => console.error('Error enviando email de bienvenida tras registro:', error));
 
     res.status(201).json({
       success: true,
-      message: 'Usuario registrado exitosamente',
+      message: 'Usuario registrado. Por favor, revisa tu correo para confirmar tu cuenta.',
       user: result.user,
       token: result.token
     });
@@ -59,6 +70,37 @@ router.post('/register', async (req, res) => {
       success: false,
       error: 'Error interno del servidor'
     });
+  }
+});
+
+// GET /api/users/confirmar-correo/:token - Confirmación de correo
+router.get('/confirmar-correo/:token', async (req, res) => {
+  try {
+    const { token } = req.params;
+    const user = await getUserByConfirmationToken(token);
+
+    if (!user) {
+      return res.status(400).send(
+        `<h1>Enlace de confirmación inválido o expirado.</h1>
+         <p>Por favor, intenta registrarte de nuevo o contacta con soporte.</p>`
+      );
+    }
+
+    await confirmUserEmail(user.id);
+    
+    // Opcional: Enviar un email de "cuenta confirmada" aquí si se desea.
+
+    // Redirigir al frontend o mostrar mensaje de éxito
+    // Por ahora, un mensaje simple. Idealmente, redirigir a una página de login/dashboard.
+    res.send(
+      `<h1>¡Correo confirmado!</h1>
+       <p>Gracias ${user.name || 'usuario'}, tu cuenta ha sido confirmada.</p>
+       <p><a href="${process.env.FRONTEND_URL || 'http://localhost:5173/login'}">Iniciar Sesión</a></p>`
+    );
+
+  } catch (error) {
+    console.error('Error en confirmación de correo:', error);
+    res.status(500).send('<h1>Error interno del servidor</h1><p>No se pudo confirmar tu correo. Inténtalo más tarde.</p>');
   }
 });
 
@@ -82,6 +124,19 @@ router.post('/login', async (req, res) => {
         error: result.error
       });
     }
+
+    // >>> NUEVA VERIFICACIÓN: Comprobar si el correo está confirmado
+    if (!result.user.is_confirmed) {
+      // Opcional: Reenviar correo de confirmación aquí si se desea.
+      // const confirmationLink = `${process.env.BASE_URL || 'http://localhost:3000'}/api/users/confirmar-correo/${EXISTING_TOKEN_IF_ANY}`;
+      // sendConfirmationEmail(result.user.email, result.user.name, confirmationLink, result.user.id);
+      return res.status(403).json({
+        success: false,
+        error: 'Debes confirmar tu correo electrónico antes de iniciar sesión.',
+        code: 'EMAIL_NOT_CONFIRMED'
+      });
+    }
+    // <<< FIN NUEVA VERIFICACIÓN
 
     res.json({
       success: true,

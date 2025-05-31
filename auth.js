@@ -1,5 +1,6 @@
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const { createUser, getUserByEmail } = require('./db');
 
 // Configuración
@@ -92,6 +93,10 @@ async function registerUser(email, password, role = 'external', name = null) {
     // Verificar si el usuario ya existe
     const existingUser = await getUserByEmail(email);
     if (existingUser) {
+      if (!existingUser.is_confirmed) {
+        // TODO: Considerar reenviar email de confirmación si no está confirmado y se intenta registrar de nuevo.
+        // Por ahora, mantenemos el error genérico para no revelar si el email existe.
+      }
       throw new Error('El email ya está registrado');
     }
 
@@ -109,11 +114,22 @@ async function registerUser(email, password, role = 'external', name = null) {
     // Crear hash de la contraseña
     const passwordHash = await hashPassword(password);
 
-    // Crear usuario
-    const newUser = await createUser(email, passwordHash, role, name);
+    // Generar token de confirmación
+    const confirmationToken = crypto.randomBytes(32).toString('hex');
+    const tokenExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // Expira en 24 horas
 
-    // Generar token
-    const token = generateToken(newUser);
+    // Crear usuario con token de confirmación
+    const newUser = await createUser(
+      email, 
+      passwordHash, 
+      role, 
+      name, 
+      confirmationToken, 
+      tokenExpiresAt
+    );
+
+    // Generar token JWT de sesión (se sigue generando para login inmediato si se desea)
+    const sessionToken = generateToken(newUser);
 
     return {
       success: true,
@@ -122,9 +138,11 @@ async function registerUser(email, password, role = 'external', name = null) {
         email: newUser.email,
         role: newUser.role,
         name: newUser.name,
+        is_confirmed: newUser.is_confirmed,
         created_at: newUser.created_at
       },
-      token
+      token: sessionToken,
+      confirmation_token: confirmationToken
     };
 
   } catch (error) {

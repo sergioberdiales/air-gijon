@@ -1,9 +1,36 @@
 #!/usr/bin/env node
 
+// Cargar variables de entorno para ejecución directa del cron
+if (process.env.NODE_ENV !== 'production') {
+  // Asumimos que tienes un .env_local o .env en la raíz para desarrollo
+  try {
+    require('dotenv').config({ path: require('path').resolve(process.cwd(), '.env_local') });
+    console.log('📄 Variables de .env_local cargadas para el cron.');
+    if (!process.env.MAIL_USER) {
+      // Si .env_local no existe o no tiene las variables, intenta con .env
+      require('dotenv').config(); 
+      console.log('📄 Variables de .env cargadas para el cron (fallback).');
+    }
+  } catch (e) {
+    // Si .env_local no existe, intenta con .env por defecto
+    try {
+        require('dotenv').config(); 
+        console.log('📄 Variables de .env cargadas para el cron.');
+    } catch (e2) {
+        console.warn('⚠️ No se encontró .env_local ni .env, las variables de entorno deben estar definidas globalmente.')
+    }
+  }
+}
+
 // Script para generar predicciones diarias usando la nueva arquitectura
 // Se ejecuta automáticamente para generar predicciones de PM2.5
 
-const { pool, getUsersForDailyPredictions } = require('./db');
+const { 
+  pool, 
+  getUsersForDailyPredictions, 
+  createTables,      
+  createIndexes      
+} = require('./db');
 const { sendNotificationEmail } = require('./mailer');
 
 // Función para calcular el estado de calidad del aire según PM2.5
@@ -99,8 +126,25 @@ async function insertarPrediccion(fecha, estacionId, modeloId, parametro, valor)
   }
 }
 
+async function inicializarBDParaCron() {
+  try {
+    console.log('⚙️ Asegurando estructura de BD para el cron...');
+    await createTables();
+    await createIndexes();
+    console.log('✅ Estructura de BD para cron verificada.');
+  } catch (error) {
+    console.error('❌ Error inicializando BD para cron:', error);
+    // Decide si quieres que el cron falle aquí o intente continuar
+    // Por ahora, lanzaremos el error para no continuar con una BD potencialmente incorrecta
+    throw error; 
+  }
+}
+
 async function generarPrediccionesDiarias() {
   try {
+    // Asegurar que la BD esté lista ANTES de cualquier otra operación
+    await inicializarBDParaCron();
+
     console.log('🔮 Iniciando generación de predicciones diarias...');
     
     // 1. Obtener modelo activo
@@ -150,7 +194,8 @@ async function generarPrediccionesDiarias() {
       // Enviar alertas si se supera el umbral
       if (valorPM25 > UMBRAL_ALERTA_PM25) {
         console.log(`🔔 ALERTA: PM2.5 (${valorPM25} µg/m³) supera el umbral de ${UMBRAL_ALERTA_PM25} µg/m³ para el ${fecha}`);
-        const usuariosSuscritos = await getUsersForDailyPredictions(); // Obtener usuarios con email_notifications_active = true
+        
+        const usuariosSuscritos = await getUsersForDailyPredictions();
         
         if (usuariosSuscritos.length > 0) {
           console.log(`📨 Enviando alertas a ${usuariosSuscritos.length} usuarios...`);

@@ -247,6 +247,38 @@ function getWelcomeTemplate(userName) {
   );
 }
 
+// Plantilla para email de confirmación de cuenta
+function getConfirmationEmailTemplate(userName, confirmationLink) {
+  const content = `
+    <h2>✅ Confirma tu Cuenta en Air Gijón</h2>
+    
+    <p>Hola ${userName || 'Usuario'},</p>
+    
+    <p>¡Gracias por registrarte en Air Gijón! Solo falta un paso más para activar tu cuenta.</p>
+    
+    <p>Por favor, haz clic en el siguiente enlace para confirmar tu dirección de correo electrónico:</p>
+    
+    <div style="text-align: center; margin: 30px 0;">
+      <a href="${confirmationLink}" class="button" style="background-color: #28a745; color: white;">
+        Confirmar mi Correo Electrónico
+      </a>
+    </div>
+    
+    <p>Si no puedes hacer clic en el botón, copia y pega la siguiente URL en tu navegador:</p>
+    <p><a href="${confirmationLink}">${confirmationLink}</a></p>
+    
+    <p>Este enlace de confirmación es válido por 24 horas. Si expira, puedes solicitar uno nuevo intentando iniciar sesión o desde la sección de 'reenviar confirmación' (si está disponible).</p>
+    
+    <p>Si no te registraste en Air Gijón, por favor ignora este correo.</p>
+  `;
+
+  return getBaseEmailTemplate(
+    'Confirma tu Cuenta - Air Gijón',
+    content,
+    '<p>Equipo Air Gijón</p>'
+  );
+}
+
 // Enviar email
 async function sendEmail(to, subject, htmlContent, userId = null, type = 'general') {
   try {
@@ -328,10 +360,48 @@ async function sendDailyPredictions(predictionData) {
 
 // Enviar email de bienvenida
 async function sendWelcomeEmail(userEmail, userName, userId) {
-  const htmlContent = getWelcomeTemplate(userName);
-  const subject = '👋 ¡Bienvenido a Air Gijón!';
-  
-  return await sendEmail(userEmail, subject, htmlContent, userId, 'welcome');
+  try {
+    const htmlContent = getWelcomeTemplate(userName);
+    const mailOptions = {
+      from: `"Air Gijón" <${process.env.EMAIL_USER}>`,
+      to: userEmail,
+      subject: '¡Bienvenido a Air Gijón!',
+      html: htmlContent
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`📧 Email de bienvenida enviado a ${userEmail}: ${info.messageId}`);
+    await logNotificationSent(userId, 'welcome_email', userEmail, mailOptions.subject, '-', 'sent');
+  } catch (error) {
+    console.error(`❌ Error enviando email de bienvenida a ${userEmail}:`, error);
+    await logNotificationSent(userId, 'welcome_email', userEmail, 'Bienvenido', '-', 'failed');
+  }
+}
+
+// Nueva función para enviar email de confirmación
+async function sendConfirmationEmail(userEmail, userName, confirmationLink, userId = null) {
+  try {
+    const htmlContent = getConfirmationEmailTemplate(userName, confirmationLink);
+    const mailOptions = {
+      from: `"Air Gijón" <${process.env.EMAIL_USER}>`,
+      to: userEmail,
+      subject: 'Confirma tu cuenta en Air Gijón',
+      html: htmlContent
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`📧 Email de confirmación enviado a ${userEmail}: ${info.messageId}`);
+    if (userId) {
+      await logNotificationSent(userId, 'confirmation_email', userEmail, mailOptions.subject, '-', 'sent');
+    }
+    return { success: true, messageId: info.messageId };
+  } catch (error) {
+    console.error(`❌ Error enviando email de confirmación a ${userEmail}:`, error);
+    if (userId) {
+      await logNotificationSent(userId, 'confirmation_email', userEmail, 'Confirmación de cuenta', '-', 'failed');
+    }
+    return { success: false, error: error.message };
+  }
 }
 
 // Enviar alerta de calidad del aire
@@ -348,7 +418,9 @@ module.exports = {
   sendDailyPredictions,
   sendWelcomeEmail,
   sendAirQualityAlert,
+  sendConfirmationEmail,
   getDailyPredictionTemplate,
   getAlertTemplate,
-  getWelcomeTemplate
+  getWelcomeTemplate,
+  getConfirmationEmailTemplate
 }; 

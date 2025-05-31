@@ -453,17 +453,47 @@ async function createUsersTable() {
       role VARCHAR(50) DEFAULT 'user', -- 'user', 'admin', 'external'
       name VARCHAR(100),
       preferences JSONB,
-      email_notifications_active BOOLEAN DEFAULT false, -- Nueva columna
+      email_notifications_active BOOLEAN DEFAULT false,
+      is_confirmed BOOLEAN DEFAULT false,
+      confirmation_token TEXT,
+      confirmation_token_expires_at TIMESTAMP WITH TIME ZONE,
       created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
     );
   `;
   
   await pool.query(createTableSQL);
-  console.log('✅ Tabla users creada/actualizada correctamente');
+  console.log('✅ Tabla users creada (si no existía)');
 
-  // Trigger para updated_at (si no existe globalmente)
-  // Considera moverlo a una función general si se usa en más tablas
+  // Asegurar que la columna email_notifications_active exista
+  try {
+    await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS email_notifications_active BOOLEAN DEFAULT false');
+    console.log('✅ Columna email_notifications_active asegurada en tabla users.');
+  } catch (err) {
+    if (err.code === '42701') { // column already exists
+      console.log('ℹ️ Columna email_notifications_active ya existía.');
+    } else {
+      console.error('Error asegurando columna email_notifications_active:', err);
+    }
+  }
+  
+  // Asegurar las nuevas columnas de confirmación de correo
+  try {
+    await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS is_confirmed BOOLEAN DEFAULT false');
+    console.log('✅ Columna is_confirmed asegurada en tabla users.');
+  } catch (err) { /* Silenciar error si ya existe */ }
+  
+  try {
+    await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS confirmation_token TEXT');
+    console.log('✅ Columna confirmation_token asegurada en tabla users.');
+  } catch (err) { /* Silenciar error si ya existe */ }
+
+  try {
+    await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS confirmation_token_expires_at TIMESTAMP WITH TIME ZONE');
+    console.log('✅ Columna confirmation_token_expires_at asegurada en tabla users.');
+  } catch (err) { /* Silenciar error si ya existe */ }
+
+  // Trigger para updated_at
   const triggerFunctionSQL = `
     CREATE OR REPLACE FUNCTION update_updated_at_column()
     RETURNS TRIGGER AS $$
@@ -530,27 +560,29 @@ async function createUserIndexes() {
   const indexes = [
     'CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);',
     'CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);',
-    'CREATE INDEX IF NOT EXISTS idx_users_email_notifications ON users(email_notifications_active);' // Nuevo índice
+    'CREATE INDEX IF NOT EXISTS idx_users_created_at ON users(created_at);',
+    'CREATE INDEX IF NOT EXISTS idx_users_email_notifications_active ON users(email_notifications_active);',
+    'CREATE INDEX IF NOT EXISTS idx_users_confirmation_token ON users(confirmation_token);'
   ];
   
   for (const indexSQL of indexes) {
     await pool.query(indexSQL);
   }
-  console.log('✅ Índices de usuarios creados');
+  console.log('✅ Índices de usuario creados/actualizados');
 }
 
-// Función para crear usuario
-async function createUser(email, passwordHash, role = 'external', name = null) {
-  const result = await pool.query(`
-    INSERT INTO users (email, password_hash, role, name)
-    VALUES ($1, $2, $3, $4)
-    RETURNING id, email, role, name, created_at
-  `, [email, passwordHash, role, name]);
-  
+// Crear nuevo usuario
+async function createUser(email, passwordHash, role = 'external', name = null, confirmationToken = null, tokenExpiresAt = null) {
+  const result = await pool.query(
+    `INSERT INTO users (email, password_hash, role, name, confirmation_token, confirmation_token_expires_at, is_confirmed)
+     VALUES ($1, $2, $3, $4, $5, $6, false)
+     RETURNING id, email, role, name, created_at, is_confirmed`,
+    [email, passwordHash, role, name, confirmationToken, tokenExpiresAt]
+  );
   return result.rows[0];
 }
 
-// Función para obtener usuario por email
+// Obtener usuario por email
 async function getUserByEmail(email) {
   const result = await pool.query(`
     SELECT id, email, password_hash, role, name, email_verified, email_alerts, daily_predictions, last_login
@@ -561,42 +593,92 @@ async function getUserByEmail(email) {
   return result.rows[0];
 }
 
-// Función para obtener usuario por ID
+// Obtener usuario por ID
 async function getUserById(userId) {
-  const result = await pool.query(`
-    SELECT id, email, role, name, email_verified, email_alerts, daily_predictions, created_at, last_login
-    FROM users 
-    WHERE id = $1
-  `, [userId]);
-  
+  const result = await pool.query('SELECT * FROM users WHERE id = $1', [userId]);
   return result.rows[0];
 }
 
-// Función para actualizar preferencias de usuario
+// Obtener usuario por token de confirmación
+async function getUserByConfirmationToken(token) {
+  const result = await pool.query(
+    'SELECT * FROM users WHERE confirmation_token = $1 AND confirmation_token_expires_at > NOW()', 
+    [token]
+  );
+  return result.rows[0];
+}
+
+// Confirmar email de usuario
+async function confirmUserEmail(userId) {
+  const result = await pool.query(
+    'UPDATE users SET is_confirmed = true, confirmation_token = NULL, confirmation_token_expires_at = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = $1 RETURNING id, email, is_confirmed',
+    [userId]
+  );
+  return result.rows[0];
+}
+
+// Actualizar preferencias de usuario
 async function updateUserPreferences(userId, preferences) {
-  const { email_alerts, daily_predictions } = preferences;
-  
-  const result = await pool.query(`
-    UPDATE users 
-    SET email_alerts = $2, daily_predictions = $3, updated_at = CURRENT_TIMESTAMP
-    WHERE id = $1
-    RETURNING id, email, email_alerts, daily_predictions
-  `, [userId, email_alerts, daily_predictions]);
-  
+  const result = await pool.query(
+    'UPDATE users SET preferences = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING *',
+    [preferences, userId]
+  );
   return result.rows[0];
 }
 
-// Función para obtener usuarios suscritos a predicciones diarias
-async function getUsersForDailyPredictions() { // Esta función podría renombrarse o adaptarse
-  const query = `
-    SELECT id, email, preferences 
-    FROM users
-    WHERE email_notifications_active = true 
-      AND (preferences->>'receiveDailySummary' = 'true' OR preferences->>'receiveAlerts' = 'true'); 
-      -- Adaptar según la lógica de suscripción final
-  `;
-  const { rows } = await pool.query(query);
-  return rows;
+/**
+ * Obtiene todos los usuarios que tienen las notificaciones por correo activadas.
+ * @returns {Promise<Array<{id: number, email: string}>>}
+ */
+async function getUsersForDailyPredictions() {
+  try {
+    const result = await pool.query(`
+      SELECT id, email 
+      FROM users 
+      WHERE email_notifications_active = true
+    `);
+    return result.rows;
+  } catch (error) {
+    console.error('❌ Error obteniendo usuarios para predicciones:', error);
+    return [];
+  }
+}
+
+/**
+ * Asegura que un usuario exista con el email dado y activa sus notificaciones.
+ * Si el usuario no existe, lo crea con una contraseña placeholder (solo para pruebas).
+ * ¡NO USAR EN PRODUCCIÓN PARA CREAR USUARIOS REALES SIN UNA GESTIÓN DE CONTRASEÑA ADECUADA!
+ * @param {string} email - Email del usuario.
+ * @param {string} [name] - Nombre del usuario.
+ * @returns {Promise<void>}
+ */
+async function ensureTestUserForNotifications(email, name = 'Usuario de Prueba Notificaciones') {
+  try {
+    let user = await getUserByEmail(email);
+    if (user) {
+      if (!user.email_notifications_active) {
+        await pool.query(
+          'UPDATE users SET email_notifications_active = true, updated_at = CURRENT_TIMESTAMP WHERE id = $1',
+          [user.id]
+        );
+        console.log(`📬 Notificaciones activadas para usuario existente: ${email}`);
+      } else {
+        console.log(`👍 Usuario ${email} ya existe y tiene notificaciones activas.`);
+      }
+    } else {
+      // Contraseña placeholder - ¡NO HACER ESTO EN PRODUCCIÓN!
+      // En un entorno real, se debería invitar al usuario o tener un flujo de registro.
+      const placeholderPasswordHash = 'test_password_hash_ignore'; 
+      const newUser = await createUser(email, placeholderPasswordHash, 'user', name);
+      await pool.query(
+        'UPDATE users SET email_notifications_active = true, updated_at = CURRENT_TIMESTAMP WHERE id = $1',
+        [newUser.id]
+      );
+      console.log(`👤 Creado usuario de prueba ${email} con notificaciones activas.`);
+    }
+  } catch (error) {
+    console.error(`❌ Error asegurando usuario de prueba ${email}:`, error);
+  }
 }
 
 // Función para registrar métricas de predicción
@@ -695,11 +777,14 @@ module.exports = {
     getUserById,
     updateUserPreferences,
     getUsersForDailyPredictions,
+    ensureTestUserForNotifications,
     insertPredictionMetric,
     getPredictionMetrics,
     getModelAccuracyStats,
     logNotificationSent,
-    getPromediosDiariosAnteriores
+    getPromediosDiariosAnteriores,
+    getUserByConfirmationToken,
+    confirmUserEmail
 };
 
 // Solo ejecutar la inicialización si no estamos en un script de actualización
