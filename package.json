@@ -19,7 +19,8 @@
     "debug-cron": "node debug_cron.js",
     "populate-historical": "node scripts/populate_historical.js",
     "generate-historical": "node scripts/generate_historical_data.js",
-    "create-manager": "node create_manager.js"
+    "create-manager": "node create_manager.js",
+    "generate-sample-data": "node generate_sample_data.js"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^4.3.4",
