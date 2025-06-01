@@ -1,21 +1,38 @@
 import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useViewport } from '../hooks/useViewport';
+import HomeIcon from './icons/HomeIcon';
+import LineChartIcon from './icons/LineChartIcon';
+import BellIcon from './icons/BellIcon';
+import UserIcon from './icons/UserIcon';
+import ChevronDownIcon from './icons/ChevronDownIcon';
+import SettingsIcon from './icons/SettingsIcon';
+import LogOutIcon from './icons/LogOutIcon';
+import CrownIcon from './icons/CrownIcon';
 
-function Header({ activeView, setActiveView, onAuthModalOpen }) {
+function Header({ activeView, setActiveView, activeTab, setActiveTab, onAuthModalOpen }) {
   const { user, isAuthenticated, logout } = useAuth();
+  const { isMobile } = useViewport();
   const [showUserMenu, setShowUserMenu] = useState(false);
 
   const handleNavClick = (view) => {
     if (setActiveView) {
-      setActiveView(view);
-    }
-  };
-
-  const handleProfileClick = () => {
-    if (isAuthenticated) {
-      setShowUserMenu(!showUserMenu);
-    } else {
-      onAuthModalOpen();
+      if (view === 'home-actual') {
+        // Botón "Inicio" - ir a vista home con pestaña actual
+        setActiveView('home');
+        if (setActiveTab) {
+          setActiveTab('actual');
+        }
+      } else if (view === 'home-prediccion') {
+        // Botón "Predicción" - ir a vista home con pestaña prediccion
+        setActiveView('home');
+        if (setActiveTab) {
+          setActiveTab('prediccion');
+        }
+      } else {
+        // Otros botones (alertas, perfil) - usar vista normal
+        setActiveView(view);
+      }
     }
   };
 
@@ -24,8 +41,15 @@ function Header({ activeView, setActiveView, onAuthModalOpen }) {
     setShowUserMenu(false);
     if (setActiveView) {
       setActiveView('home');
+      if (setActiveTab) {
+        setActiveTab('actual');
+      }
     }
   };
+
+  // Determinar si los botones están activos
+  const isHomeActualActive = activeView === 'home' && activeTab === 'actual';
+  const isHomePrediccionActive = activeView === 'home' && activeTab === 'prediccion';
 
   return (
     <>
@@ -36,26 +60,26 @@ function Header({ activeView, setActiveView, onAuthModalOpen }) {
               <span className="logo-text">Air Gijón</span>
             </div>
             
-            <nav className="nav">
+            <nav className={`nav ${isMobile ? 'bottom-nav' : ''}`}>
               <button 
-                className={`nav-link ${activeView === 'home' ? 'active' : ''}`}
-                onClick={() => handleNavClick('home')}
+                className={`nav-link ${isHomeActualActive ? 'active' : ''}`}
+                onClick={() => handleNavClick('home-actual')}
               >
-                <span className="nav-icon">🏠</span>
+                <HomeIcon className="nav-icon" />
                 <span className="nav-text">Inicio</span>
               </button>
               <button 
-                className={`nav-link ${activeView === 'prediccion' ? 'active' : ''}`}
-                onClick={() => handleNavClick('prediccion')}
+                className={`nav-link ${isHomePrediccionActive ? 'active' : ''}`}
+                onClick={() => handleNavClick('home-prediccion')}
               >
-                <span className="nav-icon">📈</span>
+                <LineChartIcon className="nav-icon" />
                 <span className="nav-text">Predicción</span>
               </button>
               <button 
                 className={`nav-link ${activeView === 'alertas' ? 'active' : ''}`}
                 onClick={() => handleNavClick('alertas')}
               >
-                <span className="nav-icon">🔔</span>
+                <BellIcon className="nav-icon" />
                 <span className="nav-text">Alertas</span>
               </button>
               <button 
@@ -68,71 +92,66 @@ function Header({ activeView, setActiveView, onAuthModalOpen }) {
                   }
                 }}
               >
-                <span className="nav-icon">👤</span>
+                <UserIcon className="nav-icon" />
                 <span className="nav-text">
                   {isAuthenticated ? 'Perfil' : 'Cuenta'}
                 </span>
               </button>
             </nav>
 
-            <div className="user-section">
-              {isAuthenticated ? (
-                <div className="user-menu-container">
-                  <button 
-                    className="user-btn"
-                    onClick={handleProfileClick}
-                  >
-                    <span className="user-avatar">
-                      {user?.name ? user.name.charAt(0).toUpperCase() : '👤'}
-                    </span>
-                    <span className="user-name desktop-only">
-                      {user?.name || 'Usuario'}
-                    </span>
-                    <span className="dropdown-arrow">▼</span>
-                  </button>
-                  
-                  {showUserMenu && (
-                    <div className="user-dropdown">
-                      <div className="user-info">
-                        <p className="user-email">{user?.email}</p>
-                        <span className="user-role">
-                          {user?.role === 'manager' ? '👑 Gestor' : '👤 Usuario'}
-                        </span>
+            {!isMobile && (
+              <div className="user-section">
+                {isAuthenticated && (
+                  <div className="user-menu-container">
+                    <button 
+                      className="user-btn"
+                      onClick={() => setShowUserMenu(!showUserMenu)}
+                    >
+                      <span className="user-avatar">
+                        {user?.name ? user.name.charAt(0).toUpperCase() : <UserIcon size={18} />}
+                      </span>
+                      <span className="user-name">
+                        {user?.name || 'Usuario'}
+                      </span>
+                      <ChevronDownIcon className="dropdown-arrow" />
+                    </button>
+                    
+                    {showUserMenu && (
+                      <div className="user-dropdown">
+                        <div className="user-info">
+                          <p className="user-email">{user?.email}</p>
+                          <span className="user-role">
+                            {user?.role === 'manager' ? <CrownIcon size={16} style={{ marginRight: '0.25rem' }} /> : <UserIcon size={14} style={{ marginRight: '0.25rem' }} />} 
+                            {user?.role === 'manager' ? 'Gestor' : 'Usuario'}
+                          </span>
+                        </div>
+                        <hr />
+                        <button 
+                          className="dropdown-item"
+                          onClick={() => {
+                            handleNavClick('perfil');
+                            setShowUserMenu(false);
+                          }}
+                        >
+                          <SettingsIcon size={16} /> Configuración
+                        </button>
+                        <button 
+                          className="dropdown-item"
+                          onClick={handleLogout}
+                        >
+                          <LogOutIcon size={16} /> Cerrar Sesión
+                        </button>
                       </div>
-                      <hr />
-                      <button 
-                        className="dropdown-item"
-                        onClick={() => {
-                          handleNavClick('perfil');
-                          setShowUserMenu(false);
-                        }}
-                      >
-                        <span>⚙️</span> Configuración
-                      </button>
-                      <button 
-                        className="dropdown-item"
-                        onClick={handleLogout}
-                      >
-                        <span>🚪</span> Cerrar Sesión
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <button 
-                  className="login-btn desktop-only"
-                  onClick={onAuthModalOpen}
-                >
-                  Iniciar sesión
-                </button>
-              )}
-            </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </header>
 
-      {/* Click outside handler para cerrar el menú */}
-      {showUserMenu && (
+      {showUserMenu && !isMobile && (
         <div 
           className="overlay"
           onClick={() => setShowUserMenu(false)}

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import LineChartIcon from './icons/LineChartIcon';
 
 const API_URL = import.meta.env.PROD
   ? "https://air-gijon.onrender.com/api/air/constitucion/evolucion"
@@ -35,10 +36,10 @@ function EvolutionCard() {
   };
 
   const getQualityColor = (pm25) => {
-    if (pm25 <= 15) return '#10B981'; // Verde - Buena
-    if (pm25 <= 25) return '#F59E0B'; // Amarillo - Moderada
-    if (pm25 <= 50) return '#EF4444'; // Rojo - Regular
-    return '#7C2D12'; // Marrón - Mala
+    if (pm25 <= 15) return 'var(--status-buena-color)'; // Verde - Buena
+    if (pm25 <= 25) return 'var(--status-moderada-color)'; // Amarillo - Moderada
+    if (pm25 <= 50) return 'var(--status-regular-color)'; // Naranja - Regular
+    return 'var(--status-mala-color)'; // Rojo - Mala
   };
 
   const getMaxValue = () => {
@@ -103,8 +104,15 @@ function EvolutionCard() {
     return (
       <div className="evolution-card">
         <div className="card-header">
-          <h3>📈 Evolución y Predicción</h3>
-          <p>Últimos 5 días + predicción</p>
+          <div className="station-info">
+            <div className="station-icon">
+              <LineChartIcon size={24} />
+            </div>
+            <div>
+              <h3>Evolución y Predicción</h3>
+              <p className="station-name">Últimos 5 días + predicción</p>
+            </div>
+          </div>
         </div>
         <div className="loading-content">
           <div className="loading-spinner"></div>
@@ -118,8 +126,15 @@ function EvolutionCard() {
     return (
       <div className="evolution-card">
         <div className="card-header">
-          <h3>📈 Evolución y Predicción</h3>
-          <p>Últimos 5 días + predicción</p>
+          <div className="station-info">
+            <div className="station-icon">
+              <LineChartIcon size={24} />
+            </div>
+            <div>
+              <h3>Evolución y Predicción</h3>
+              <p className="station-name">Últimos 5 días + predicción</p>
+            </div>
+          </div>
         </div>
         <div className="error-content">
           <div className="error-icon">⚠️</div>
@@ -151,8 +166,15 @@ function EvolutionCard() {
   return (
     <div className="evolution-card">
       <div className="card-header">
-        <h3>📈 Evolución y Predicción PM2.5</h3>
-        <p>Últimos {data.datos.filter(d => d.tipo === 'historico').length} días + {data.datos.filter(d => d.tipo === 'prediccion').length} predicciones</p>
+        <div className="station-info">
+          <div className="station-icon">
+            <LineChartIcon size={24} />
+          </div>
+          <div>
+            <h3>Evolución y Predicción PM2.5</h3>
+            <p className="station-name">Últimos {data.datos.filter(d => d.tipo === 'historico').length} días + {data.datos.filter(d => d.tipo === 'prediccion').length} predicciones</p>
+          </div>
+        </div>
       </div>
 
       <div className="chart-container">
@@ -165,7 +187,7 @@ function EvolutionCard() {
                 y1={getYPosition(value, maxValue)}
                 x2={svgWidth - config.svgPadding + 20}
                 y2={getYPosition(value, maxValue)}
-                stroke="#E5E7EB"
+                stroke="var(--border-primary)"
                 strokeWidth="1"
                 strokeDasharray={value === 15 ? "5,5" : "none"}
               />
@@ -173,7 +195,7 @@ function EvolutionCard() {
                 x={config.svgPadding - 25}
                 y={getYPosition(value, maxValue) + 4}
                 fontSize={config.fontSize}
-                fill="#6B7280"
+                fill="var(--text-secondary)"
                 textAnchor="end"
               >
                 {value}
@@ -187,7 +209,7 @@ function EvolutionCard() {
             y1={getYPosition(15, maxValue)}
             x2={svgWidth - config.svgPadding + 20}
             y2={getYPosition(15, maxValue)}
-            stroke="#10B981"
+            stroke="var(--status-buena-color)"
             strokeWidth="2"
             strokeDasharray="5,5"
             opacity="0.7"
@@ -197,7 +219,7 @@ function EvolutionCard() {
           <path
             d={pathData}
             fill="none"
-            stroke="#3B82F6"
+            stroke="var(--primary-accent)"
             strokeWidth="3"
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -211,8 +233,8 @@ function EvolutionCard() {
                 cx={point.x}
                 cy={point.y}
                 r={point.tipo === 'prediccion' ? "7" : "5"}
-                fill={point.tipo === 'prediccion' ? "#F59E0B" : getQualityColor(point.promedio_pm10)}
-                stroke={point.tipo === 'prediccion' ? "#D97706" : "white"}
+                fill={point.tipo === 'prediccion' ? "var(--status-moderada-color)" : getQualityColor(point.promedio_pm10)}
+                stroke={point.tipo === 'prediccion' ? "var(--status-moderada-color)" : "white"}
                 strokeWidth="3"
                 className="data-point"
               />
@@ -225,7 +247,7 @@ function EvolutionCard() {
                     cy={point.y}
                     r="11"
                     fill="none"
-                    stroke="#F59E0B"
+                    stroke="var(--status-moderada-color)"
                     strokeWidth="2"
                     strokeDasharray="4,2"
                     opacity="0.8"
@@ -236,7 +258,7 @@ function EvolutionCard() {
                     y={point.y - 20}
                     fontSize="12"
                     textAnchor="middle"
-                    fill="#F59E0B"
+                    fill="var(--status-moderada-color)"
                   >
                     🔮
                   </text>
@@ -248,7 +270,7 @@ function EvolutionCard() {
                 x={point.x}
                 y={210 + (config.dateYOffset || 0)}
                 fontSize={config.fontSize}
-                fill="#6B7280"
+                fill="var(--text-secondary)"
                 textAnchor="middle"
                 className="date-label"
                 fontWeight={point.tipo === 'prediccion' ? "600" : "normal"}
@@ -266,7 +288,7 @@ function EvolutionCard() {
                 x={point.x}
                 y={point.y - (point.tipo === 'prediccion' ? config.valueOffset : 12)}
                 fontSize={config.fontSize}
-                fill={point.tipo === 'prediccion' ? "#D97706" : "#1F2937"}
+                fill={point.tipo === 'prediccion' ? "var(--status-moderada-color)" : "var(--text-primary)"}
                 textAnchor="middle"
                 fontWeight="700"
                 className="value-label"

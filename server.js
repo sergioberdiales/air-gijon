@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const { pool, createTables, createIndexes, testConnection } = require('./db');
+const { ejecutarMigracionEstructuraPromedios } = require('./migrate_promedios_estructura');
 
 const app = express();
 
@@ -91,13 +92,13 @@ app.get('/api/air/constitucion/evolucion', async (req, res) => {
     // 1. Consultar datos históricos
     const fechasHistoricas = fechas.filter(f => f.tipo === 'historico').map(f => f.fecha);
     const historicos = await pool.query(`
-      SELECT fecha, pm25_promedio
+      SELECT fecha, parametro, valor, estado
       FROM promedios_diarios 
-      WHERE fecha = ANY($1)
+      WHERE fecha = ANY($1) AND parametro = $2
       ORDER BY fecha ASC
-    `, [fechasHistoricas]);
+    `, [fechasHistoricas, 'pm25']);
     
-    console.log(`📈 Datos históricos encontrados: ${historicos.rows.length} de ${fechasHistoricas.length}`);
+    console.log(`📈 Datos históricos PM2.5 encontrados: ${historicos.rows.length} de ${fechasHistoricas.length}`);
     
     // 2. Consultar predicciones con el modelo activo
     const fechasPredicciones = fechas.filter(f => f.tipo === 'prediccion').map(f => f.fecha);
@@ -126,9 +127,9 @@ app.get('/api/air/constitucion/evolucion', async (req, res) => {
         if (datos) {
           return {
             fecha: fechaInfo.fecha,
-            promedio_pm10: parseFloat(datos.pm25_promedio),
+            promedio_pm10: parseFloat(datos.valor),
             tipo: 'historico',
-            estado: getEstadoPM25(datos.pm25_promedio)
+            estado: datos.estado
           };
         }
       } else {
@@ -432,15 +433,25 @@ async function initializeServer() {
       console.log('⚠️ Tablas ya existen o error de concurrencia (continuando)');
     }
     
-    // Ejecutar migración automáticamente en producción
+    // Ejecutar migraciones automáticamente en producción
     if (process.env.NODE_ENV === 'production' || process.env.RENDER) {
+      console.log('🔄 Ejecutando migración de estructura de promedios_diarios en producción...');
+      try {
+        await ejecutarMigracionEstructuraPromedios();
+        console.log('✅ Migración de estructura de promedios_diarios completada.');
+      } catch (migrationError) {
+        console.error('❌ Error crítico durante la migración de estructura de promedios_diarios:', migrationError);
+        console.log('⚠️ Error en migración de estructura de promedios (puede ser normal si ya se ejecutó o si la tabla no existía con formato antiguo):', migrationError.message);
+      }
+
       console.log('🔄 Ejecutando migración de predicciones en producción...');
       try {
         const { migrateToPredictionsArchitecture } = require('./migrate_to_new_predictions');
         await migrateToPredictionsArchitecture();
         console.log('✅ Migración completada exitosamente');
       } catch (migrationError) {
-        console.log('⚠️ Error en migración (puede ser normal si ya se ejecutó):', migrationError.message);
+        console.error('❌ Error crítico durante la migración de predicciones:', migrationError);
+        console.log('⚠️ Error en migración de predicciones (puede ser normal si ya se ejecutó o si la tabla no existía con formato antiguo):', migrationError.message);
       }
     }
     

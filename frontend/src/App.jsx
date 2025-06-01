@@ -5,10 +5,11 @@ import TabNavigation from "./components/TabNavigation";
 import AirQualityCard from "./components/AirQualityCard";
 import EvolutionCard from "./components/EvolutionCard";
 import InfoSection from "./components/InfoSection";
-import UpdatesSection from "./components/UpdatesSection";
+// import UpdatesSection from "./components/UpdatesSection"; // Comentado
 import LoadingCard from "./components/LoadingCard";
 import UserDashboard from "./components/UserDashboard";
 import AuthModal from "./components/AuthModal";
+import UserIcon from "./components/icons/UserIcon";
 import './App.css';
 
 const API_URL =
@@ -23,6 +24,7 @@ function AppContent() {
   const [activeTab, setActiveTab] = useState('actual');
   const [activeView, setActiveView] = useState('home'); // home, perfil, alertas
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authModalTab, setAuthModalTab] = useState('login'); // 'login' o 'register'
 
   useEffect(() => {
     fetch(API_URL)
@@ -40,6 +42,11 @@ function AppContent() {
     }
   }, [activeView, isAuthenticated]);
 
+  const openAuthModal = (tab = 'login') => {
+    setAuthModalTab(tab);
+    setShowAuthModal(true);
+  };
+
   const renderMainContent = () => {
     switch (activeView) {
       case 'perfil':
@@ -49,28 +56,41 @@ function AppContent() {
       case 'alertas':
         return (
           <div className="alerts-page">
-            <h1>🔔 Sistema de Alertas</h1>
-            <p>Configura cómo quieres recibir notificaciones sobre la calidad del aire.</p>
-            <div className="alert-info">
-              <h3>Tipos de Alertas Disponibles:</h3>
-              <ul>
-                <li><strong>Alertas Automáticas:</strong> Cuando PM2.5 &gt; 50 μg/m³</li>
-                <li><strong>Predicciones Diarias:</strong> Enviadas cada mañana a las 8:00</li>
-                <li><strong>Cambios Significativos:</strong> Cuando la calidad mejora o empeora bruscamente</li>
-              </ul>
-              {!isAuthenticated ? (
-                <div className="auth-required">
-                  <p><strong>📝 Para recibir alertas, necesitas registrarte:</strong></p>
-                  <button 
-                    className="register-btn"
-                    onClick={() => setShowAuthModal(true)}
-                  >
-                    Registrarse Gratis
-                  </button>
+            <div className="hero-section">
+              <h1>Sistema de Alertas</h1>
+              <p className="subtitle">Configura cómo quieres recibir notificaciones sobre la calidad del aire</p>
+            </div>
+            
+            <div className="alerts-card">
+              <div className="alert-content">
+                <div className="alert-types-section">
+                  <h3>Tipos de Alertas Disponibles:</h3>
+                  <ul className="alert-types-list">
+                    <li><strong>Alertas Automáticas:</strong> Cuando PM2.5 &gt; 50 μg/m³</li>
+                    <li><strong>Predicciones Diarias:</strong> Enviadas cada mañana a las 8:00</li>
+                    <li><strong>Cambios Significativos:</strong> Cuando la calidad mejora o empeora bruscamente</li>
+                  </ul>
                 </div>
-              ) : (
-                <p>Puedes configurar tus preferencias en tu perfil.</p>
-              )}
+
+                {!isAuthenticated ? (
+                  <div className="auth-required-card">
+                    <div className="auth-header">
+                      <UserIcon size={20} />
+                      <strong>Para recibir alertas, necesitas registrarte:</strong>
+                    </div>
+                    <button 
+                      className="register-btn"
+                      onClick={() => openAuthModal('register')}
+                    >
+                      Registrarse Gratis
+                    </button>
+                  </div>
+                ) : (
+                  <div className="authenticated-message">
+                    <p>Puedes configurar tus preferencias en tu perfil.</p>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         );
@@ -109,7 +129,7 @@ function AppContent() {
 
               <div className="sidebar">
                 <InfoSection />
-                <UpdatesSection />
+                {/* <UpdatesSection /> */} {/* Comentado */}
               </div>
             </div>
           </>
@@ -122,7 +142,9 @@ function AppContent() {
       <Header 
         activeView={activeView} 
         setActiveView={setActiveView}
-        onAuthModalOpen={() => setShowAuthModal(true)}
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        onAuthModalOpen={() => openAuthModal('login')}
       />
       
       <main className="main-content">
@@ -135,6 +157,7 @@ function AppContent() {
       <AuthModal 
         isOpen={showAuthModal}
         onClose={() => setShowAuthModal(false)}
+        initialTab={authModalTab}
       />
     </div>
   );

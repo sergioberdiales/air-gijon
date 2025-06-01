@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 
 function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
@@ -8,6 +8,17 @@ function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
   const [success, setSuccess] = useState('');
   
   const { login, register } = useAuth();
+
+  // Actualizar la pestaña activa cuando cambie initialTab
+  useEffect(() => {
+    if (isOpen) {
+      setActiveTab(initialTab);
+      // Limpiar el formulario cuando se abre el modal con una pestaña específica
+      setFormData({ email: '', password: '', name: '', confirmPassword: '' });
+      setError('');
+      setSuccess('');
+    }
+  }, [initialTab, isOpen]);
 
   // Estados del formulario
   const [formData, setFormData] = useState({

@@ -198,24 +198,30 @@ async function createPromediosDiariosTable() {
   const createTableSQL = `
     CREATE TABLE IF NOT EXISTS promedios_diarios (
       id SERIAL PRIMARY KEY,
-      fecha DATE NOT NULL UNIQUE,
-      pm25_promedio REAL,
-      pm10_promedio REAL,
-      tipo TEXT NOT NULL,
-      confianza REAL,
-      pm25_estado TEXT,
-      pm10_estado TEXT,
+      fecha DATE NOT NULL,
+      parametro VARCHAR(20) NOT NULL,
+      valor REAL,
+      estado TEXT, -- Calculado a partir del valor y parámetro
       source TEXT DEFAULT 'calculated' NOT NULL,
-      algoritmo TEXT,
-      datos_utilizados INTEGER,
       detalles TEXT,
       created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-      updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(fecha, parametro, source) -- Clave única para un dato, de una fuente, para un parámetro en una fecha
     );
   `;
   
-  await pool.query(createTableSQL);
-  console.log('✅ Tabla promedios_diarios creada/actualizada correctamente');
+  try {
+    if (process.env.NODE_ENV === 'development') {
+      const dropTableSQL = `DROP TABLE IF EXISTS promedios_diarios CASCADE;`;
+      await pool.query(dropTableSQL);
+      console.log('🗑️ Tabla promedios_diarios eliminada (si existía, solo en desarrollo).');
+    }
+    await pool.query(createTableSQL);
+    console.log('✅ Tabla promedios_diarios creada/actualizada correctamente (nueva estructura parametro/valor).');
+  } catch (error) {
+    console.error('❌ Error gestionando la tabla promedios_diarios:', error);
+    throw error;
+  }
 }
 
 async function createHistoricalIndexes() {
@@ -234,65 +240,74 @@ async function createHistoricalIndexes() {
 
 async function createDailyAveragesIndexes() {
   const indexes = [
-    'CREATE INDEX IF NOT EXISTS idx_promedios_fecha ON promedios_diarios(fecha DESC);',
-    'CREATE INDEX IF NOT EXISTS idx_promedios_source ON promedios_diarios(source);',
-    'CREATE INDEX IF NOT EXISTS idx_promedios_source_fecha ON promedios_diarios(source, fecha DESC);'
+    'CREATE INDEX IF NOT EXISTS idx_promedios_fecha_parametro ON promedios_diarios(fecha DESC, parametro);',
+    'CREATE INDEX IF NOT EXISTS idx_promedios_source_fecha_parametro ON promedios_diarios(source, fecha DESC, parametro);'
   ];
   
   for (const indexSQL of indexes) {
     await pool.query(indexSQL);
   }
-  console.log('✅ Índices para promedios diarios creados');
+  console.log('✅ Índices para promedios diarios creados (nueva estructura).');
 }
 
-async function getUltimosPromediosExcluyendoHoy() {
+async function getUltimosPromediosExcluyendoHoy(parametro, limite = 10) {
   const query = `
-    SELECT * FROM promedios_diarios
-    WHERE fecha < CURRENT_DATE
+    SELECT fecha, parametro, valor, estado, source, detalles 
+    FROM promedios_diarios
+    WHERE fecha < CURRENT_DATE AND parametro = $1
     ORDER BY fecha DESC
-    LIMIT 10;
+    LIMIT $2;
   `;
-  const result = await pool.query(query);
+  const result = await pool.query(query, [parametro, limite]);
   return result.rows;
 }
 
-async function getPromedioDiarioPorFecha(fecha) {
+async function getPromedioDiarioPorFecha(fecha, parametro) {
   const query = `
-    SELECT * FROM promedios_diarios
-    WHERE fecha = $1;
+    SELECT fecha, parametro, valor, estado, source, detalles 
+    FROM promedios_diarios
+    WHERE fecha = $1 AND parametro = $2;
   `;
-  const result = await pool.query(query, [fecha]);
-  return result.rows[0];
+  // Podría haber múltiples entradas si hay diferentes 'source', aquí se tomaría la primera que encuentre.
+  // Si se necesita discriminar por source, la consulta o la lógica deberían manejarlo.
+  const result = await pool.query(query, [fecha, parametro]);
+  return result.rows[0]; // Devuelve el primer resultado o undefined
 }
 
-async function upsertPromedioDiario(fecha, pm25Promedio, pm10Promedio, tipo, confianza = null, source = 'calculated') {
-    const { getEstadoPM25, getEstadoPM10 } = require('./utils');
-    const pm25_estado = pm25Promedio !== null ? getEstadoPM25(pm25Promedio) : null;
-    const pm10_estado = pm10Promedio !== null ? getEstadoPM10(pm10Promedio) : null;
+async function upsertPromedioDiario(fecha, parametro, valor, source = 'calculated', detalles = null) {
+    // Asumimos que existe una función getEstadoContaminante en utils.js que toma (parametro, valor)
+    // Por ahora, para PM2.5, usamos la existente. Si es otro parametro, el estado será null/desconocido.
+    // TODO: Generalizar getEstadoContaminante en utils.js
+    const { getEstadoPM25, getEstadoPM10 } = require('./utils'); // Ambas funciones ya existen
+    let estado = null;
+    if (parametro === 'pm25' && valor !== null) {
+        estado = getEstadoPM25(valor);
+    } else if (parametro === 'pm10' && valor !== null) {
+        estado = getEstadoPM10(valor);
+    } else if (valor === null) {
+        estado = 'Sin datos';
+    } else {
+        estado = 'Desconocido'; // Para otros parámetros no contemplados aun
+    }
+
 
     const query = `
-        INSERT INTO promedios_diarios (fecha, pm25_promedio, pm10_promedio, tipo, confianza, pm25_estado, pm10_estado, source)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-        ON CONFLICT (fecha) DO UPDATE SET
-            pm25_promedio = EXCLUDED.pm25_promedio,
-            pm10_promedio = EXCLUDED.pm10_promedio,
-            tipo = EXCLUDED.tipo,
-            confianza = EXCLUDED.confianza,
-            pm25_estado = EXCLUDED.pm25_estado,
-            pm10_estado = EXCLUDED.pm10_estado,
-            source = EXCLUDED.source,
+        INSERT INTO promedios_diarios (fecha, parametro, valor, estado, source, detalles)
+        VALUES ($1, $2, $3, $4, $5, $6)
+        ON CONFLICT (fecha, parametro, source) DO UPDATE SET
+            valor = EXCLUDED.valor,
+            estado = EXCLUDED.estado,
+            detalles = EXCLUDED.detalles,
             updated_at = CURRENT_TIMESTAMP
         RETURNING *;
     `;
 
-    const values = [fecha, pm25Promedio, pm10Promedio, tipo, confianza, pm25_estado, pm10_estado, source];
-    // console.log('Upserting promedio diario:', values);
+    const values = [fecha, parametro, valor, estado, source, detalles];
     try {
         const result = await pool.query(query, values);
-        // console.log('Upserted promedio diario:', result.rows[0]);
         return result.rows[0];
     } catch (error) {
-        console.error('Error in upsertPromedioDiario:', error);
+        console.error('Error in upsertPromedioDiario (nueva estructura):', error);
         console.error('Query:', query);
         console.error('Values:', values);
         throw error;
@@ -306,9 +321,8 @@ async function upsertPromedioDiario(fecha, pm25Promedio, pm10Promedio, tipo, con
  * @returns {Promise<object>} El registro insertado o actualizado.
  */
 async function upsertWaqiDailyAverage(fechaString, pm25Average) {
-    // PM10 no viene de esta fuente, así que se pasa null.
-    // La lógica de upsertPromedioDiario se encargará de actualizar pm10_promedio y pm10_estado a null.
-    return upsertPromedioDiario(fechaString, pm25Average, null, 'historico', null, 'WAQI');
+    // WAQI solo nos da PM2.5 para este endpoint específico de "average"
+    return upsertPromedioDiario(fechaString, 'pm25', pm25Average, 'WAQI_daily_avg');
 }
 
 /**
@@ -397,51 +411,54 @@ async function getHourlyReadingsForDate(fechaStr) {
  *        Cada objeto debe tener: { fecha: string, pm25Promedio: number, tipo: 'prediccion', confianza: number, source: string }
  * @param {string} contaminante - El tipo de contaminante ('pm25' o 'pm10'). Actualmente enfocado en pm25.
  */
-async function insertarPredicciones(predicciones, contaminante = 'pm25') {
-    if (!predicciones || predicciones.length === 0) {
-        console.log('No hay predicciones para insertar.');
-        return;
-    }
-    // console.log(`Insertando ${predicciones.length} predicciones para ${contaminante}...`);
+// async function insertarPredicciones(predicciones, contaminante = 'pm25') {
+//     if (!predicciones || predicciones.length === 0) {
+//         console.log('No hay predicciones para insertar.');
+//         return;
+//     }
+//     // console.log(`Insertando ${predicciones.length} predicciones para ${contaminante}...`);
 
-    const client = await pool.connect();
-    try {
-        await client.query('BEGIN');
-        for (const pred of predicciones) {
-            if (contaminante === 'pm25') {
-                // Para PM2.5, pm10Promedio es null
-                await upsertPromedioDiario(
-                    pred.fecha, 
-                    pred.pm25Promedio, 
-                    null, // pm10Promedio
-                    'prediccion', 
-                    pred.confianza,
-                    pred.source || 'model_default' // Asegurar que source tiene un valor
-                );
-            } else if (contaminante === 'pm10') {
-                // Para PM10, pm25Promedio es null (si el modelo solo predice un contaminante a la vez)
-                 await upsertPromedioDiario(
-                    pred.fecha, 
-                    null, // pm25Promedio
-                    pred.pm10Promedio, // Asumiendo que el objeto pred tiene pm10Promedio si contaminante es 'pm10'
-                    'prediccion', 
-                    pred.confianza,
-                    pred.source || 'model_default'
-                );
-            } else {
-                console.warn(`Contaminante no soportado para inserción de predicciones: ${contaminante}`);
-            }
-        }
-        await client.query('COMMIT');
-        console.log(`✅ ${predicciones.length} predicciones para ${contaminante} insertadas/actualizadas.`);
-    } catch (error) {
-        await client.query('ROLLBACK');
-        console.error('Error insertando predicciones:', error);
-        throw error;
-    } finally {
-        client.release();
-    }
-}
+//     const client = await pool.connect();
+//     try {
+//         await client.query('BEGIN');
+//         for (const pred of predicciones) {
+//             // ESTA LÓGICA ES INCORRECTA. Las predicciones van a la tabla 'predicciones'.
+//             // La tabla 'promedios_diarios' es solo para datos históricos consolidados.
+//             // Se debe refactorizar el proceso que genera y guarda predicciones.
+//             // Por ahora, comentamos esta función para evitar su uso incorrecto.
+            
+//             // if (contaminante === 'pm25') {
+//             //     await upsertPromedioDiario(
+//             //         pred.fecha, 
+//             //         'pm25', // parametro
+//             //         pred.pm25Promedio, // valor
+//             //         pred.source || 'model_default_pred', // source (distinguir de históricos)
+//             //         JSON.stringify({ confianza: pred.confianza, tipo_original: 'prediccion' }) // detalles
+//             //     );
+//             // } else if (contaminante === 'pm10') {
+//             //      await upsertPromedioDiario(
+//             //         pred.fecha, 
+//             //         'pm10', // parametro
+//             //         pred.pm10Promedio, // valor
+//             //         pred.source || 'model_default_pred',  // source
+//             //         JSON.stringify({ confianza: pred.confianza, tipo_original: 'prediccion' }) // detalles
+//             //     );
+//             // } else {
+//             //     console.warn(`Contaminante no soportado para inserción de predicciones: ${contaminante}`);
+//             // }
+//         }
+//         await client.query('COMMIT');
+//         // console.log(`✅ ${predicciones.length} predicciones para ${contaminante} insertadas/actualizadas en promedios_diarios (AHORA COMENTADO Y DEBE REVISARSE).`);
+//         console.warn("La función insertarPredicciones (que insertaba en promedios_diarios) ha sido comentada debido a la refactorización. Las predicciones deben ir a la tabla 'predicciones'.");
+
+//     } catch (error) {
+//         await client.query('ROLLBACK');
+//         console.error('Error insertando predicciones (AHORA COMENTADO):', error);
+//         throw error;
+//     } finally {
+//         client.release();
+//     }
+// }
 
 // Crear tabla de usuarios
 async function createUsersTable() {
@@ -745,15 +762,15 @@ async function logNotificationSent(userId, type, email, subject, content, status
 }
 
 // Función para obtener promedios diarios anteriores
-async function getPromediosDiariosAnteriores(fechaReferencia, diasAtras, contaminante = 'pm25') {
-  const result = await pool.query(`
-    SELECT fecha, promedio_pm10 as pm25_promedio, tipo, confianza, source
+async function getPromediosDiariosAnteriores(fechaReferencia, diasAtras, parametro = 'pm25') {
+  const query = `
+    SELECT fecha, parametro, valor, estado, source, detalles
     FROM promedios_diarios
-    WHERE fecha < $1
+    WHERE fecha < $1 AND parametro = $2
     ORDER BY fecha DESC
-    LIMIT $2
-  `, [fechaReferencia, diasAtras]);
-  
+    LIMIT $3
+  `;
+  const result = await pool.query(query, [fechaReferencia, parametro, diasAtras]);
   return result.rows;
 }
 
@@ -770,7 +787,7 @@ module.exports = {
     upsertWaqiDailyAverage,
     batchInsertHourlyWaqiReadings,
     getHourlyReadingsForDate,
-    insertarPredicciones,
+    // insertarPredicciones, // Comentada temporalmente
     // Nuevas funciones de usuarios
     createUser,
     getUserByEmail,
