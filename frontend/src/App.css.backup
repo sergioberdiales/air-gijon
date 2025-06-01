@@ -1074,7 +1074,6 @@ body {
   opacity: 0.6;
 }
 
-/*
 .legend-line {
   width: 20px;
   height: 2px;
@@ -1148,7 +1147,6 @@ body {
     transparent 6px
   );
 }
-*/
 
 .prediction-info {
   padding: 1rem 1.5rem;

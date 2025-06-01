@@ -9,8 +9,10 @@ const DIAS_HISTORICOS_PARA_PROMEDIO_AYER = 7; // Número de días históricos pa
 const MAIN_TIMEZONE = 'Europe/Madrid'; // Usar una constante consistente
 
 /**
+ * TEMPORALMENTE COMENTADO: Esta función usa la columna "tipo" que fue eliminada
  * Calcula promedios diarios históricos desde mediciones_api
  */
+/*
 async function calcularPromediosHistoricos() {
   try {
     console.log('📊 Calculando promedios diarios históricos...');
@@ -48,6 +50,7 @@ async function calcularPromediosHistoricos() {
     throw error;
   }
 }
+*/
 
 /**
  * Valida si hay suficientes datos del día anterior para hacer predicciones
@@ -131,8 +134,10 @@ async function validarDatosAyer(fechaAyer) {
 }
 
 /**
+ * TEMPORALMENTE COMENTADO: Esta función usa la columna "tipo" que fue eliminada
  * Calcula predicciones usando el algoritmo ponderado semanal
  */
+/*
 async function calcularPredicciones() {
   try {
     console.log('🔮 Calculando predicciones...');
@@ -160,10 +165,13 @@ async function calcularPredicciones() {
     throw error;
   }
 }
+*/
 
 /**
+ * TEMPORALMENTE COMENTADO: Esta función usa la columna "tipo" que fue eliminada
  * Calcula predicción para un día específico
  */
+/*
 async function calcularPrediccionDia(fecha, valorDiaAnterior = null) {
   try {
     const fechaStr = fecha.toISOString().split('T')[0];
@@ -279,10 +287,13 @@ async function calcularPrediccionDia(fecha, valorDiaAnterior = null) {
     throw error;
   }
 }
+*/
 
 /**
+ * TEMPORALMENTE COMENTADO: Esta función usa la columna "tipo" que fue eliminada
  * Guarda una predicción en la base de datos
  */
+/*
 async function guardarPrediccion(fecha, prediccion) {
   try {
     const fechaStr = fecha.toISOString().split('T')[0];
@@ -306,10 +317,13 @@ async function guardarPrediccion(fecha, prediccion) {
     throw error;
   }
 }
+*/
 
 /**
  * Obtiene datos de evolución de PM2.5 (últimos 5 días históricos + predicciones para hoy y mañana).
+ * COMENTADO TEMPORALMENTE: Esta función usa la columna "tipo" que no existe en la nueva estructura de promedios_diarios
  */
+/*
 async function obtenerEvolucion() {
   try {
     // Usar un enfoque más simple para las fechas
@@ -355,6 +369,7 @@ async function obtenerEvolucion() {
     throw error;
   }
 }
+*/
 
 /**
  * Proceso completo de actualización diaria
@@ -517,6 +532,7 @@ function calcularPrediccionDia(fechaPrediccion, valorAyer, valorHace7Dias) {
  * @param {{fecha: string, valor: number}} promedioAyerInfo - Info del promedio de PM2.5 de ayer.
  * @param {Array<object>} datosHistoricos - Array de promedios diarios históricos (para obtener valor de hace 7 días).
  */
+/* TEMPORALMENTE COMENTADO: Esta función usa la estructura legacy con "tipo"
 async function calcularPredicciones(promedioAyerInfo, datosHistoricos) {
     if (!promedioAyerInfo || promedioAyerInfo.valor === null) {
         console.error('Promedio de ayer no disponible, no se pueden generar predicciones.');
@@ -570,14 +586,17 @@ async function calcularPredicciones(promedioAyerInfo, datosHistoricos) {
     console.log('Predicciones PM2.5 generadas:', prediccionesParaGuardar);
     await insertarPredicciones(prediccionesParaGuardar, 'pm25'); // Modificar insertarPredicciones para que acepte el tipo de contaminante
 }
+*/
 
 module.exports = {
-  calcularPromediosHistoricos,
-  calcularPredicciones,
-  obtenerEvolucion,
+  // calcularPromediosHistoricos, // COMENTADO: usa columna "tipo" eliminada
+  // calcularPredicciones, // COMENTADO: usa columna "tipo" eliminada  
+  // obtenerEvolucion, // COMENTADO: usa columna "tipo" eliminada
   actualizacionDiaria,
   runDailyUpdateAndPredictions,
   obtenerMejorPromedioAyer,
-  calcularPrediccionDia,
-  calcularPredicciones
+  // calcularPrediccionDia, // COMENTADO: usa columna "tipo" eliminada
+  // calcularPredicciones // COMENTADO: usa columna "tipo" eliminada (función duplicada)
+  validarDatosAyer,
+  calcularPromedioPm25AyerDesdeHorarios
 }; 

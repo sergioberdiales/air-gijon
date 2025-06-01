@@ -57,7 +57,11 @@ function Header({ activeView, setActiveView, activeTab, setActiveTab, onAuthModa
         <div className="container">
           <div className="header-content">
             <div className="logo">
-              <span className="logo-text">Air Gijón</span>
+              <img 
+                src="/logos/air_gijon_logo_v1.png" 
+                alt="Air Gijón" 
+                className="logo-image"
+              />
             </div>
             
             <nav className={`nav ${isMobile ? 'bottom-nav' : ''}`}>
