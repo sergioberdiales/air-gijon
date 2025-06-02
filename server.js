@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const { pool, createTables, createIndexes, testConnection } = require('./db');
 const { ejecutarMigracionEstructuraPromedios } = require('./migrate_promedios_estructura');
+const { verifyEmailConfig } = require('./email_service');
 
 const app = express();
 
@@ -423,7 +424,10 @@ async function initializeServer() {
     // Probar conexión básica
     await testConnection();
     console.log('✅ Conexión a BD verificada');
-    
+
+    // Verificar configuración de email al inicio
+    await verifyEmailConfig(); 
+
     // Intentar crear tablas solo si no existen
     try {
       await createTables();

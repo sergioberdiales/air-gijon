@@ -313,7 +313,7 @@ function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
                 type="button" 
                 className="link-btn" 
                 onClick={() => setActiveView('forgotPassword')}
-                style={{ marginTop: '15px', textAlign: 'center', display: 'block', width: '100%' }}
+                style={{ marginTop: '15px', textAlign: 'center', display: 'block', width: '100%', fontSize: '0.9em' }}
               >
                 ¿Olvidaste tu contraseña?
               </button>
