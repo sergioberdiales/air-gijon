@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import LineChartIcon from './icons/LineChartIcon';
+import { config } from '../config'; // Importar config
 
-const API_URL = import.meta.env.PROD
-  ? "https://air-gijon.onrender.com/api/air/constitucion/evolucion"
-  : "/api/air/constitucion/evolucion";
+// Usar API_BASE y API_ENDPOINTS de config
+const API_URL_EVOLUTION = `${config.API_BASE}${config.API_ENDPOINTS.EVOLUTION}`;
 
 function EvolutionCard() {
   const [data, setData] = useState(null);
@@ -11,7 +11,7 @@ function EvolutionCard() {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    fetch(API_URL)
+    fetch(API_URL_EVOLUTION)
       .then(res => {
         if (!res.ok) throw new Error('Error al obtener datos');
         return res.json();

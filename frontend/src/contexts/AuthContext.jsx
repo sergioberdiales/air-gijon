@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react';
+import { config } from '../config'; // Importar config
 
 const AuthContext = createContext();
 
@@ -15,9 +16,8 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [token, setToken] = useState(() => localStorage.getItem('authToken'));
 
-  const API_BASE = import.meta.env.PROD 
-    ? 'https://air-gijon.onrender.com'
-    : 'http://localhost:3000';
+  // Usar API_BASE desde config
+  const API_BASE = config.API_BASE;
 
   // Verificar si hay un token válido al cargar
   useEffect(() => {

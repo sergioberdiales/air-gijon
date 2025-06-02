@@ -1,7 +1,7 @@
 // Configuración de la aplicación
 export const config = {
   API_BASE: import.meta.env.PROD 
-    ? 'https://air-gijon.onrender.com'
+    ? 'https://air-gijon-backend.onrender.com'
     : 'http://localhost:3000',
   
   API_ENDPOINTS: {

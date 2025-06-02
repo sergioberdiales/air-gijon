@@ -10,12 +10,11 @@ import LoadingCard from "./components/LoadingCard";
 import UserDashboard from "./components/UserDashboard";
 import AuthModal from "./components/AuthModal";
 import UserIcon from "./components/icons/UserIcon";
+import { config } from "./config"; // Importar config
 import './App.css';
 
-const API_URL =
-  import.meta.env.PROD
-    ? "https://air-gijon.onrender.com/api/air/constitucion/pm25"
-    : "/api/air/constitucion/pm25";
+// Usar API_BASE y API_ENDPOINTS de config
+const API_URL_PM25 = `${config.API_BASE}${config.API_ENDPOINTS.AIR_QUALITY}`;
 
 function AppContent() {
   const { isAuthenticated } = useAuth();
@@ -27,7 +26,7 @@ function AppContent() {
   const [authModalTab, setAuthModalTab] = useState('login'); // 'login' o 'register'
 
   useEffect(() => {
-    fetch(API_URL)
+    fetch(API_URL_PM25)
       .then(res => res.json())
       .then(setData)
       .catch(() => setData(null))
