@@ -467,69 +467,54 @@ async function createUsersTable() {
       id SERIAL PRIMARY KEY,
       email VARCHAR(255) UNIQUE NOT NULL,
       password_hash VARCHAR(255) NOT NULL,
-      role VARCHAR(50) DEFAULT 'user', -- 'user', 'admin', 'external'
-      name VARCHAR(100),
-      preferences JSONB,
-      email_notifications_active BOOLEAN DEFAULT false,
-      is_confirmed BOOLEAN DEFAULT false,
-      confirmation_token TEXT,
-      confirmation_token_expires_at TIMESTAMP WITH TIME ZONE,
+      role VARCHAR(50) DEFAULT 'external',
+      name VARCHAR(255),
       created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-      updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+      email_notifications_active BOOLEAN DEFAULT TRUE, -- Para alertas de calidad del aire
+      daily_predictions BOOLEAN DEFAULT TRUE, -- Para resumen diario de predicciones
+      is_confirmed BOOLEAN DEFAULT FALSE,
+      confirmation_token VARCHAR(255),
+      confirmation_token_expires_at TIMESTAMP WITH TIME ZONE,
+      last_login TIMESTAMP WITH TIME ZONE
     );
   `;
-  
-  await pool.query(createTableSQL);
-  console.log('✅ Tabla users creada (si no existía)');
+  try {
+    await pool.query(createTableSQL);
+    console.log('✅ Tabla users creada (si no existía)');
 
-  // Asegurar que la columna email_notifications_active exista
-  try {
-    await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS email_notifications_active BOOLEAN DEFAULT false');
-    console.log('✅ Columna email_notifications_active asegurada en tabla users.');
-  } catch (err) {
-    if (err.code === '42701') { // column already exists
-      console.log('ℹ️ Columna email_notifications_active ya existía.');
-    } else {
-      console.error('Error asegurando columna email_notifications_active:', err);
-    }
-  }
-  
-  // Asegurar las nuevas columnas de confirmación de correo
-  try {
-    await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS is_confirmed BOOLEAN DEFAULT false');
+    // Columnas para confirmación de correo (ya existentes)
+    await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_confirmed BOOLEAN DEFAULT FALSE;");
     console.log('✅ Columna is_confirmed asegurada en tabla users.');
-  } catch (err) { /* Silenciar error si ya existe */ }
-  
-  try {
-    await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS confirmation_token TEXT');
+    await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS confirmation_token VARCHAR(255);");
     console.log('✅ Columna confirmation_token asegurada en tabla users.');
-  } catch (err) { /* Silenciar error si ya existe */ }
-
-  try {
-    await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS confirmation_token_expires_at TIMESTAMP WITH TIME ZONE');
+    await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS confirmation_token_expires_at TIMESTAMP WITH TIME ZONE;");
     console.log('✅ Columna confirmation_token_expires_at asegurada en tabla users.');
-  } catch (err) { /* Silenciar error si ya existe */ }
+    
+    // Columnas para preferencias de notificación (ya existentes)
+    await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS email_alerts BOOLEAN DEFAULT TRUE;");
+    await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS daily_predictions BOOLEAN DEFAULT TRUE;");
 
-  // Trigger para updated_at
-  const triggerFunctionSQL = `
-    CREATE OR REPLACE FUNCTION update_updated_at_column()
-    RETURNS TRIGGER AS $$
-    BEGIN
-       NEW.updated_at = NOW();
-       RETURN NEW;
-    END;
-    $$ language 'plpgsql';
-  `;
-  await pool.query(triggerFunctionSQL);
+    // Nuevas columnas para reseteo de contraseña
+    await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_password_token VARCHAR(255);");
+    console.log('✅ Columna reset_password_token asegurada en tabla users.');
+    await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_password_token_expires_at TIMESTAMP WITH TIME ZONE;");
+    console.log('✅ Columna reset_password_token_expires_at asegurada en tabla users.');
 
-  const triggerSQL = `
-    DROP TRIGGER IF EXISTS update_users_updated_at ON users;
-    CREATE TRIGGER update_users_updated_at
-    BEFORE UPDATE ON users
-    FOR EACH ROW
-    EXECUTE FUNCTION update_updated_at_column();
-  `;
-  await pool.query(triggerSQL);
+
+    // Trigger para updated_at (ya existente)
+    await pool.query(`
+      DROP TRIGGER IF EXISTS update_user_updated_at ON users;
+      CREATE TRIGGER update_user_updated_at
+        BEFORE UPDATE ON users
+        FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    `);
+    console.log('✅ Trigger updated_at para tabla users asegurado.');
+
+  } catch (error) {
+    console.error('❌ Error creando/modificando tabla users:', error);
+    throw error;
+  }
 }
 
 // Crear tabla de métricas de predicciones
@@ -790,6 +775,57 @@ async function deleteUserById(userId) {
   }
 }
 
+// Funciones para el reseteo de contraseña
+async function setResetPasswordToken(userId, token, expiresAt) {
+  try {
+    const result = await pool.query(
+      'UPDATE users SET reset_password_token = $1, reset_password_token_expires_at = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3 RETURNING id, email, name, reset_password_token_expires_at',
+      [token, expiresAt, userId]
+    );
+    if (result.rows.length === 0) {
+      return null;
+    }
+    console.log(`Token de reseteo de contraseña establecido para el usuario ID: ${userId}`);
+    return result.rows[0];
+  } catch (error) {
+    console.error('Error estableciendo el token de reseteo de contraseña:', error);
+    throw error;
+  }
+}
+
+async function getUserByValidResetToken(token) {
+  try {
+    const result = await pool.query(
+      'SELECT * FROM users WHERE reset_password_token = $1 AND reset_password_token_expires_at > NOW()',
+      [token]
+    );
+    if (result.rows.length === 0) {
+      return null; // Token no encontrado o expirado
+    }
+    return result.rows[0];
+  } catch (error) {
+    console.error('Error obteniendo usuario por token de reseteo válido:', error);
+    throw error;
+  }
+}
+
+async function updateUserPassword(userId, newPasswordHash) {
+  try {
+    const result = await pool.query(
+      'UPDATE users SET password_hash = $1, reset_password_token = NULL, reset_password_token_expires_at = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING id, email, name',
+      [newPasswordHash, userId]
+    );
+    if (result.rows.length === 0) {
+      return null;
+    }
+    console.log(`Contraseña actualizada para el usuario ID: ${userId}. Token de reseteo limpiado.`);
+    return result.rows[0];
+  } catch (error) {
+    console.error('Error actualizando la contraseña del usuario:', error);
+    throw error;
+  }
+}
+
 // Exportar la conexión y las funciones
 module.exports = {
     pool,
@@ -818,7 +854,11 @@ module.exports = {
     getPromediosDiariosAnteriores,
     getUserByConfirmationToken,
     confirmUserEmail,
-    deleteUserById
+    deleteUserById,
+    // Nuevas funciones para reseteo de contraseña
+    setResetPasswordToken,
+    getUserByValidResetToken,
+    updateUserPassword
 };
 
 // Solo ejecutar la inicialización si no estamos en un script de actualización

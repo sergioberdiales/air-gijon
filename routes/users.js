@@ -1,5 +1,7 @@
 const express = require('express');
 const router = express.Router();
+const bcrypt = require('bcryptjs'); // Para hashear la nueva contraseña
+const crypto = require('crypto'); // Para generar el token de reseteo
 const { 
   registerUser, 
   loginUser, 
@@ -15,11 +17,15 @@ const {
   getPredictionMetrics, 
   getModelAccuracyStats,
   getUserById,
+  getUserByEmail,
   getUserByConfirmationToken,
   confirmUserEmail,
-  deleteUserById
+  deleteUserById,
+  setResetPasswordToken,
+  getUserByValidResetToken,
+  updateUserPassword
 } = require('../db');
-const { sendConfirmationEmail, sendWelcomeEmail } = require('../email_service');
+const { sendConfirmationEmail, sendWelcomeEmail, sendPasswordResetEmail } = require('../email_service');
 
 // --- Plantillas HTML para respuestas de confirmación ---
 
@@ -438,6 +444,78 @@ router.delete('/me', authenticateToken, async (req, res) => {
       success: false,
       error: 'Error interno del servidor al intentar eliminar la cuenta.'
     });
+  }
+});
+
+// --- Rutas para Reseteo de Contraseña ---
+
+// POST /api/users/forgot-password - Solicitar reseteo de contraseña
+router.post('/forgot-password', async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ success: false, error: 'Email es requerido.' });
+    }
+
+    const user = await getUserByEmail(email);
+
+    if (user && user.is_confirmed) {
+      const resetToken = crypto.randomBytes(32).toString('hex');
+      const expiresAt = new Date(Date.now() + 3600000); // 1 hora
+
+      await setResetPasswordToken(user.id, resetToken, expiresAt);
+
+      const resetLink = `${process.env.FRONTEND_URL || 'https://air-gijon-front-end.onrender.com'}/reset-password?token=${resetToken}`;
+      
+      sendPasswordResetEmail(user.email, user.name, resetLink, user.id)
+        .catch(err => {
+          console.error('Error enviando email de reseteo a ' + user.email + ': ', err);
+        });
+    } else {
+      console.log(`Solicitud de reseteo para email no encontrado o no confirmado: ${email}`);
+    }
+
+    res.json({ success: true, message: 'Si tu correo está registrado y confirmado, recibirás un enlace para restablecer tu contraseña.' });
+
+  } catch (error) {
+    console.error('Error en /forgot-password:', error);
+    res.status(500).json({ success: false, error: 'Error interno del servidor.' });
+  }
+});
+
+// POST /api/users/reset-password/:token - Restablecer la contraseña
+router.post('/reset-password/:token', async (req, res) => {
+  try {
+    const { token } = req.params;
+    const { newPassword } = req.body;
+
+    if (!newPassword || newPassword.length < 6) { // Validación básica de contraseña
+      return res.status(400).json({ success: false, error: 'La nueva contraseña debe tener al menos 6 caracteres.' });
+    }
+
+    const user = await getUserByValidResetToken(token);
+
+    if (!user) {
+      return res.status(400).json({ success: false, error: 'El token de reseteo no es válido o ha expirado.' });
+    }
+
+    const saltRounds = 10;
+    const newPasswordHash = await bcrypt.hash(newPassword, saltRounds);
+
+    await updateUserPassword(user.id, newPasswordHash);
+
+    // TODO: (Opcional) Enviar email de confirmación de cambio de contraseña
+    /*
+    sendPasswordChangedConfirmationEmail(user.email, user.name, user.id)
+      .catch(err => console.error(\`Error enviando email de confirmación de cambio de contraseña a ${user.email}: \`, err));
+    */
+    console.log(`🔒 Contraseña actualizada para ${user.email}`); // Temporal
+
+    res.json({ success: true, message: 'Contraseña actualizada correctamente. Ahora puedes iniciar sesión con tu nueva contraseña.' });
+
+  } catch (error) {
+    console.error('Error en /reset-password:', error);
+    res.status(500).json({ success: false, error: 'Error interno del servidor.' });
   }
 });
 

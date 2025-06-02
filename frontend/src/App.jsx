@@ -9,6 +9,7 @@ import InfoSection from "./components/InfoSection";
 import LoadingCard from "./components/LoadingCard";
 import UserDashboard from "./components/UserDashboard";
 import AuthModal from "./components/AuthModal";
+import ResetPasswordPage from "./components/ResetPasswordPage";
 import UserIcon from "./components/icons/UserIcon";
 import { config } from "./config"; // Importar config
 import './App.css';
@@ -21,9 +22,10 @@ function AppContent() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('actual');
-  const [activeView, setActiveView] = useState('home'); // home, perfil, alertas
+  const [activeView, setActiveView] = useState('home'); // home, perfil, alertas, resetPassword
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authModalTab, setAuthModalTab] = useState('login'); // 'login' o 'register'
+  const [resetPasswordToken, setResetPasswordToken] = useState(null);
 
   useEffect(() => {
     fetch(API_URL_PM25)
@@ -33,11 +35,27 @@ function AppContent() {
       .finally(() => setLoading(false));
   }, []);
 
+  // Detectar ruta de reseteo de contraseña
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const path = window.location.pathname;
+      const params = new URLSearchParams(window.location.search);
+      const token = params.get('token');
+
+      if (path === '/reset-password' && token) {
+        setResetPasswordToken(token);
+        setActiveView('resetPassword');
+        // Limpiar la URL para que el token no quede visible tras cargar la página
+        window.history.replaceState({}, document.title, '/reset-password');
+      }
+    }
+  }, []); // Ejecutar solo una vez al montar
+
   // Manejar intento de acceso a perfil sin autenticación
   useEffect(() => {
-    if (activeView === 'perfil' && !isAuthenticated) {
-      setShowAuthModal(true);
-      setActiveView('home'); // Redirigir a home
+    if (activeView === 'perfil' && !isAuthenticated && activeView !== 'resetPassword') {
+      setActiveView('home'); 
+      openAuthModal('login'); 
     }
   }, [activeView, isAuthenticated]);
 
@@ -46,10 +64,36 @@ function AppContent() {
     setShowAuthModal(true);
   };
 
+  const handlePasswordResetSuccess = () => {
+    setActiveView('home');
+    // Opcional: Mostrar mensaje global o abrir modal de login
+    // Para limpiar la URL completamente después del reseteo exitoso:
+    if (typeof window !== 'undefined' && window.location.pathname === '/reset-password') {
+        window.history.replaceState({}, document.title, '/'); 
+    }
+    // Considerar mostrar un mensaje de "Contraseña cambiada, por favor inicia sesión"
+    openAuthModal('login') // Abrir modal de login para que el usuario pueda ingresar con nueva contraseña.
+  };
+  
+  const handleShowLoginFromResetError = () => {
+    setActiveView('home');
+    openAuthModal('login');
+    if (typeof window !== 'undefined' && window.location.pathname === '/reset-password') {
+      window.history.replaceState({}, document.title, '/');
+    }
+  }
+
   const renderMainContent = () => {
     switch (activeView) {
+      case 'resetPassword':
+        return (
+          <ResetPasswordPage 
+            token={resetPasswordToken} 
+            onPasswordResetSuccess={handlePasswordResetSuccess} 
+            onShowLogin={handleShowLoginFromResetError}
+          />
+        );
       case 'perfil':
-        // Solo mostrar dashboard si está autenticado
         return isAuthenticated ? <UserDashboard /> : null;
       
       case 'alertas':
@@ -154,7 +198,7 @@ function AppContent() {
 
       {/* Modal de autenticación */}
       <AuthModal 
-        isOpen={showAuthModal}
+        isOpen={showAuthModal && activeView !== 'resetPassword'}
         onClose={() => setShowAuthModal(false)}
         initialTab={authModalTab}
       />

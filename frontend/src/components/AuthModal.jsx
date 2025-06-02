@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import './AuthModal.css';
+import { config } from '../config'; // Importar config para API_BASE
 
 function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
   const [activeTab, setActiveTab] = useState(initialTab);
+  const [activeView, setActiveView] = useState('auth');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -14,15 +16,18 @@ function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
   const [showConfirmationMessage, setShowConfirmationMessage] = useState(false);
   const [confirmationEmail, setConfirmationEmail] = useState('');
 
+  // Estado para el formulario de "olvidé contraseña"
+  const [forgotPasswordEmail, setForgotPasswordEmail] = useState('');
+
   // Actualizar la pestaña activa cuando cambie initialTab
   useEffect(() => {
     if (isOpen) {
+      setActiveView('auth');
       setActiveTab(initialTab);
-      // Limpiar el formulario cuando se abre el modal con una pestaña específica
       setFormData({ email: '', password: '', name: '', confirmPassword: '' });
+      setForgotPasswordEmail('');
       setError('');
       setSuccess('');
-      // Resetear el mensaje de confirmación al abrir/cambiar de pestaña
       setShowConfirmationMessage(false);
       setConfirmationEmail('');
     }
@@ -43,6 +48,35 @@ function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
     });
     // Limpiar errores al escribir
     if (error) setError('');
+  };
+
+  const handleForgotPasswordEmailChange = (e) => {
+    setForgotPasswordEmail(e.target.value);
+    if (error) setError('');
+  };
+
+  const handleForgotPasswordRequest = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    setSuccess('');
+    try {
+      const response = await fetch(`${config.API_BASE}/api/users/forgot-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: forgotPasswordEmail })
+      });
+      const data = await response.json();
+      if (response.ok && data.success) {
+        setSuccess(data.message || 'Si tu correo está registrado, recibirás un enlace para restablecer tu contraseña.');
+        setForgotPasswordEmail(''); // Limpiar campo tras éxito
+      } else {
+        setError(data.error || 'No se pudo procesar la solicitud. Inténtalo de nuevo.');
+      }
+    } catch (err) {
+      setError('Error de conexión al solicitar reseteo. Inténtalo más tarde.');
+    }
+    setLoading(false);
   };
 
   const handleSubmit = async (e) => {
@@ -104,22 +138,32 @@ function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
     }
   };
 
-  const switchTab = (tab) => {
+  const switchToAuthView = (tab = 'login') => {
+    setActiveView('auth');
     setActiveTab(tab);
     setError('');
     setSuccess('');
+    setForgotPasswordEmail('');
     setFormData({ email: '', password: '', name: '', confirmPassword: '' });
     setShowConfirmationMessage(false);
-    setConfirmationEmail('');
   };
 
   if (!isOpen) return null;
+
+  let modalTitle = '';
+  if (showConfirmationMessage) {
+    modalTitle = 'Revisa tu Correo';
+  } else if (activeView === 'forgotPassword') {
+    modalTitle = 'Restablecer Contraseña';
+  } else {
+    modalTitle = activeTab === 'login' ? 'Iniciar Sesión' : 'Crear Cuenta';
+  }
 
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="auth-modal" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>{showConfirmationMessage ? 'Revisa tu Correo' : (activeTab === 'login' ? 'Iniciar Sesión' : 'Crear Cuenta')}</h2>
+          <h2>{modalTitle}</h2>
           <button className="close-btn" onClick={onClose}>×</button>
         </div>
 
@@ -138,18 +182,49 @@ function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
               </button>
             </div>
           </div>
+        ) : activeView === 'forgotPassword' ? (
+          <form onSubmit={handleForgotPasswordRequest} className="auth-form">
+            <p style={{ marginBottom: '15px', textAlign: 'center', fontSize: '0.95em' }}>
+              Ingresa tu correo electrónico y te enviaremos un enlace para restablecer tu contraseña.
+            </p>
+            <div className="form-group">
+              <label htmlFor="forgot-email">Email</label>
+              <input
+                type="email"
+                id="forgot-email"
+                name="forgot-email"
+                value={forgotPasswordEmail}
+                onChange={handleForgotPasswordEmailChange}
+                required
+                placeholder="tu@email.com"
+              />
+            </div>
+            {error && <div className="error-message">⚠️ {error}</div>}
+            {success && <div className="success-message">✅ {success}</div>}
+            <button type="submit" className="submit-btn" disabled={loading}>
+              {loading ? 'Enviando...' : 'Enviar Enlace de Reseteo'}
+            </button>
+            <button 
+              type="button" 
+              className="link-btn" 
+              onClick={() => switchToAuthView('login')} 
+              style={{ marginTop: '15px' }}
+            >
+              &larr; Volver a Iniciar Sesión
+            </button>
+          </form>
         ) : (
           <>
             <div className="auth-tabs">
               <button 
                 className={`tab-btn ${activeTab === 'login' ? 'active' : ''}`}
-                onClick={() => switchTab('login')}
+                onClick={() => switchToAuthView('login')}
               >
                 Iniciar Sesión
               </button>
               <button 
                 className={`tab-btn ${activeTab === 'register' ? 'active' : ''}`}
-                onClick={() => switchTab('register')}
+                onClick={() => switchToAuthView('register')}
               >
                 Registrarse
               </button>
