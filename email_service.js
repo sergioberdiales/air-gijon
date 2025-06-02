@@ -25,7 +25,7 @@ async function verifyEmailConfig() {
 
 // Plantilla base para emails
 function getBaseEmailTemplate(title, content, footerText = '') {
-  const frontendBaseUrl = process.env.FRONTEND_URL || 'https://air-gijon-frontend.onrender.com'; // Asegúrate que esta sea la URL correcta de tu frontend en Render
+  const frontendBaseUrl = process.env.FRONTEND_URL || 'https://air-gijon-front-end.onrender.com';
   const logoUrl = `${frontendBaseUrl}/src/components/logos/air_gijon_logo_v1.png`;
 
   return `
@@ -157,7 +157,7 @@ function getBaseEmailTemplate(title, content, footerText = '') {
 // Plantilla para predicción diaria
 function getDailyPredictionTemplate(predictionData) {
   const { hoy, manana, fechaHoyFormat, fechaMananaFormat, userName } = predictionData;
-  const frontendBaseUrl = process.env.FRONTEND_URL || 'https://air-gijon-frontend.onrender.com';
+  const frontendBaseUrl = process.env.FRONTEND_URL || 'https://air-gijon-front-end.onrender.com';
   
   const estadoHoy = getEstadoPM25(hoy.valor);
   const estadoManana = getEstadoPM25(manana.valor);
@@ -210,7 +210,7 @@ function getDailyPredictionTemplate(predictionData) {
 function getAlertTemplate(alertData) {
   const { valor, estado, estacion, fecha, userName } = alertData;
   const color = getColorEstado(estado);
-  const frontendBaseUrl = process.env.FRONTEND_URL || 'https://air-gijon-frontend.onrender.com';
+  const frontendBaseUrl = process.env.FRONTEND_URL || 'https://air-gijon-front-end.onrender.com';
 
   const content = `
     <p>Hola ${userName || 'usuario'},</p>
@@ -246,7 +246,7 @@ function getAlertTemplate(alertData) {
 
 // Plantilla de bienvenida
 function getWelcomeTemplate(userName) {
-  const frontendBaseUrl = process.env.FRONTEND_URL || 'https://air-gijon-frontend.onrender.com';
+  const frontendBaseUrl = process.env.FRONTEND_URL || 'https://air-gijon-front-end.onrender.com';
   const content = `
     <h2>👋 ¡Te damos la bienvenida a Air Gijón!</h2>
     
@@ -280,7 +280,7 @@ function getWelcomeTemplate(userName) {
 
 // Plantilla para email de confirmación de cuenta
 function getConfirmationTemplate(userName, confirmationLink) {
-  const frontendBaseUrl = process.env.FRONTEND_URL || 'https://air-gijon-frontend.onrender.com';
+  const frontendBaseUrl = process.env.FRONTEND_URL || 'https://air-gijon-front-end.onrender.com';
   const content = `
     <h2>✅ Confirma tu Correo Electrónico</h2>
     

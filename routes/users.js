@@ -20,6 +20,51 @@ const {
 } = require('../db');
 const { sendConfirmationEmail, sendWelcomeEmail } = require('../email_service');
 
+// --- Plantillas HTML para respuestas de confirmación ---
+
+function getConfirmationResponsePageTemplate(title, message, userName, showLoginLink = false) {
+  const frontendUrl = process.env.FRONTEND_URL || 'https://air-gijon-front-end.onrender.com';
+  // Intentamos obtener la URL del logo de forma similar a los emails, pero con fallback simple si no está en env
+  const logoPath = '/src/components/logos/air_gijon_logo_v1.png'; // Ruta relativa en el frontend
+  const logoUrl = process.env.FRONTEND_URL ? `${frontendUrl}${logoPath}` : `https://air-gijon-front-end.onrender.com${logoPath}`;
+
+
+  let loginLinkHtml = '';
+  if (showLoginLink) {
+    loginLinkHtml = `<p style="margin-top: 30px; text-align: center;"><a href="${frontendUrl}" style="display: inline-block; padding: 12px 25px; background-color: #0075FF; color: white; text-decoration: none; border-radius: 6px; font-size: 16px;">Iniciar Sesión</a></p>`;
+  }
+
+  return `
+    <!DOCTYPE html>
+    <html lang="es">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Air Gijón - ${title}</title>
+      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+      <style>
+        body { font-family: "Inter", sans-serif; margin: 0; padding: 20px; background-color: #F0F7FF; display: flex; justify-content: center; align-items: center; min-height: 100vh; text-align: center; color: #333; }
+        .container { background-color: #FFFFFF; padding: 30px 40px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); max-width: 500px; width: 100%; }
+        img.logo { max-width: 180px; margin-bottom: 25px; }
+        h1 { color: #0052B2; font-size: 28px; margin-bottom: 15px; }
+        p { font-size: 16px; line-height: 1.6; margin-bottom: 10px; }
+        a { color: #0075FF; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <img src="${logoUrl}" alt="Air Gijón Logo" class="logo">
+        <h1>${title}</h1>
+        <p>${userName ? `Hola ${userName},<br><br>` : ''}${message}</p>
+        ${loginLinkHtml}
+      </div>
+    </body>
+    </html>
+  `;
+}
+
+// --- Fin Plantillas HTML ---
+
 // POST /api/users/register - Registro de usuario
 router.post('/register', async (req, res) => {
   try {
@@ -82,28 +127,37 @@ router.get('/confirmar-correo/:token', async (req, res) => {
 
     if (!user) {
       return res.status(400).send(
-        `<h1>Enlace de confirmación inválido o expirado.</h1>
-         <p>Por favor, intenta registrarte de nuevo o contacta con soporte.</p>`
+        getConfirmationResponsePageTemplate(
+          'Enlace Inválido',
+          'Este enlace de confirmación no es válido o ha expirado. Por favor, intenta registrarte de nuevo o contacta con soporte si el problema persiste.',
+          null
+        )
       );
     }
 
     await confirmUserEmail(user.id);
     
-    // Enviar email de bienvenida DESPUÉS de la confirmación
     sendWelcomeEmail(user.email, user.name, user.id)
       .catch(error => console.error('Error enviando email de bienvenida tras confirmación:', error));
 
-    // Redirigir al frontend o mostrar mensaje de éxito
-    // Por ahora, un mensaje simple. Idealmente, redirigir a una página de login/dashboard.
     res.send(
-      `<h1>¡Correo confirmado!</h1>
-       <p>Gracias ${user.name || 'usuario'}, tu cuenta ha sido confirmada.</p>
-       <p><a href="${process.env.FRONTEND_URL || 'http://localhost:5173/login'}">Iniciar Sesión</a></p>`
+      getConfirmationResponsePageTemplate(
+        '¡Correo Confirmado!',
+        'Tu cuenta ha sido confirmada exitosamente. Ya puedes iniciar sesión.',
+        user.name,
+        true // Mostrar enlace para iniciar sesión
+      )
     );
 
   } catch (error) {
     console.error('Error en confirmación de correo:', error);
-    res.status(500).send('<h1>Error interno del servidor</h1><p>No se pudo confirmar tu correo. Inténtalo más tarde.</p>');
+    res.status(500).send(
+      getConfirmationResponsePageTemplate(
+        'Error en la Confirmación',
+        'Ocurrió un error interno al intentar confirmar tu correo. Por favor, inténtalo más tarde o contacta con soporte.',
+        null
+      )
+    );
   }
 });
 
