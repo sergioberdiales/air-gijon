@@ -281,33 +281,31 @@ function getConfirmationEmailTemplate(userName, confirmationLink) {
 
 // Enviar email
 async function sendEmail(to, subject, htmlContent, userId = null, type = 'general') {
+  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
+    console.error('❌ EMAIL_USER o EMAIL_PASSWORD no están configuradas en las variables de entorno. No se pueden enviar emails.');
+    return { success: false, message: "Variables de entorno de email no configuradas." };
+  }
+
+  const mailOptions = {
+    from: `"Air Gijón" <${process.env.EMAIL_USER}>`,
+    to: to,
+    subject: subject,
+    html: htmlContent,
+  };
+
   try {
-    const mailOptions = {
-      from: `"Air Gijón" <${process.env.EMAIL_USER}>`,
-      to: to,
-      subject: subject,
-      html: htmlContent
-    };
-
     const info = await transporter.sendMail(mailOptions);
-    
-    // Registrar el envío en la base de datos
+    console.log(`✅ Email enviado (${type}) a ${to}: ${info.messageId}`);
+    // Registrar notificación si es relevante y se proporciona userId
     if (userId) {
-      await logNotificationSent(userId, type, to, subject, htmlContent, 'sent');
+      await logNotificationSent(userId, type, to, subject);
     }
-
-    console.log(`✅ Email enviado a ${to}: ${info.messageId}`);
     return { success: true, messageId: info.messageId };
-
   } catch (error) {
-    console.error(`❌ Error enviando email a ${to}:`, error.message);
-    
-    // Registrar el error en la base de datos
-    if (userId) {
-      await logNotificationSent(userId, type, to, subject, htmlContent, 'failed');
-    }
-
-    return { success: false, error: error.message };
+    console.error(`❌ Error enviando email (${type}) a ${to}:`, error);
+    console.error(`Detalles del error: Code: ${error.code}, Command: ${error.command}`);
+    // No registrar como enviado si hay error
+    return { success: false, error: error.message, code: error.code, command: error.command };
   }
 }
 
