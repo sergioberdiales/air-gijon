@@ -774,6 +774,22 @@ async function getPromediosDiariosAnteriores(fechaReferencia, diasAtras, paramet
   return result.rows;
 }
 
+async function deleteUserById(userId) {
+  try {
+    const result = await pool.query('DELETE FROM users WHERE id = $1', [userId]);
+    if (result.rowCount > 0) {
+      console.log(`🗑️ Usuario con ID ${userId} eliminado exitosamente.`);
+      return { success: true, message: 'Usuario eliminado.' };
+    }
+    // Esto no debería ocurrir si el ID proviene de un token JWT válido de un usuario existente
+    console.warn(`⚠️ Intento de eliminar usuario con ID ${userId} no encontrado.`);
+    return { success: false, error: 'Usuario no encontrado para eliminar.' };
+  } catch (error) {
+    console.error(`❌ Error al eliminar usuario con ID ${userId}:`, error);
+    return { success: false, error: 'Error en la base de datos al eliminar usuario.' };
+  }
+}
+
 // Exportar la conexión y las funciones
 module.exports = {
     pool,
@@ -801,7 +817,8 @@ module.exports = {
     logNotificationSent,
     getPromediosDiariosAnteriores,
     getUserByConfirmationToken,
-    confirmUserEmail
+    confirmUserEmail,
+    deleteUserById
 };
 
 // Solo ejecutar la inicialización si no estamos en un script de actualización

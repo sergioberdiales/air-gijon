@@ -15,7 +15,8 @@ const {
   getModelAccuracyStats,
   getUserById,
   getUserByConfirmationToken,
-  confirmUserEmail
+  confirmUserEmail,
+  deleteUserById
 } = require('../db');
 const { sendConfirmationEmail, sendWelcomeEmail } = require('../email_service');
 
@@ -336,6 +337,49 @@ router.post('/test-email', authenticateToken, requireManager, async (req, res) =
     res.status(500).json({
       success: false,
       error: 'Error interno del servidor'
+    });
+  }
+});
+
+// DELETE /api/users/me - Eliminar la cuenta del usuario autenticado
+router.delete('/me', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    // Lógica para eliminar el usuario de la base de datos
+    // Esto dependerá de cómo esté implementada tu función en db.js
+    // Supongamos que tienes una función deleteUserById(id)
+    const deletionResult = await deleteUserById(userId);
+
+    if (!deletionResult || !deletionResult.success) {
+      // Si deleteUserById devuelve un objeto con { success: false, error: '...' }
+      // o simplemente no devuelve nada en caso de fallo sin error explícito.
+      let errorMessage = 'No se pudo eliminar la cuenta.';
+      if (deletionResult && deletionResult.error) {
+        errorMessage = deletionResult.error;
+      }
+      // Podrías querer loguear el error específico en el servidor aunque no lo devuelvas al cliente
+      console.error(`Error al intentar eliminar usuario ${userId}:`, errorMessage);
+      return res.status(500).json({ // Usar 500 si es un error del servidor, o 404 si el user no existiese (aunque authenticateToken ya lo valida)
+        success: false,
+        error: errorMessage
+      });
+    }
+
+    // Aquí podrías realizar acciones adicionales, como:
+    // - Invalidar tokens activos (si tienes un sistema de lista negra de tokens)
+    // - Enviar un email de despedida (opcional)
+
+    res.status(200).json({
+      success: true,
+      message: 'Tu cuenta ha sido eliminada exitosamente.'
+    });
+
+  } catch (error) {
+    console.error('Error eliminando cuenta de usuario:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error interno del servidor al intentar eliminar la cuenta.'
     });
   }
 });

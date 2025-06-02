@@ -1,14 +1,20 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import Modal from './Modal';
+import { config } from '../config';
 
 function UserDashboard() {
-  const { user, logout, updatePreferences } = useAuth();
+  const { user, logout, updatePreferences, token } = useAuth();
   const [preferences, setPreferences] = useState({
     email_alerts: false,
     daily_predictions: false
   });
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
+
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteError, setDeleteError] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -43,8 +49,44 @@ function UserDashboard() {
       setLoading(false);
     }
 
-    // Limpiar mensaje después de 3 segundos
     setTimeout(() => setMessage(''), 3000);
+  };
+
+  const openDeleteModal = () => {
+    setDeleteError(null);
+    setShowDeleteModal(true);
+  };
+
+  const closeDeleteModal = () => {
+    setShowDeleteModal(false);
+  };
+
+  const handleDeleteAccount = async () => {
+    setIsDeleting(true);
+    setDeleteError(null);
+    try {
+      const response = await fetch(`${config.API_BASE}/api/users/me`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        setShowDeleteModal(false);
+        alert('Tu cuenta ha sido eliminada exitosamente.');
+        logout();
+      } else {
+        setDeleteError(data.error || 'No se pudo eliminar la cuenta. Inténtalo de nuevo.');
+      }
+    } catch (err) {
+      console.error('Error eliminando cuenta:', err);
+      setDeleteError('Error de conexión al intentar eliminar la cuenta.');
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const getWelcomeMessage = () => {
@@ -64,9 +106,14 @@ function UserDashboard() {
             {user?.role === 'manager' ? '👑 Gestor' : '👤 Usuario'}
           </span>
         </div>
-        <button onClick={logout} className="logout-btn">
-          Cerrar Sesión
-        </button>
+        <div className="dashboard-header-actions">
+          <button onClick={logout} className="logout-btn">
+            Cerrar Sesión
+          </button>
+          <button onClick={openDeleteModal} className="delete-account-btn">
+            Eliminar Cuenta
+          </button>
+        </div>
       </div>
 
       <div className="dashboard-content">
@@ -163,6 +210,31 @@ function UserDashboard() {
           </div>
         )}
       </div>
+
+      {showDeleteModal && (
+        <Modal isOpen={showDeleteModal} onClose={closeDeleteModal} title="Confirmar Eliminación de Cuenta">
+          <p className="text-gray-700 dark:text-gray-300 mb-4">
+            ¿Estás seguro de que deseas eliminar tu cuenta permanentemente? Esta acción no se puede deshacer y todos tus datos asociados se perderán.
+          </p>
+          {deleteError && <p className="text-red-500 text-sm mb-3">{deleteError}</p>}
+          <div className="flex justify-end space-x-3">
+            <button
+              onClick={closeDeleteModal}
+              disabled={isDeleting}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 hover:bg-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 disabled:opacity-50"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={handleDeleteAccount}
+              disabled={isDeleting}
+              className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 disabled:opacity-50"
+            >
+              {isDeleting ? 'Eliminando...' : 'Sí, Eliminar Mi Cuenta'}
+            </button>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
