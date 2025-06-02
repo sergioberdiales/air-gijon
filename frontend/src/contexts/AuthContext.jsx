@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { config } from '../config'; // Importar config
+import { useNavigate, useLocation } from 'react-router-dom';
 
 const AuthContext = createContext();
 
@@ -15,11 +16,33 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [token, setToken] = useState(() => localStorage.getItem('authToken'));
+  const navigate = useNavigate();
+  const location = useLocation();
 
   // Usar API_BASE desde config
   const API_BASE = config.API_BASE;
 
-  // Verificar si hay un token válido al cargar
+  // Efecto para manejar el token de confirmación desde la URL
+  useEffect(() => {
+    if (location.pathname === '/auth/callback') {
+      const queryParams = new URLSearchParams(location.search);
+      const receivedToken = queryParams.get('token');
+
+      if (receivedToken) {
+        console.log('AuthProvider: Token recibido de /auth/callback', receivedToken);
+        localStorage.setItem('authToken', receivedToken);
+        setToken(receivedToken); // Esto activará el useEffect de abajo para llamar a fetchUserProfile
+        // Redirigir a la página principal y limpiar la URL
+        navigate('/', { replace: true });
+      } else {
+        console.warn('AuthProvider: /auth/callback visitado sin token en la URL.');
+        // Si no hay token, simplemente redirigir a la home, podría ser un acceso inválido.
+        navigate('/', { replace: true });
+      }
+    }
+  }, [location, navigate]); // Ejecutar si location o navigate cambian
+
+  // Verificar si hay un token válido al cargar o cuando el token cambia
   useEffect(() => {
     if (token) {
       fetchUserProfile();

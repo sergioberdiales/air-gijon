@@ -3,7 +3,8 @@ const router = express.Router();
 const { 
   registerUser, 
   loginUser, 
-  validateRegistrationData 
+  validateRegistrationData,
+  generateToken
 } = require('../auth');
 const { 
   authenticateToken, 
@@ -137,22 +138,22 @@ router.get('/confirmar-correo/:token', async (req, res) => {
       );
     }
 
-    await confirmUserEmail(user.id);
-    
-    sendWelcomeEmail(user.email, user.name, user.id)
+    const confirmedUser = await confirmUserEmail(user.id);
+
+    sendWelcomeEmail(confirmedUser.email, confirmedUser.name, confirmedUser.id)
       .catch(error => console.error('Error enviando email de bienvenida tras confirmación:', error));
 
-    res.send(
-      getConfirmationResponsePageTemplate(
-        '¡Correo Confirmado!',
-        'Tu cuenta ha sido confirmada exitosamente. Ya puedes iniciar sesión.',
-        user.name,
-        true // Mostrar enlace para iniciar sesión
-      )
-    );
+    // Generar token de sesión para login automático
+    const sessionToken = generateToken(confirmedUser);
+    const frontendBaseUrl = process.env.FRONTEND_URL || 'https://air-gijon-front-end.onrender.com';
+    const redirectUrl = `${frontendBaseUrl}/auth/callback?token=${sessionToken}`;
+
+    console.log(`📧 Correo confirmado para ${confirmedUser.email}. Redirigiendo a: ${redirectUrl}`);
+    res.redirect(redirectUrl);
 
   } catch (error) {
     console.error('Error en confirmación de correo:', error);
+    // Devolver la página de error genérica en caso de fallo
     res.status(500).send(
       getConfirmationResponsePageTemplate(
         'Error en la Confirmación',
