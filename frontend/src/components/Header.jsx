@@ -86,21 +86,25 @@ function Header({ activeView, setActiveView, activeTab, setActiveTab, onAuthModa
                 <BellIcon className="nav-icon" />
                 <span className="nav-text">Alertas</span>
               </button>
-              <button 
-                className={`nav-link ${activeView === 'perfil' ? 'active' : ''}`}
-                onClick={() => {
-                  if (isAuthenticated) {
-                    handleNavClick('perfil');
-                  } else {
-                    onAuthModalOpen();
-                  }
-                }}
-              >
-                <UserIcon className="nav-icon" />
-                <span className="nav-text">
-                  {isAuthenticated ? 'Perfil' : 'Cuenta'}
-                </span>
-              </button>
+              
+              {/* Mostrar botón Cuenta/Perfil solo si no está autenticado O si es móvil (en móvil sí se necesita) */}
+              {(!isAuthenticated || isMobile) && (
+                <button 
+                  className={`nav-link ${activeView === 'perfil' ? 'active' : ''}`}
+                  onClick={() => {
+                    if (isAuthenticated) {
+                      handleNavClick('perfil'); // En móvil, este botón lleva a perfil
+                    } else {
+                      onAuthModalOpen(); // En cualquier caso si no está autenticado, abre modal
+                    }
+                  }}
+                >
+                  <UserIcon className="nav-icon" />
+                  <span className="nav-text">
+                    {isAuthenticated ? 'Perfil' : 'Cuenta'} {/* En móvil, si está autenticado, dirá Perfil */}
+                  </span>
+                </button>
+              )}
             </nav>
 
             {!isMobile && (
@@ -137,7 +141,7 @@ function Header({ activeView, setActiveView, activeTab, setActiveTab, onAuthModa
                             setShowUserMenu(false);
                           }}
                         >
-                          <SettingsIcon size={16} /> Configuración
+                          <SettingsIcon size={16} /> Mi Cuenta
                         </button>
                         <button 
                           className="dropdown-item"
