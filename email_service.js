@@ -25,6 +25,9 @@ async function verifyEmailConfig() {
 
 // Plantilla base para emails
 function getBaseEmailTemplate(title, content, footerText = '') {
+  const frontendBaseUrl = process.env.FRONTEND_URL || 'https://air-gijon-frontend.onrender.com'; // Asegúrate que esta sea la URL correcta de tu frontend en Render
+  const logoUrl = `${frontendBaseUrl}/src/components/logos/air_gijon_logo_v1.png`;
+
   return `
     <!DOCTYPE html>
     <html lang="es">
@@ -32,41 +35,56 @@ function getBaseEmailTemplate(title, content, footerText = '') {
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <title>${title}</title>
+      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
       <style>
         body { 
-          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          font-family: "Inter", -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
           margin: 0; 
           padding: 20px; 
-          background-color: #f5f5f5; 
+          background-color: #F0F7FF; /* Azul Claro */
         }
         .container { 
           max-width: 600px; 
           margin: 0 auto; 
-          background: white; 
+          background: #FFFFFF; /* Blanco */
           border-radius: 12px; 
           overflow: hidden;
-          box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
         }
         .header { 
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+          background: #0075FF; /* Azul Primario */
           color: white; 
-          padding: 30px 20px; 
+          padding: 25px 20px; 
           text-align: center; 
+        }
+        .header img {
+          max-width: 180px;
+          margin-bottom: 10px;
         }
         .header h1 { 
           margin: 0; 
-          font-size: 24px; 
-          font-weight: 600;
+          font-size: 26px; 
+          font-weight: 700;
         }
         .content { 
-          padding: 30px 20px; 
+          padding: 30px 25px; 
+          color: #333333; /* Gris Oscuro */
+          line-height: 1.6;
+        }
+        .content h2 {
+          color: #0052B2; /* Azul Oscuro */
+          font-size: 22px;
+        }
+        .content p {
+          margin-bottom: 15px;
         }
         .footer { 
           background: #f8f9fa; 
           padding: 20px; 
           text-align: center; 
-          color: #666; 
-          font-size: 14px;
+          color: #666666; /* Gris Medio */
+          font-size: 13px;
+          border-top: 1px solid #E0E0E0; /* Gris Claro */
         }
         .quality-badge {
           display: inline-block;
@@ -75,12 +93,13 @@ function getBaseEmailTemplate(title, content, footerText = '') {
           color: white;
           font-weight: 600;
           margin: 10px 0;
+          font-size: 14px;
         }
         .prediction-card {
-          background: #f8f9fa;
-          border-left: 4px solid #667eea;
+          background: #F0F7FF; /* Azul Claro */
+          border-left: 4px solid #0075FF; /* Azul Primario */
           padding: 20px;
-          margin: 15px 0;
+          margin: 20px 0;
           border-radius: 0 8px 8px 0;
         }
         .metric {
@@ -88,38 +107,46 @@ function getBaseEmailTemplate(title, content, footerText = '') {
           margin: 20px 0;
         }
         .metric .value {
-          font-size: 36px;
+          font-size: 34px;
           font-weight: bold;
-          color: #333;
+          color: #333333; /* Gris Oscuro */
         }
         .metric .unit {
-          color: #666;
+          color: #666666; /* Gris Medio */
           font-size: 14px;
         }
         .button {
           display: inline-block;
-          background: #667eea;
-          color: white;
-          padding: 12px 24px;
+          background: #0075FF; /* Azul Primario */
+          color: white !important; /* Importante para asegurar color de texto sobre email clients */
+          padding: 12px 28px;
           text-decoration: none;
           border-radius: 6px;
-          margin: 10px 0;
+          margin: 15px 0;
+          font-weight: 600;
+          font-size: 15px;
+        }
+        .button:hover {
+          background: #0052B2; /* Azul Oscuro */
+        }
+        a {
+          color: #0075FF; /* Azul Primario */
         }
       </style>
     </head>
     <body>
       <div class="container">
         <div class="header">
-          <h1>🌤️ Air Gijón</h1>
-          <p>Monitoreo de Calidad del Aire</p>
+          <img src="${logoUrl}" alt="Air Gijón Logo">
+          <h1>${title}</h1>
         </div>
         <div class="content">
           ${content}
         </div>
         <div class="footer">
           ${footerText}
-          <p>Air Gijón - Sistema de Monitoreo de Calidad del Aire<br>
-          Este es un email automático, no responder.</p>
+          <p>&copy; ${new Date().getFullYear()} Air Gijón. Todos los derechos reservados.<br>
+          Este es un correo electrónico generado automáticamente, por favor no respondas a este mensaje.</p>
         </div>
       </div>
     </body>
@@ -129,7 +156,8 @@ function getBaseEmailTemplate(title, content, footerText = '') {
 
 // Plantilla para predicción diaria
 function getDailyPredictionTemplate(predictionData) {
-  const { hoy, manana, fecha } = predictionData;
+  const { hoy, manana, fechaHoyFormat, fechaMananaFormat, userName } = predictionData;
+  const frontendBaseUrl = process.env.FRONTEND_URL || 'https://air-gijon-frontend.onrender.com';
   
   const estadoHoy = getEstadoPM25(hoy.valor);
   const estadoManana = getEstadoPM25(manana.valor);
@@ -137,11 +165,11 @@ function getDailyPredictionTemplate(predictionData) {
   const colorManana = getColorEstado(estadoManana);
 
   const content = `
-    <h2>📊 Predicción de Calidad del Aire</h2>
-    <p><strong>Fecha:</strong> ${fecha}</p>
+    <p>Hola ${userName || 'usuario'},</p>
+    <p>Aquí tienes la predicción de calidad del aire para hoy y mañana:</p>
     
     <div class="prediction-card">
-      <h3>🌅 Hoy - ${hoy.fecha}</h3>
+      <h3>🌅 Hoy - ${fechaHoyFormat}</h3>
       <div class="metric">
         <div class="value">${hoy.valor}</div>
         <div class="unit">µg/m³ PM2.5</div>
@@ -149,10 +177,11 @@ function getDailyPredictionTemplate(predictionData) {
       <div class="quality-badge" style="background-color: ${colorHoy};">
         ${estadoHoy}
       </div>
+      ${hoy.modelo ? `<p style="font-size:0.9em; color:#666;"><em>Modelo: ${hoy.modelo} (Confianza: ${hoy.roc_index ? (hoy.roc_index * 100).toFixed(0) + '%' : 'N/A'})</em></p>` : ''}
     </div>
 
     <div class="prediction-card">
-      <h3>🌄 Mañana - ${manana.fecha}</h3>
+      <h3>🌄 Mañana - ${fechaMananaFormat}</h3>
       <div class="metric">
         <div class="value">${manana.valor}</div>
         <div class="unit">µg/m³ PM2.5</div>
@@ -160,34 +189,33 @@ function getDailyPredictionTemplate(predictionData) {
       <div class="quality-badge" style="background-color: ${colorManana};">
         ${estadoManana}
       </div>
+      ${manana.modelo ? `<p style="font-size:0.9em; color:#666;"><em>Modelo: ${manana.modelo} (Confianza: ${manana.roc_index ? (manana.roc_index * 100).toFixed(0) + '%' : 'N/A'})</em></p>` : ''}
     </div>
-
-    <p><em>Predicción generada por el Modelo Predictivo 0.0 con 80% de confianza.</em></p>
     
     <div style="text-align: center; margin-top: 30px;">
-      <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}" class="button">
-        Ver Dashboard Completo
+      <a href="${frontendBaseUrl}" class="button">
+        Ver datos en la web
       </a>
     </div>
   `;
 
   return getBaseEmailTemplate(
-    'Predicción Diaria - Air Gijón',
+    '🌤️ Predicción Diaria - Air Gijón',
     content,
-    '<p>Para cancelar estas notificaciones, <a href="#">haz clic aquí</a></p>'
+    '<p>Puedes gestionar tus <a href="' + frontendBaseUrl + '/cuenta">preferencias de notificación</a>.</p>'
   );
 }
 
 // Plantilla para alerta de calidad del aire
 function getAlertTemplate(alertData) {
-  const { valor, estado, estacion, fecha } = alertData;
+  const { valor, estado, estacion, fecha, userName } = alertData;
   const color = getColorEstado(estado);
+  const frontendBaseUrl = process.env.FRONTEND_URL || 'https://air-gijon-frontend.onrender.com';
 
   const content = `
-    <h2>🚨 Alerta de Calidad del Aire</h2>
-    
+    <p>Hola ${userName || 'usuario'},</p>
     <div style="background-color: #fff3cd; border: 1px solid #ffeaa7; padding: 20px; border-radius: 8px; margin: 20px 0;">
-      <p><strong>Se ha detectado un cambio significativo en la calidad del aire:</strong></p>
+      <p><strong>Se ha detectado un cambio significativo en la calidad del aire en la estación ${estacion}:</strong></p>
     </div>
 
     <div class="metric">
@@ -200,82 +228,82 @@ function getAlertTemplate(alertData) {
     </div>
 
     <p><strong>Estación:</strong> ${estacion}</p>
-    <p><strong>Fecha:</strong> ${fecha}</p>
+    <p><strong>Fecha y hora:</strong> ${new Date(fecha).toLocaleString('es-ES')}</p>
 
     <div style="text-align: center; margin-top: 30px;">
-      <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}" class="button">
-        Ver Detalles
+      <a href="${frontendBaseUrl}" class="button">
+        Ver Detalles en la Web
       </a>
     </div>
   `;
 
   return getBaseEmailTemplate(
-    'Alerta de Calidad del Aire - Air Gijón',
-    content
+    '🚨 Alerta de Calidad del Aire - Air Gijón',
+    content,
+    '<p>Puedes gestionar tus <a href="' + frontendBaseUrl + '/cuenta">preferencias de notificación</a>.</p>'
   );
 }
 
 // Plantilla de bienvenida
 function getWelcomeTemplate(userName) {
+  const frontendBaseUrl = process.env.FRONTEND_URL || 'https://air-gijon-frontend.onrender.com';
   const content = `
-    <h2>👋 ¡Bienvenido a Air Gijón!</h2>
+    <h2>👋 ¡Te damos la bienvenida a Air Gijón!</h2>
     
     <p>Hola ${userName || 'Usuario'},</p>
     
-    <p>Te has registrado exitosamente en nuestro sistema de monitoreo de calidad del aire. 
-    Ahora podrás recibir:</p>
+    <p>Gracias por registrarte en nuestro sistema de monitoreo de calidad del aire. Para completar tu registro y empezar a recibir notificaciones, por favor, confirma tu dirección de correo electrónico haciendo clic en el enlace que te hemos enviado en un mensaje separado.</p>
+    
+    <p>Una vez confirmado, podrás:</p>
     
     <ul>
-      <li>📅 <strong>Predicciones diarias</strong> de PM2.5</li>
-      <li>🚨 <strong>Alertas automáticas</strong> cuando la calidad del aire cambie</li>
-      <li>📊 <strong>Acceso al dashboard</strong> con datos en tiempo real</li>
+      <li>📅 Recibir <strong>predicciones diarias</strong> de PM2.5</li>
+      <li>🚨 Obtener <strong>alertas automáticas</strong> cuando la calidad del aire cambie significativamente</li>
+      <li>📊 Acceder al <strong>panel de control</strong> con datos en tiempo real e históricos</li>
     </ul>
     
-    <p>Puedes gestionar tus preferencias de notificación desde tu perfil.</p>
+    <p>Puedes gestionar tus preferencias de notificación desde tu perfil una vez hayas confirmado tu correo y hayas iniciado sesión.</p>
 
     <div style="text-align: center; margin-top: 30px;">
-      <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}" class="button">
-        Ir al Dashboard
+      <a href="${frontendBaseUrl}" class="button">
+        Ir a la aplicación
       </a>
     </div>
   `;
 
   return getBaseEmailTemplate(
-    'Bienvenido a Air Gijón',
+    '👋 Bienvenido/a a Air Gijón',
     content,
-    '<p>¡Gracias por unirte a nosotros!</p>'
+    '<p>¡Gracias por unirte!</p>'
   );
 }
 
 // Plantilla para email de confirmación de cuenta
-function getConfirmationEmailTemplate(userName, confirmationLink) {
+function getConfirmationTemplate(userName, confirmationLink) {
+  const frontendBaseUrl = process.env.FRONTEND_URL || 'https://air-gijon-frontend.onrender.com';
   const content = `
-    <h2>✅ Confirma tu Cuenta en Air Gijón</h2>
+    <h2>✅ Confirma tu Correo Electrónico</h2>
     
     <p>Hola ${userName || 'Usuario'},</p>
     
-    <p>¡Gracias por registrarte en Air Gijón! Solo falta un paso más para activar tu cuenta.</p>
+    <p>Gracias por registrarte en Air Gijón. Por favor, haz clic en el siguiente botón para confirmar tu dirección de correo electrónico y activar tu cuenta:</p>
     
-    <p>Por favor, haz clic en el siguiente enlace para confirmar tu dirección de correo electrónico:</p>
-    
-    <div style="text-align: center; margin: 30px 0;">
-      <a href="${confirmationLink}" class="button" style="background-color: #28a745; color: white;">
-        Confirmar mi Correo Electrónico
+    <div style="text-align: center; margin-top: 30px; margin-bottom: 30px;">
+      <a href="${confirmationLink}" class="button">
+        Confirmar Correo Electrónico
       </a>
     </div>
     
-    <p>Si no puedes hacer clic en el botón, copia y pega la siguiente URL en tu navegador:</p>
+    <p>Si el botón no funciona, copia y pega el siguiente enlace en tu navegador:</p>
     <p><a href="${confirmationLink}">${confirmationLink}</a></p>
     
-    <p>Este enlace de confirmación es válido por 24 horas. Si expira, puedes solicitar uno nuevo intentando iniciar sesión o desde la sección de 'reenviar confirmación' (si está disponible).</p>
-    
-    <p>Si no te registraste en Air Gijón, por favor ignora este correo.</p>
+    <p>Si no te registraste en Air Gijón, por favor ignora este mensaje.</p>
   `;
 
   return getBaseEmailTemplate(
-    'Confirma tu Cuenta - Air Gijón',
+    '📧 Confirmación de Correo - Air Gijón',
     content,
-    '<p>Equipo Air Gijón</p>'
+    '<p>Este enlace de confirmación expirará en 24 horas.</p>'
   );
 }
 
@@ -310,104 +338,66 @@ async function sendEmail(to, subject, htmlContent, userId = null, type = 'genera
 }
 
 // Enviar predicción diaria a todos los usuarios suscritos
-async function sendDailyPredictions(predictionData) {
-  try {
-    const users = await getUsersForDailyPredictions();
-    console.log(`📧 Enviando predicciones diarias a ${users.length} usuarios...`);
-
-    const results = {
-      sent: 0,
-      failed: 0,
-      errors: []
-    };
-
-    for (const user of users) {
-      const htmlContent = getDailyPredictionTemplate(predictionData);
-      const subject = `🌤️ Predicción Diaria - ${predictionData.fecha}`;
-      
-      const result = await sendEmail(
-        user.email,
-        subject,
-        htmlContent,
-        user.id,
-        'daily_prediction'
-      );
-
-      if (result.success) {
-        results.sent++;
-      } else {
-        results.failed++;
-        results.errors.push({
-          email: user.email,
-          error: result.error
-        });
-      }
-
-      // Pequeña pausa para evitar spam
-      await new Promise(resolve => setTimeout(resolve, 100));
-    }
-
-    console.log(`📊 Resumen de envío: ${results.sent} enviados, ${results.failed} fallidos`);
-    return results;
-
-  } catch (error) {
-    console.error('❌ Error enviando predicciones diarias:', error.message);
-    throw error;
+async function sendDailyPredictions(usersWithPredictions) {
+  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
+    console.error('❌ Faltan credenciales de email (EMAIL_USER o EMAIL_PASSWORD). No se enviarán correos de predicción.');
+    return;
   }
+
+  const results = [];
+  for (const userData of usersWithPredictions) {
+    const { email, user_name, hoy, manana, fecha_hoy_format, fecha_manana_format, user_id } = userData;
+    
+    // Formatear fechas si es necesario (asumiendo que ya vienen formateadas o son objetos Date)
+    const predictionDetails = {
+      hoy: { valor: hoy.valor, modelo: hoy.modelo, roc_index: hoy.roc_index },
+      manana: { valor: manana.valor, modelo: manana.modelo, roc_index: manana.roc_index },
+      fechaHoyFormat: fecha_hoy_format || new Date(hoy.fecha).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' }),
+      fechaMananaFormat: fecha_manana_format || new Date(manana.fecha).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' }),
+      userName: user_name
+    };
+    
+    const htmlContent = getDailyPredictionTemplate(predictionDetails);
+    try {
+      await sendEmail(email, '🌤️ Predicción Diaria de Calidad del Aire - Air Gijón', htmlContent, user_id, 'daily_prediction');
+      results.push({ email, status: 'enviado' });
+    } catch (error) {
+      console.error(`Error enviando predicción diaria a ${email}:`, error);
+      results.push({ email, status: 'error', error: error.message });
+    }
+  }
+  return results;
 }
 
 // Enviar email de bienvenida
 async function sendWelcomeEmail(userEmail, userName, userId) {
-  try {
-    const htmlContent = getWelcomeTemplate(userName);
-    const mailOptions = {
-      from: `"Air Gijón" <${process.env.EMAIL_USER}>`,
-      to: userEmail,
-      subject: '¡Bienvenido a Air Gijón!',
-      html: htmlContent
-    };
-
-    const info = await transporter.sendMail(mailOptions);
-    console.log(`📧 Email de bienvenida enviado a ${userEmail}: ${info.messageId}`);
-    await logNotificationSent(userId, 'welcome_email', userEmail, mailOptions.subject, '-', 'sent');
-  } catch (error) {
-    console.error(`❌ Error enviando email de bienvenida a ${userEmail}:`, error);
-    await logNotificationSent(userId, 'welcome_email', userEmail, 'Bienvenido', '-', 'failed');
+  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
+    console.error('❌ Faltan credenciales de email (EMAIL_USER o EMAIL_PASSWORD). No se enviará correo de bienvenida.');
+    return;
   }
+  const htmlContent = getWelcomeTemplate(userName);
+  return sendEmail(userEmail, `👋 ¡Bienvenido/a a Air Gijón, ${userName}!`, htmlContent, userId, 'welcome');
 }
 
 // Nueva función para enviar email de confirmación
 async function sendConfirmationEmail(userEmail, userName, confirmationLink, userId = null) {
-  try {
-    const htmlContent = getConfirmationEmailTemplate(userName, confirmationLink);
-    const mailOptions = {
-      from: `"Air Gijón" <${process.env.EMAIL_USER}>`,
-      to: userEmail,
-      subject: 'Confirma tu cuenta en Air Gijón',
-      html: htmlContent
-    };
-
-    const info = await transporter.sendMail(mailOptions);
-    console.log(`📧 Email de confirmación enviado a ${userEmail}: ${info.messageId}`);
-    if (userId) {
-      await logNotificationSent(userId, 'confirmation_email', userEmail, mailOptions.subject, '-', 'sent');
-    }
-    return { success: true, messageId: info.messageId };
-  } catch (error) {
-    console.error(`❌ Error enviando email de confirmación a ${userEmail}:`, error);
-    if (userId) {
-      await logNotificationSent(userId, 'confirmation_email', userEmail, 'Confirmación de cuenta', '-', 'failed');
-    }
-    return { success: false, error: error.message };
+  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
+    console.error('❌ Faltan credenciales de email (EMAIL_USER o EMAIL_PASSWORD). No se enviará correo de confirmación.');
+    return;
   }
+  const htmlContent = getConfirmationTemplate(userName, confirmationLink);
+  return sendEmail(userEmail, '📧 Confirma tu cuenta en Air Gijón', htmlContent, userId, 'confirmation');
 }
 
 // Enviar alerta de calidad del aire
-async function sendAirQualityAlert(userEmail, alertData, userId) {
-  const htmlContent = getAlertTemplate(alertData);
-  const subject = `🚨 Alerta: ${alertData.estado} - Air Gijón`;
-  
-  return await sendEmail(userEmail, subject, htmlContent, userId, 'alert');
+async function sendAirQualityAlert(userEmail, userName, alertData, userId) {
+  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
+    console.error('❌ Faltan credenciales de email (EMAIL_USER o EMAIL_PASSWORD). No se enviará correo de alerta.');
+    return;
+  }
+  const enrichedAlertData = { ...alertData, userName };
+  const htmlContent = getAlertTemplate(enrichedAlertData);
+  return sendEmail(userEmail, `🚨 Alerta de Calidad del Aire: ${alertData.estado} en ${alertData.estacion}`, htmlContent, userId, 'quality_alert');
 }
 
 module.exports = {
@@ -420,5 +410,5 @@ module.exports = {
   getDailyPredictionTemplate,
   getAlertTemplate,
   getWelcomeTemplate,
-  getConfirmationEmailTemplate
+  getConfirmationTemplate
 }; 

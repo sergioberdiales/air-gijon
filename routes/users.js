@@ -54,8 +54,8 @@ router.post('/register', async (req, res) => {
     
     // Opcional: Aún podemos enviar el de bienvenida, o esperar a la confirmación.
     // Por ahora, lo dejamos para dar feedback inmediato.
-    sendWelcomeEmail(result.user.email, result.user.name, result.user.id)
-      .catch(error => console.error('Error enviando email de bienvenida tras registro:', error));
+    // sendWelcomeEmail(result.user.email, result.user.name, result.user.id)
+    //  .catch(error => console.error('Error enviando email de bienvenida tras registro:', error));
 
     res.status(201).json({
       success: true,
@@ -88,7 +88,9 @@ router.get('/confirmar-correo/:token', async (req, res) => {
 
     await confirmUserEmail(user.id);
     
-    // Opcional: Enviar un email de "cuenta confirmada" aquí si se desea.
+    // Enviar email de bienvenida DESPUÉS de la confirmación
+    sendWelcomeEmail(user.email, user.name, user.id)
+      .catch(error => console.error('Error enviando email de bienvenida tras confirmación:', error));
 
     // Redirigir al frontend o mostrar mensaje de éxito
     // Por ahora, un mensaje simple. Idealmente, redirigir a una página de login/dashboard.
