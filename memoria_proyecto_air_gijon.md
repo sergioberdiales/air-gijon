@@ -26,6 +26,56 @@ El cliente sería el Ayuntamiento de Gijón, cuya intención sería realizar un 
 - **Usuarios externos**:
   - *Anónimos*: consultan la información disponible.
   - *Registrados*: se pueden suscribir a notificaciones y alertas.
+
+  **Flujo de Alta y Confirmación de Correo para Usuarios Registrados:**
+
+  El proceso de alta para un nuevo usuario externo que desea registrarse en la aplicación sigue los siguientes pasos, diseñados para verificar la autenticidad del correo electrónico y mejorar la seguridad:
+
+  1.  **Solicitud de Registro en el Frontend:**
+      *   El usuario accede al modal de autenticación y selecciona la pestaña de "Registro".
+      *   Introduce su nombre, una dirección de correo electrónico válida y una contraseña. La contraseña debe ser confirmada.
+      *   Al enviar el formulario, el frontend realiza una petición `POST` al endpoint `/api/users/register` del backend.
+
+  2.  **Procesamiento en el Backend y Envío de Email de Confirmación:**
+      *   El backend recibe los datos y realiza validaciones (e.g., formato de email, contraseña segura, email no existente previamente).
+      *   Si la validación es exitosa, se crea un nuevo registro de usuario en la base de datos. El campo `is_confirmed` de este nuevo usuario se establece inicialmente en `false`.
+      *   Se genera un token de confirmación único, seguro y con una fecha de expiración (ej. 24 horas).
+      *   El backend envía un correo electrónico a la dirección proporcionada por el usuario. Este correo contiene un enlace único que incluye el token de confirmación. El enlace apunta al endpoint `GET /api/users/confirmar-correo/:token` del backend.
+      *   Importante: En esta etapa, el backend **no devuelve un token de sesión JWT** al frontend. En su lugar, responde con un mensaje indicando que el registro fue exitoso y que se ha enviado un correo para la confirmación.
+
+  3.  **Retroalimentación al Usuario en el Frontend:**
+      *   El frontend recibe la respuesta del backend.
+      *   Muestra un mensaje claro al usuario dentro del modal de autenticación, informándole que su cuenta ha sido creada pero que necesita revisar su bandeja de entrada (y posiblemente la carpeta de spam) para encontrar el correo de confirmación y hacer clic en el enlace para activar su cuenta y poder iniciar sesión. Se muestra la dirección de email a la que se envió el correo como referencia.
+
+  4.  **Confirmación de Correo por parte del Usuario:**
+      *   El usuario revisa su correo electrónico y localiza el mensaje de confirmación de Air Gijón.
+      *   Hace clic en el enlace de confirmación proporcionado en el correo.
+
+  5.  **Validación del Token en el Backend y Redirección con Login Automático:**
+      *   Al hacer clic en el enlace, el navegador del usuario realiza una petición `GET` al endpoint `/api/users/confirmar-correo/:token` del backend, enviando el token de confirmación.
+      *   El backend intercepta esta petición:
+          *   Verifica la validez del token (si existe en la base de datos, si no ha expirado y si corresponde a un usuario no confirmado).
+          *   Si el token es válido:
+              *   Actualiza el estado del usuario en la base de datos, estableciendo `is_confirmed` a `true`.
+              *   Invalida el token de confirmación para que no pueda ser reutilizado (generalmente, esto se logra al marcar al usuario como confirmado; el token en sí no necesita ser borrado inmediatamente si ya está asociado a un usuario confirmado o ha expirado).
+              *   Procede a enviar un correo electrónico de bienvenida al usuario.
+              *   Para facilitar la experiencia del usuario, el backend genera un **nuevo token de sesión JWT** para este usuario recién confirmado.
+              *   El backend redirige automáticamente el navegador del usuario de vuelta al frontend. Esta redirección incluye el token de sesión JWT como un parámetro en la URL. Por ejemplo: `https://air-gijon-front-end.onrender.com/auth/callback?token=SU_NUEVO_TOKEN_JWT`.
+          *   Si el token no es válido (e.g., expirado, ya usado, o inexistente), el backend responde con una página HTML que informa al usuario del error y le sugiere posibles acciones (como reintentar el registro o contactar con soporte).
+
+  6.  **Procesamiento del Token y Login Automático en el Frontend:**
+      *   El frontend carga la página especificada en la redirección (e.g., `/auth/callback` o la ruta raíz `/` dependiendo de la implementación).
+      *   Un `useEffect` en el `AuthProvider` (contexto de autenticación del frontend) se ejecuta al cargar la aplicación. Este efecto está diseñado para detectar la presencia de un parámetro `token` en la URL.
+      *   Si se encuentra un token:
+          *   El token JWT es extraído de la URL.
+          *   Se almacena de forma segura en `localStorage` (o `sessionStorage`).
+          *   El estado del `AuthContext` se actualiza con este nuevo token, lo que dispara una llamada a `fetchUserProfile` para obtener los detalles completos del usuario desde el backend (usando el nuevo token para la autorización).
+          *   Una vez que los datos del usuario se obtienen y el estado de autenticación se actualiza, el usuario es efectivamente logueado en la aplicación.
+          *   Para limpiar la URL y evitar que el token quede visible o sea reutilizado accidentalmente si se guarda la URL en marcadores, se utiliza `window.history.replaceState(null, '', '/')` para eliminar el parámetro del token de la barra de direcciones del navegador sin recargar la página.
+      *   El usuario es redirigido (si es necesario, o la vista se actualiza) a la interfaz principal de la aplicación, ya autenticado.
+
+  Este flujo asegura que solo los usuarios con acceso a la bandeja de entrada del correo proporcionado puedan activar sus cuentas, y proporciona una transición fluida al estado de logueado inmediatamente después de la confirmación.
+
 - **Usuarios internos**:
   - Editan textos de avisos y consejos.
 - **Usuarios internos avanzados**:
