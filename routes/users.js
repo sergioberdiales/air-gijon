@@ -105,9 +105,11 @@ router.post('/register', async (req, res) => {
 
     res.status(201).json({
       success: true,
-      message: 'Usuario registrado. Por favor, revisa tu correo para confirmar tu cuenta.',
-      user: result.user,
-      token: result.token
+      message: 'Usuario registrado. Por favor, revisa tu correo para confirmar tu cuenta y poder iniciar sesión.',
+      user: {
+        email: result.user.email,
+        name: result.user.name
+      }
     });
 
   } catch (error) {

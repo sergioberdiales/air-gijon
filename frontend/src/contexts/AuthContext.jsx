@@ -90,16 +90,20 @@ export const AuthProvider = ({ children }) => {
       const data = await response.json();
 
       if (response.ok) {
-        setToken(data.token);
-        setUser(data.user);
-        localStorage.setItem('authToken', data.token);
-        return { success: true, user: data.user };
+        // No iniciar sesión automáticamente. El backend ya no envía el token aquí.
+        // El backend ahora devuelve { success: true, message: '...', user: { email, name } }
+        return { 
+          success: true, 
+          needsConfirmation: true, 
+          message: data.message, 
+          email: data.user?.email // El backend envía el email del usuario registrado
+        };
       } else {
-        return { success: false, error: data.error || 'Error de registro' };
+        return { success: false, error: data.error || 'Error de registro', needsConfirmation: false };
       }
     } catch (error) {
       console.error('Error during registration:', error);
-      return { success: false, error: 'Error de conexión' };
+      return { success: false, error: 'Error de conexión', needsConfirmation: false };
     }
   };
 

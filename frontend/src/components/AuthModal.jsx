@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import './AuthModal.css';
 
 function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
   const [activeTab, setActiveTab] = useState(initialTab);
@@ -9,6 +10,10 @@ function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
   
   const { login, register } = useAuth();
 
+  // Nuevos estados para el mensaje de confirmación
+  const [showConfirmationMessage, setShowConfirmationMessage] = useState(false);
+  const [confirmationEmail, setConfirmationEmail] = useState('');
+
   // Actualizar la pestaña activa cuando cambie initialTab
   useEffect(() => {
     if (isOpen) {
@@ -17,6 +22,9 @@ function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
       setFormData({ email: '', password: '', name: '', confirmPassword: '' });
       setError('');
       setSuccess('');
+      // Resetear el mensaje de confirmación al abrir/cambiar de pestaña
+      setShowConfirmationMessage(false);
+      setConfirmationEmail('');
     }
   }, [initialTab, isOpen]);
 
@@ -51,6 +59,7 @@ function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
           setTimeout(() => {
             onClose();
             setFormData({ email: '', password: '', name: '', confirmPassword: '' });
+            setShowConfirmationMessage(false);
           }, 1000);
         } else {
           setError(result.error);
@@ -69,12 +78,21 @@ function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
         }
 
         const result = await register(formData.email, formData.password, formData.name || null);
+        
         if (result.success) {
-          setSuccess('¡Registro exitoso! Ya puedes configurar tus preferencias.');
-          setTimeout(() => {
-            onClose();
-            setFormData({ email: '', password: '', name: '', confirmPassword: '' });
-          }, 1500);
+          if (result.needsConfirmation) {
+            // Mostrar mensaje de confirmación en lugar de cerrar el modal
+            setSuccess('');
+            setError('');
+            setConfirmationEmail(result.email);
+            setShowConfirmationMessage(true);
+          } else {
+            setSuccess('¡Registro exitoso! Ya puedes iniciar sesión.');
+            setTimeout(() => {
+              onClose();
+              setFormData({ email: '', password: '', name: '', confirmPassword: '' });
+            }, 1500);
+          }
         } else {
           setError(result.error);
         }
@@ -91,6 +109,8 @@ function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
     setError('');
     setSuccess('');
     setFormData({ email: '', password: '', name: '', confirmPassword: '' });
+    setShowConfirmationMessage(false);
+    setConfirmationEmail('');
   };
 
   if (!isOpen) return null;
@@ -99,111 +119,130 @@ function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
     <div className="modal-overlay" onClick={onClose}>
       <div className="auth-modal" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>{activeTab === 'login' ? 'Iniciar Sesión' : 'Crear Cuenta'}</h2>
+          <h2>{showConfirmationMessage ? 'Revisa tu Correo' : (activeTab === 'login' ? 'Iniciar Sesión' : 'Crear Cuenta')}</h2>
           <button className="close-btn" onClick={onClose}>×</button>
         </div>
 
-        <div className="auth-tabs">
-          <button 
-            className={`tab-btn ${activeTab === 'login' ? 'active' : ''}`}
-            onClick={() => switchTab('login')}
-          >
-            Iniciar Sesión
-          </button>
-          <button 
-            className={`tab-btn ${activeTab === 'register' ? 'active' : ''}`}
-            onClick={() => switchTab('register')}
-          >
-            Registrarse
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="auth-form">
-          {activeTab === 'register' && (
-            <div className="form-group">
-              <label htmlFor="name">Nombre (opcional)</label>
-              <input
-                type="text"
-                id="name"
-                name="name"
-                value={formData.name}
-                onChange={handleInputChange}
-                placeholder="Tu nombre"
-              />
+        {showConfirmationMessage ? (
+          <div className="confirmation-message-container">
+            <div className="success-message" style={{ textAlign: 'center', padding: '20px' }}>
+              <p>✅ ¡Registro casi completo!</p>
+              <p>Hemos enviado un correo de confirmación a <strong>{confirmationEmail}</strong>.</p>
+              <p>Por favor, revisa tu bandeja de entrada (y la carpeta de spam) y haz clic en el enlace del correo para activar tu cuenta y poder iniciar sesión.</p>
+              <button 
+                onClick={onClose} 
+                className="submit-btn" 
+                style={{ marginTop: '20px' }}
+              >
+                Entendido
+              </button>
             </div>
-          )}
-
-          <div className="form-group">
-            <label htmlFor="email">Email</label>
-            <input
-              type="email"
-              id="email"
-              name="email"
-              value={formData.email}
-              onChange={handleInputChange}
-              required
-              placeholder="tu@email.com"
-            />
           </div>
-
-          <div className="form-group">
-            <label htmlFor="password">Contraseña</label>
-            <input
-              type="password"
-              id="password"
-              name="password"
-              value={formData.password}
-              onChange={handleInputChange}
-              required
-              placeholder="Mínimo 6 caracteres"
-            />
-          </div>
-
-          {activeTab === 'register' && (
-            <div className="form-group">
-              <label htmlFor="confirmPassword">Confirmar Contraseña</label>
-              <input
-                type="password"
-                id="confirmPassword"
-                name="confirmPassword"
-                value={formData.confirmPassword}
-                onChange={handleInputChange}
-                required
-                placeholder="Confirma tu contraseña"
-              />
+        ) : (
+          <>
+            <div className="auth-tabs">
+              <button 
+                className={`tab-btn ${activeTab === 'login' ? 'active' : ''}`}
+                onClick={() => switchTab('login')}
+              >
+                Iniciar Sesión
+              </button>
+              <button 
+                className={`tab-btn ${activeTab === 'register' ? 'active' : ''}`}
+                onClick={() => switchTab('register')}
+              >
+                Registrarse
+              </button>
             </div>
-          )}
 
-          {error && (
-            <div className="error-message">
-              ⚠️ {error}
-            </div>
-          )}
+            <form onSubmit={handleSubmit} className="auth-form">
+              {activeTab === 'register' && (
+                <div className="form-group">
+                  <label htmlFor="name">Nombre (opcional)</label>
+                  <input
+                    type="text"
+                    id="name"
+                    name="name"
+                    value={formData.name}
+                    onChange={handleInputChange}
+                    placeholder="Tu nombre"
+                  />
+                </div>
+              )}
 
-          {success && (
-            <div className="success-message">
-              ✅ {success}
-            </div>
-          )}
+              <div className="form-group">
+                <label htmlFor="email">Email</label>
+                <input
+                  type="email"
+                  id="email"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleInputChange}
+                  required
+                  placeholder="tu@email.com"
+                />
+              </div>
 
-          <button 
-            type="submit" 
-            className="submit-btn"
-            disabled={loading}
-          >
-            {loading ? 'Procesando...' : (activeTab === 'login' ? 'Iniciar Sesión' : 'Crear Cuenta')}
-          </button>
-        </form>
+              <div className="form-group">
+                <label htmlFor="password">Contraseña</label>
+                <input
+                  type="password"
+                  id="password"
+                  name="password"
+                  value={formData.password}
+                  onChange={handleInputChange}
+                  required
+                  placeholder="Mínimo 6 caracteres"
+                />
+              </div>
 
-        {activeTab === 'register' && (
-          <div className="info-box">
-            <h4>🔔 Beneficios de registrarse:</h4>
-            <ul>
-              <li>Recibe alertas de calidad del aire por email</li>
-              <li>Predicciones diarias en tu bandeja de entrada</li>
-              <li>Configuración personalizada de notificaciones</li>
-            </ul>
-          </div>
+              {activeTab === 'register' && (
+                <div className="form-group">
+                  <label htmlFor="confirmPassword">Confirmar Contraseña</label>
+                  <input
+                    type="password"
+                    id="confirmPassword"
+                    name="confirmPassword"
+                    value={formData.confirmPassword}
+                    onChange={handleInputChange}
+                    required
+                    placeholder="Confirma tu contraseña"
+                  />
+                </div>
+              )}
+
+              {error && (
+                <div className="error-message">
+                  ⚠️ {error}
+                </div>
+              )}
+
+              {success && (
+                <div className="success-message">
+                  ✅ {success}
+                </div>
+              )}
+
+              <button 
+                type="submit" 
+                className="submit-btn"
+                disabled={loading}
+              >
+                {loading ? 'Procesando...' : (activeTab === 'login' ? 'Iniciar Sesión' : 'Crear Cuenta')}
+              </button>
+            </form>
+
+            {activeTab === 'register' && (
+              <div className="info-box">
+                <h4>🔔 Beneficios de registrarse:</h4>
+                <ul>
+                  <li>Recibe alertas de calidad del aire por email</li>
+                  <li>Predicciones diarias en tu bandeja de entrada</li>
+                  <li>Configuración personalizada de notificaciones</li>
+                </ul>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>
