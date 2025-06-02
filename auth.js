@@ -178,6 +178,7 @@ async function loginUser(email, password) {
         email: user.email,
         role: user.role,
         name: user.name,
+        is_confirmed: user.is_confirmed,
         email_alerts: user.email_alerts,
         daily_predictions: user.daily_predictions,
         last_login: user.last_login
