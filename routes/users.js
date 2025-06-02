@@ -451,39 +451,76 @@ router.delete('/me', authenticateToken, async (req, res) => {
 
 // POST /api/users/forgot-password - Solicitar reseteo de contraseña
 router.post('/forgot-password', async (req, res) => {
+  console.log('[FORGOT_PASSWORD] Received request:', req.body);
   try {
     const { email } = req.body;
+
     if (!email) {
-      return res.status(400).json({ success: false, error: 'Email es requerido.' });
+      console.log('[FORGOT_PASSWORD] Email missing');
+      return res.status(400).json({
+        success: false,
+        error: 'Email es requerido'
+      });
     }
 
+    console.log(`[FORGOT_PASSWORD] Searching user by email: ${email}`);
     const user = await getUserByEmail(email);
 
     if (user && user.is_confirmed) {
-      const resetToken = crypto.randomBytes(32).toString('hex');
-      const expiresAt = new Date(Date.now() + 3600000); // 1 hora
+      console.log(`[FORGOT_PASSWORD] User found and confirmed: ${user.id}, ${user.email}`);
+      const token = crypto.randomBytes(32).toString('hex');
+      console.log(`[FORGOT_PASSWORD] Generated token: ${token}`);
+      const expiresAt = new Date(Date.now() + 3600000); // 1 hora desde ahora
+      console.log(`[FORGOT_PASSWORD] Token expires at: ${expiresAt.toISOString()}`);
 
-      await setResetPasswordToken(user.id, resetToken, expiresAt);
+      await setResetPasswordToken(user.id, token, expiresAt);
+      console.log(`[FORGOT_PASSWORD] Token set in DB for user ${user.id}`);
 
-      const resetLink = `${process.env.FRONTEND_URL || 'https://air-gijon-front-end.onrender.com'}/reset-password?token=${resetToken}`;
-      
+      const frontendBaseUrl = process.env.FRONTEND_URL || 'https://air-gijon-front-end.onrender.com';
+      const resetLink = `${frontendBaseUrl}/reset-password?token=${token}`;
+      console.log(`[FORGOT_PASSWORD] Constructed reset link: ${resetLink}`);
+
+      // Enviar email de reseteo de contraseña
+      // Asumiendo que sendPasswordResetEmail existe en email_service.js
+      // y maneja sus propios logs internos sobre el éxito/fallo del envío.
+      console.log(`[FORGOT_PASSWORD] Attempting to send password reset email to ${user.email} for user ID ${user.id}`);
       sendPasswordResetEmail(user.email, user.name, resetLink, user.id)
-        .catch(err => {
-          console.error('Error enviando email de reseteo a ' + user.email + ': ', err);
+        .then(emailResult => {
+          if (emailResult && emailResult.success) {
+            console.log(`[FORGOT_PASSWORD] Password reset email queued successfully for ${user.email}. Message ID: ${emailResult.messageId}`);
+          } else {
+            console.error(`[FORGOT_PASSWORD] Failed to send password reset email to ${user.email}. Result:`, emailResult);
+          }
+        })
+        .catch(error => {
+          console.error(`[FORGOT_PASSWORD] Critical error calling sendPasswordResetEmail for ${user.email}:`, error);
         });
+
+    } else if (user && !user.is_confirmed) {
+      console.log(`[FORGOT_PASSWORD] User found but not confirmed: ${email}`);
+      // No hacer nada, responder genéricamente
     } else {
-      console.log(`Solicitud de reseteo para email no encontrado o no confirmado: ${email}`);
+      console.log(`[FORGOT_PASSWORD] User not found: ${email}`);
+      // No hacer nada, responder genéricamente
     }
 
-    res.json({ success: true, message: 'Si tu correo está registrado y confirmado, recibirás un enlace para restablecer tu contraseña.' });
+    // Responder siempre con éxito para evitar enumeración de usuarios
+    res.json({
+      success: true,
+      message: 'Si tu correo electrónico está registrado y confirmado, recibirás un enlace para restablecer tu contraseña.'
+    });
 
   } catch (error) {
-    console.error('Error en /forgot-password:', error);
-    res.status(500).json({ success: false, error: 'Error interno del servidor.' });
+    console.error('[FORGOT_PASSWORD] Error en la ruta /forgot-password:', error);
+    // Responder genéricamente incluso en caso de error interno
+    res.status(200).json({ // Cambiado a 200 para que coincida con el flujo normal
+      success: true, // Aunque sea un error interno, se simula éxito al cliente
+      message: 'Si tu correo electrónico está registrado y confirmado, recibirás un enlace para restablecer tu contraseña.'
+    });
   }
 });
 
-// POST /api/users/reset-password/:token - Restablecer la contraseña
+// POST /api/users/reset-password/:token - Resetear la contraseña
 router.post('/reset-password/:token', async (req, res) => {
   try {
     const { token } = req.params;

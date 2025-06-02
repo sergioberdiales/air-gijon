@@ -2,6 +2,10 @@ const nodemailer = require('nodemailer');
 const { logNotificationSent, getUsersForDailyPredictions } = require('./db');
 const { getEstadoPM25, getColorEstado } = require('./utils');
 
+// DEBUG: Log environment variables for email
+console.log('[DEBUG Email Service] EMAIL_USER:', process.env.EMAIL_USER);
+console.log('[DEBUG Email Service] EMAIL_PASSWORD exists:', !!process.env.EMAIL_PASSWORD);
+
 // Configuración del transporter de email
 const transporter = nodemailer.createTransport({
   service: 'gmail', // o el servicio que prefieras
@@ -307,6 +311,40 @@ function getConfirmationTemplate(userName, confirmationLink) {
   );
 }
 
+// Plantilla para email de reseteo de contraseña
+function getPasswordResetTemplate(resetLink, userName) {
+  console.log(`[EMAIL_SERVICE] getPasswordResetTemplate called. userName: ${userName}, resetLink: ${resetLink}`);
+  const frontendBaseUrl = process.env.FRONTEND_URL || 'https://air-gijon-front-end.onrender.com';
+  const content = `
+    <h2>🔑 Restablece tu Contraseña</h2>
+    
+    <p>Hola ${userName || 'Usuario'},</p>
+    
+    <p>Hemos recibido una solicitud para restablecer la contraseña de tu cuenta en Air Gijón. Si no solicitaste esto, puedes ignorar este mensaje.</p>
+    
+    <p>Para continuar con el restablecimiento, haz clic en el siguiente botón:</p>
+    
+    <div style="text-align: center; margin-top: 30px; margin-bottom: 30px;">
+      <a href="${resetLink}" class="button">
+        Restablecer Contraseña
+      </a>
+    </div>
+    
+    <p>Si el botón no funciona, copia y pega el siguiente enlace en tu navegador:</p>
+    <p><a href="${resetLink}">${resetLink}</a></p>
+    
+    <p>Este enlace para restablecer la contraseña expirará en 1 hora.</p>
+  `;
+
+  const emailHtml = getBaseEmailTemplate(
+    'Restablece tu Contraseña - Air Gijón',
+    content,
+    '<p>Por seguridad, nunca compartas este enlace con nadie.</p>'
+  );
+  console.log(`[EMAIL_SERVICE] getPasswordResetTemplate generated HTML (first 100 chars): ${emailHtml.substring(0, 100)}...`);
+  return emailHtml;
+}
+
 // Enviar email
 async function sendEmail(to, subject, htmlContent, userId = null, type = 'general') {
   if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
@@ -400,6 +438,23 @@ async function sendAirQualityAlert(userEmail, userName, alertData, userId) {
   return sendEmail(userEmail, `🚨 Alerta de Calidad del Aire: ${alertData.estado} en ${alertData.estacion}`, htmlContent, userId, 'quality_alert');
 }
 
+// Enviar email de reseteo de contraseña
+async function sendPasswordResetEmail(to, userName, resetLink, userId) {
+  console.log(`[EMAIL_SERVICE] sendPasswordResetEmail called. To: ${to}, userName: ${userName}, userId: ${userId}, resetLink: ${resetLink}`);
+  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
+    console.error('[EMAIL_SERVICE] ❌ Faltan credenciales de email (EMAIL_USER o EMAIL_PASSWORD). No se enviará correo de reseteo.');
+    return { success: false, error: 'Missing email credentials' };
+  }
+  const subject = 'Restablece tu contraseña en Air Gijón';
+  console.log(`[EMAIL_SERVICE] Subject: ${subject}`);
+  const htmlContent = getPasswordResetTemplate(resetLink, userName);
+  
+  console.log(`[EMAIL_SERVICE] Attempting to send email via sendEmail function. To: ${to}, Subject: ${subject}`);
+  const result = await sendEmail(to, subject, htmlContent, userId, 'password_reset');
+  console.log(`[EMAIL_SERVICE] sendEmail function result for password_reset:`, result);
+  return result;
+}
+
 module.exports = {
   verifyEmailConfig,
   sendEmail,
@@ -407,8 +462,10 @@ module.exports = {
   sendWelcomeEmail,
   sendAirQualityAlert,
   sendConfirmationEmail,
+  sendPasswordResetEmail,
   getDailyPredictionTemplate,
   getAlertTemplate,
   getWelcomeTemplate,
-  getConfirmationTemplate
+  getConfirmationTemplate,
+  getPasswordResetTemplate
 }; 
