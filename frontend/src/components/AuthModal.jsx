@@ -307,6 +307,18 @@ function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
               </button>
             </form>
 
+            {/* Enlace para ir a la vista de "Olvidé mi contraseña" */}
+            {activeView === 'auth' && activeTab === 'login' && (
+              <button 
+                type="button" 
+                className="link-btn" 
+                onClick={() => setActiveView('forgotPassword')}
+                style={{ marginTop: '15px', textAlign: 'center', display: 'block', width: '100%' }}
+              >
+                ¿Olvidaste tu contraseña?
+              </button>
+            )}
+
             {activeTab === 'register' && (
               <div className="info-box">
                 <h4>🔔 Beneficios de registrarse:</h4>
