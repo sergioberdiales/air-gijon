@@ -601,6 +601,183 @@ app.get('/api/test/status', async (req, res) => {
   }
 });
 
+// ENDPOINT TEMPORAL DE MIGRACIÓN (eliminar después de usar)
+app.post('/api/migrate/lightgbm', async (req, res) => {
+  try {
+    console.log('🔧 MIGRACIÓN: Ejecutando migraciones de LightGBM...');
+    
+    const results = [];
+    
+    // 1. Agregar columna MAE si no existe
+    try {
+      console.log('➕ Agregando columna mae...');
+      await pool.query(`
+        ALTER TABLE modelos_prediccion 
+        ADD COLUMN IF NOT EXISTS mae DECIMAL(6,3)
+      `);
+      results.push('✅ Columna mae agregada');
+    } catch (error) {
+      results.push('⚠️ Error agregando columna mae: ' + error.message);
+    }
+    
+    // 2. Agregar columna horizonte_dias si no existe
+    try {
+      console.log('➕ Agregando columna horizonte_dias...');
+      await pool.query(`
+        ALTER TABLE predicciones 
+        ADD COLUMN IF NOT EXISTS horizonte_dias INTEGER DEFAULT 0
+      `);
+      results.push('✅ Columna horizonte_dias agregada');
+    } catch (error) {
+      results.push('⚠️ Error agregando columna horizonte_dias: ' + error.message);
+    }
+    
+    // 3. Actualizar datos existentes
+    try {
+      console.log('🔄 Actualizando datos existentes...');
+      const updateResult = await pool.query(`
+        UPDATE predicciones 
+        SET horizonte_dias = 0 
+        WHERE horizonte_dias IS NULL
+      `);
+      results.push(`✅ Actualizadas ${updateResult.rowCount} filas en predicciones`);
+    } catch (error) {
+      results.push('⚠️ Error actualizando datos: ' + error.message);
+    }
+    
+    // 4. Eliminar constraint anterior si existe
+    try {
+      console.log('🗑️ Eliminando constraint anterior...');
+      await pool.query(`
+        ALTER TABLE predicciones 
+        DROP CONSTRAINT IF EXISTS predicciones_fecha_estacion_id_modelo_id_parametro_key
+      `);
+      results.push('✅ Constraint anterior eliminado');
+    } catch (error) {
+      results.push('⚠️ Constraint anterior no existía o error: ' + error.message);
+    }
+    
+    // 5. Crear nuevo constraint único
+    try {
+      console.log('🔐 Creando nuevo constraint único...');
+      await pool.query(`
+        ALTER TABLE predicciones 
+        ADD CONSTRAINT predicciones_fecha_estacion_modelo_parametro_horizonte_unique 
+        UNIQUE (fecha, estacion_id, modelo_id, parametro, horizonte_dias)
+      `);
+      results.push('✅ Nuevo constraint único creado');
+    } catch (error) {
+      if (error.code === '23505' || error.message.includes('already exists')) {
+        results.push('✅ Constraint único ya existe');
+      } else {
+        results.push('⚠️ Error creando constraint: ' + error.message);
+      }
+    }
+    
+    // 6. Crear índice adicional
+    try {
+      console.log('📊 Creando índice adicional...');
+      await pool.query(`
+        CREATE INDEX IF NOT EXISTS idx_predicciones_horizonte_fecha 
+        ON predicciones(horizonte_dias, fecha)
+      `);
+      results.push('✅ Índice adicional creado');
+    } catch (error) {
+      results.push('⚠️ Error creando índice: ' + error.message);
+    }
+    
+    // 7. Desactivar modelos existentes
+    try {
+      console.log('🔄 Desactivando modelos anteriores...');
+      await pool.query(`
+        UPDATE modelos_prediccion 
+        SET activo = false, 
+            fecha_fin_produccion = CURRENT_DATE,
+            updated_at = CURRENT_TIMESTAMP
+      `);
+      results.push('✅ Modelos anteriores desactivados');
+    } catch (error) {
+      results.push('⚠️ Error desactivando modelos: ' + error.message);
+    }
+    
+    // 8. Crear/actualizar Modelo_1.0
+    try {
+      console.log('✨ Creando Modelo_1.0 (LightGBM)...');
+      const modelResult = await pool.query(`
+        INSERT INTO modelos_prediccion (
+          nombre_modelo,
+          fecha_inicio_produccion,
+          mae,
+          descripcion,
+          activo
+        ) VALUES (
+          'Modelo_1.0',
+          CURRENT_DATE,
+          8.370,
+          'Modelo LightGBM entrenado con 33 variables (16 lags, 13 diferencias, 2 tendencias, 2 exógenas). MAE: 8.37 µg/m³. Datos de entrenamiento: mayo 2024 - abril 2025.',
+          true
+        )
+        ON CONFLICT (nombre_modelo) DO UPDATE SET
+          activo = true,
+          fecha_inicio_produccion = CURRENT_DATE,
+          fecha_fin_produccion = NULL,
+          mae = EXCLUDED.mae,
+          descripcion = EXCLUDED.descripcion,
+          updated_at = CURRENT_TIMESTAMP
+        RETURNING *
+      `);
+      
+      const modelo = modelResult.rows[0];
+      results.push(`✅ Modelo_1.0 creado/actualizado con ID: ${modelo.id}`);
+    } catch (error) {
+      results.push('⚠️ Error creando modelo: ' + error.message);
+    }
+    
+    // 9. Actualizar modelo antiguo
+    try {
+      console.log('🔄 Actualizando Modelo_0.0...');
+      await pool.query(`
+        UPDATE modelos_prediccion 
+        SET mae = 15.50,
+            roc_index = NULL,
+            descripcion = 'Modelo inicial basado en datos históricos con variación aleatoria. Algoritmo simple de promedio móvil. MAE estimado: ~15.5 µg/m³.',
+            updated_at = CURRENT_TIMESTAMP
+        WHERE nombre_modelo = 'Modelo_0.0'
+      `);
+      results.push('✅ Modelo_0.0 actualizado');
+    } catch (error) {
+      results.push('⚠️ Error actualizando Modelo_0.0: ' + error.message);
+    }
+    
+    // 10. Verificar modelo activo
+    const modeloActivo = await pool.query(`
+      SELECT nombre_modelo, mae, activo
+      FROM modelos_prediccion
+      WHERE activo = true
+      LIMIT 1
+    `);
+    
+    console.log('✅ MIGRACIÓN COMPLETADA');
+    
+    res.json({
+      success: true,
+      mensaje: 'Migraciones de LightGBM completadas exitosamente',
+      resultados: results,
+      modelo_activo: modeloActivo.rows[0] || null,
+      timestamp: new Date().toISOString(),
+      nota: 'Este endpoint será eliminado después de usar'
+    });
+    
+  } catch (error) {
+    console.error('❌ Error en migración:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error ejecutando migraciones',
+      details: error.message
+    });
+  }
+});
+
 // Inicialización del servidor simplificada
 async function initializeServer() {
   try {
