@@ -1355,6 +1355,95 @@ app.get('/api/migrate/fix-promedios-structure/execute', async (req, res) => {
   }
 });
 
+// ENDPOINT GET PARA TESTING: Ejecutar predicciones manualmente (desde navegador)
+app.get('/api/test/predicciones/execute', async (req, res) => {
+  try {
+    console.log('🧪 TEST GET: Ejecutando predicciones manualmente desde navegador...');
+    
+    const { spawn } = require('child_process');
+    const path = require('path');
+    
+    // Ejecutar el cron job de predicciones
+    const cronScript = path.join(__dirname, 'cron_predictions_fixed.js');
+    
+    const child = spawn('node', [cronScript], {
+      stdio: ['pipe', 'pipe', 'pipe'],
+      env: process.env
+    });
+    
+    let stdout = '';
+    let stderr = '';
+    
+    child.stdout.on('data', (data) => {
+      stdout += data.toString();
+    });
+    
+    child.stderr.on('data', (data) => {
+      stderr += data.toString();
+    });
+    
+    child.on('close', async (code) => {
+      if (code === 0) {
+        console.log('✅ TEST GET: Predicciones ejecutadas exitosamente');
+        
+        // Obtener las predicciones más recientes para mostrar resultado
+        try {
+          const prediccionesRecientes = await pool.query(`
+            SELECT 
+              p.fecha,
+              p.valor,
+              p.horizonte_dias,
+              p.fecha_generacion,
+              m.nombre_modelo,
+              m.mae
+            FROM predicciones p
+            JOIN modelos_prediccion m ON p.modelo_id = m.id
+            WHERE p.estacion_id = '6699' 
+              AND p.parametro = 'pm25'
+              AND m.activo = true
+              AND p.fecha_generacion >= (CURRENT_TIMESTAMP - INTERVAL '10 minutes')
+            ORDER BY p.fecha_generacion DESC, p.horizonte_dias ASC
+            LIMIT 4
+          `);
+          
+          res.json({
+            success: true,
+            mensaje: 'Predicciones ejecutadas exitosamente desde navegador',
+            predicciones_generadas: prediccionesRecientes.rows,
+            log_output: stdout.split('\n').slice(-20), // Últimas 20 líneas
+            timestamp: new Date().toISOString(),
+            siguiente_paso: 'Revisa tu web app en https://air-gijon-front-end.onrender.com'
+          });
+        } catch (dbError) {
+          res.json({
+            success: true,
+            mensaje: 'Predicciones ejecutadas, pero error consultando resultados',
+            log_output: stdout.split('\n').slice(-20),
+            error: dbError.message
+          });
+        }
+      } else {
+        console.error('❌ TEST GET: Error ejecutando predicciones:', stderr);
+        res.status(500).json({
+          success: false,
+          error: 'Error ejecutando predicciones',
+          log_output: stdout.split('\n').slice(-20),
+          stderr: stderr.split('\n').slice(-10),
+          exit_code: code
+        });
+      }
+    });
+    
+  } catch (error) {
+    console.error('❌ TEST GET: Error en endpoint de testing:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error interno ejecutando test de predicciones',
+      details: error.message
+    });
+  }
+});
+
 // Inicialización del servidor simplificada
 async function initializeServer() {
   try {
