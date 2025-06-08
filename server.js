@@ -104,7 +104,7 @@ app.get('/api/air/constitucion/evolucion', async (req, res) => {
     // 2. Consultar predicciones con el modelo activo
     const fechasPredicciones = fechas.filter(f => f.tipo === 'prediccion').map(f => f.fecha);
     const predicciones = await pool.query(`
-      SELECT p.fecha, p.valor, m.nombre_modelo, m.roc_index
+      SELECT p.fecha, p.valor, m.nombre_modelo, m.mae, m.roc_index
       FROM predicciones p
       JOIN modelos_prediccion m ON p.modelo_id = m.id
       WHERE p.fecha = ANY($1) 
@@ -145,7 +145,8 @@ app.get('/api/air/constitucion/evolucion', async (req, res) => {
             tipo: 'prediccion',
             estado: getEstadoPM25(datos.valor),
             modelo: datos.nombre_modelo,
-            roc_index: parseFloat(datos.roc_index)
+            mae: datos.mae ? parseFloat(datos.mae) : null,
+            roc_index: datos.roc_index ? parseFloat(datos.roc_index) : null
           };
         }
       }
@@ -167,8 +168,9 @@ app.get('/api/air/constitucion/evolucion', async (req, res) => {
       };
       
       if (fechaInfo.tipo === 'prediccion') {
-        resultado.modelo = 'Modelo_0.0';
-        resultado.roc_index = 0.65;
+        resultado.modelo = 'Modelo_1.0';
+        resultado.mae = 8.37;
+        resultado.roc_index = null;
       }
       
       return resultado;
@@ -231,6 +233,7 @@ app.get('/api/modelos', async (req, res) => {
         nombre_modelo,
         fecha_inicio_produccion,
         fecha_fin_produccion,
+        mae,
         roc_index,
         descripcion,
         activo,
@@ -287,6 +290,7 @@ app.get('/api/predicciones/:estacion/:parametro', async (req, res) => {
         p.valor,
         p.fecha_generacion,
         m.nombre_modelo,
+        m.mae,
         m.roc_index
       FROM predicciones p
       JOIN modelos_prediccion m ON p.modelo_id = m.id
@@ -347,6 +351,7 @@ app.post('/api/modelos', async (req, res) => {
     const { 
       nombre_modelo, 
       descripcion, 
+      mae,
       roc_index,
       activar_inmediatamente = false 
     } = req.body;
@@ -365,11 +370,12 @@ app.post('/api/modelos', async (req, res) => {
         nombre_modelo,
         fecha_inicio_produccion,
         descripcion,
+        mae,
         roc_index,
         activo
-      ) VALUES ($1, CURRENT_DATE, $2, $3, $4)
+      ) VALUES ($1, CURRENT_DATE, $2, $3, $4, $5)
       RETURNING *
-    `, [nombre_modelo, descripcion, roc_index, activar_inmediatamente]);
+    `, [nombre_modelo, descripcion, mae, roc_index, activar_inmediatamente]);
     
     res.status(201).json({
       mensaje: 'Modelo creado exitosamente',
@@ -413,6 +419,185 @@ app.put('/api/modelos/:id/roc', async (req, res) => {
   } catch (error) {
     console.error('❌ Error actualizando ROC index:', error);
     res.status(500).json({ error: 'Error actualizando ROC index' });
+  }
+});
+
+// Endpoint para actualizar MAE de un modelo
+app.put('/api/modelos/:id/mae', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { mae } = req.body;
+    
+    if (typeof mae !== 'number' || mae < 0) {
+      return res.status(400).json({ error: 'mae debe ser un número positivo' });
+    }
+    
+    const result = await pool.query(`
+      UPDATE modelos_prediccion 
+      SET mae = $1, updated_at = CURRENT_TIMESTAMP
+      WHERE id = $2
+      RETURNING *
+    `, [mae, id]);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Modelo no encontrado' });
+    }
+    
+    res.json({
+      mensaje: 'MAE actualizado exitosamente',
+      modelo: result.rows[0]
+    });
+  } catch (error) {
+    console.error('❌ Error actualizando MAE:', error);
+    res.status(500).json({ error: 'Error actualizando MAE' });
+  }
+});
+
+// ENDPOINT DE TESTING: Ejecutar predicciones manualmente
+app.post('/api/test/predicciones', async (req, res) => {
+  try {
+    console.log('🧪 TEST: Ejecutando predicciones manualmente desde API...');
+    
+    const { spawn } = require('child_process');
+    const path = require('path');
+    
+    // Ejecutar el cron job de predicciones
+    const cronScript = path.join(__dirname, 'cron_predictions_fixed.js');
+    
+    const child = spawn('node', [cronScript], {
+      stdio: ['pipe', 'pipe', 'pipe'],
+      env: process.env
+    });
+    
+    let stdout = '';
+    let stderr = '';
+    
+    child.stdout.on('data', (data) => {
+      stdout += data.toString();
+    });
+    
+    child.stderr.on('data', (data) => {
+      stderr += data.toString();
+    });
+    
+    child.on('close', async (code) => {
+      if (code === 0) {
+        console.log('✅ TEST: Predicciones ejecutadas exitosamente');
+        
+        // Obtener las predicciones más recientes para mostrar resultado
+        try {
+          const prediccionesRecientes = await pool.query(`
+            SELECT 
+              p.fecha,
+              p.valor,
+              p.horizonte_dias,
+              p.fecha_generacion,
+              m.nombre_modelo,
+              m.mae
+            FROM predicciones p
+            JOIN modelos_prediccion m ON p.modelo_id = m.id
+            WHERE p.estacion_id = '6699' 
+              AND p.parametro = 'pm25'
+              AND m.activo = true
+              AND p.fecha_generacion >= (CURRENT_TIMESTAMP - INTERVAL '10 minutes')
+            ORDER BY p.fecha_generacion DESC, p.horizonte_dias ASC
+            LIMIT 4
+          `);
+          
+          res.json({
+            success: true,
+            mensaje: 'Predicciones ejecutadas exitosamente desde API',
+            predicciones_generadas: prediccionesRecientes.rows,
+            log_output: stdout.split('\n').slice(-20), // Últimas 20 líneas
+            timestamp: new Date().toISOString()
+          });
+        } catch (dbError) {
+          res.json({
+            success: true,
+            mensaje: 'Predicciones ejecutadas, pero error consultando resultados',
+            log_output: stdout.split('\n').slice(-20),
+            error: dbError.message
+          });
+        }
+      } else {
+        console.error('❌ TEST: Error ejecutando predicciones:', stderr);
+        res.status(500).json({
+          success: false,
+          error: 'Error ejecutando predicciones',
+          log_output: stdout.split('\n').slice(-20),
+          stderr: stderr.split('\n').slice(-10),
+          exit_code: code
+        });
+      }
+    });
+    
+  } catch (error) {
+    console.error('❌ TEST: Error en endpoint de testing:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error interno ejecutando test de predicciones',
+      details: error.message
+    });
+  }
+});
+
+// Endpoint para obtener estado del sistema de predicciones
+app.get('/api/test/status', async (req, res) => {
+  try {
+    // 1. Verificar modelo activo
+    const modeloActivo = await pool.query(`
+      SELECT nombre_modelo, mae, activo, fecha_inicio_produccion
+      FROM modelos_prediccion
+      WHERE activo = true
+      LIMIT 1
+    `);
+    
+    // 2. Verificar últimas predicciones
+    const ultimasPredicciones = await pool.query(`
+      SELECT 
+        p.fecha,
+        p.valor,
+        p.horizonte_dias,
+        p.fecha_generacion,
+        m.nombre_modelo
+      FROM predicciones p
+      JOIN modelos_prediccion m ON p.modelo_id = m.id
+      WHERE p.estacion_id = '6699' 
+        AND p.parametro = 'pm25'
+        AND m.activo = true
+      ORDER BY p.fecha_generacion DESC
+      LIMIT 5
+    `);
+    
+    // 3. Verificar si hay predicciones para hoy y mañana
+    const hoy = new Date().toISOString().split('T')[0];
+    const manana = new Date();
+    manana.setDate(manana.getDate() + 1);
+    const mananaStr = manana.toISOString().split('T')[0];
+    
+    const prediccionesActuales = await pool.query(`
+      SELECT fecha, valor, horizonte_dias
+      FROM predicciones p
+      JOIN modelos_prediccion m ON p.modelo_id = m.id
+      WHERE p.fecha IN ($1, $2)
+        AND p.estacion_id = '6699'
+        AND p.parametro = 'pm25'
+        AND m.activo = true
+      ORDER BY p.fecha, p.horizonte_dias
+    `, [hoy, mananaStr]);
+    
+    res.json({
+      modelo_activo: modeloActivo.rows[0] || null,
+      tiene_predicciones_actuales: prediccionesActuales.rows.length > 0,
+      predicciones_hoy_manana: prediccionesActuales.rows,
+      ultimas_predicciones: ultimasPredicciones.rows,
+      timestamp: new Date().toISOString(),
+      sistema_operativo: process.platform,
+      node_version: process.version
+    });
+  } catch (error) {
+    console.error('❌ Error consultando estado del sistema:', error);
+    res.status(500).json({ error: 'Error consultando estado del sistema' });
   }
 });
 

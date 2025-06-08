@@ -1,0 +1,7 @@
+﻿Etiqueta OMS,Intervalo (µg/m³),Significado sanitario (resumen)
+AQG (guía máxima),≤ 15,Aire “seguro”; riesgo mínimo
+IT-4,15 – 25,Riesgo leve; vigilar población sensible
+IT-3,"25 – 37,5",Riesgo moderado; sensibles deben limitar actividad exterior
+IT-2,"37,5 – 50",Riesgo alto; la población general puede notar síntomas
+IT-1,50 – 75,Riesgo muy alto; evitar ejercicio al aire libre
+> IT-1,> 75,Riesgo extremo; permanecer en interiores
