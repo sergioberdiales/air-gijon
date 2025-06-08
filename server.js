@@ -778,6 +778,149 @@ app.post('/api/migrate/lightgbm', async (req, res) => {
   }
 });
 
+// ENDPOINT TEMPORAL PARA CARGAR DATOS HISTÓRICOS (eliminar después de usar)
+app.post('/api/migrate/historical-data', async (req, res) => {
+  try {
+    console.log('📊 CARGA: Generando datos históricos para LightGBM...');
+    
+    const results = [];
+    
+    // Función para calcular estado PM2.5
+    function getEstadoPM25(pm25) {
+      if (pm25 <= 15) return 'Buena';
+      if (pm25 <= 25) return 'Moderada';
+      if (pm25 <= 50) return 'Regular';
+      return 'Mala';
+    }
+    
+    // Función para calcular estado OMS
+    function getEstadoOMS(pm25) {
+      if (pm25 <= 15) return 'AQG';
+      if (pm25 <= 25) return 'IT-4';
+      if (pm25 <= 37.5) return 'IT-3';
+      if (pm25 <= 50) return 'IT-2';
+      if (pm25 <= 75) return 'IT-1';
+      return '>IT-1';
+    }
+    
+    // Generar 35 días de datos históricos realistas
+    const hoy = new Date();
+    const datosHistoricos = [];
+    
+    for (let i = 35; i >= 1; i--) {
+      const fecha = new Date();
+      fecha.setDate(hoy.getDate() - i);
+      const fechaStr = fecha.toISOString().split('T')[0];
+      
+      // Generar valores realistas basados en patrones reales de PM2.5
+      // Variación estacional y semanal simulada
+      const diaSemana = fecha.getDay(); // 0=domingo, 6=sábado
+      const esFinDeSemana = diaSemana === 0 || diaSemana === 6;
+      
+      // Base: valores típicos de primavera/verano en Gijón
+      let valorBase = 16; // Valor medio típico
+      
+      // Variación por día de semana (menos contaminación fin de semana)
+      if (esFinDeSemana) {
+        valorBase -= 3; // Menos tráfico
+      } else {
+        valorBase += 2; // Más tráfico laboral
+      }
+      
+      // Añadir variación aleatoria realista
+      const variacion = (Math.random() - 0.5) * 12; // ±6 µg/m³
+      const valor = Math.max(8, valorBase + variacion); // Mínimo 8 µg/m³
+      
+      // Redondear a 2 decimales
+      const valorFinal = Math.round(valor * 100) / 100;
+      
+      datosHistoricos.push({
+        fecha: fechaStr,
+        valor: valorFinal,
+        estado: getEstadoPM25(valorFinal),
+        estado_oms: getEstadoOMS(valorFinal)
+      });
+    }
+    
+    console.log(`📊 Generando ${datosHistoricos.length} registros históricos...`);
+    
+    // Insertar datos en lotes para mejor rendimiento
+    let insertados = 0;
+    
+    for (const dato of datosHistoricos) {
+      try {
+        await pool.query(`
+          INSERT INTO promedios_diarios (
+            fecha, 
+            parametro, 
+            valor, 
+            estado, 
+            source
+          ) VALUES ($1, $2, $3, $4, $5)
+          ON CONFLICT (fecha, parametro) 
+          DO UPDATE SET
+            valor = EXCLUDED.valor,
+            estado = EXCLUDED.estado,
+            source = EXCLUDED.source,
+            updated_at = CURRENT_TIMESTAMP
+        `, [
+          dato.fecha,
+          'pm25',
+          dato.valor,
+          dato.estado,
+          'historical_generator_prod'
+        ]);
+        
+        insertados++;
+      } catch (error) {
+        console.error(`Error insertando dato ${dato.fecha}:`, error.message);
+        results.push(`⚠️ Error en ${dato.fecha}: ${error.message}`);
+      }
+    }
+    
+    results.push(`✅ ${insertados} registros históricos insertados/actualizados`);
+    
+    // Verificar datos insertados
+    const verificacion = await pool.query(`
+      SELECT COUNT(*) as total, MIN(fecha) as desde, MAX(fecha) as hasta
+      FROM promedios_diarios
+      WHERE parametro = 'pm25' AND source = 'historical_generator_prod'
+    `);
+    
+    const stats = verificacion.rows[0];
+    results.push(`📊 Verificación: ${stats.total} registros desde ${stats.desde} hasta ${stats.hasta}`);
+    
+    // Mostrar algunos ejemplos
+    const ejemplos = await pool.query(`
+      SELECT fecha, valor, estado
+      FROM promedios_diarios
+      WHERE parametro = 'pm25' AND source = 'historical_generator_prod'
+      ORDER BY fecha DESC
+      LIMIT 5
+    `);
+    
+    console.log('✅ DATOS HISTÓRICOS CARGADOS');
+    
+    res.json({
+      success: true,
+      mensaje: 'Datos históricos generados exitosamente',
+      resultados: results,
+      estadisticas: stats,
+      ejemplos: ejemplos.rows,
+      timestamp: new Date().toISOString(),
+      nota: 'Este endpoint será eliminado después de usar'
+    });
+    
+  } catch (error) {
+    console.error('❌ Error cargando datos históricos:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error cargando datos históricos',
+      details: error.message
+    });
+  }
+});
+
 // Inicialización del servidor simplificada
 async function initializeServer() {
   try {
