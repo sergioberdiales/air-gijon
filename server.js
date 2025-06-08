@@ -1083,6 +1083,142 @@ app.get('/api/migrate/historical-data/execute', async (req, res) => {
   }
 });
 
+// ENDPOINT TEMPORAL PARA ARREGLAR ESTRUCTURA DE promedios_diarios
+app.post('/api/migrate/fix-promedios-structure', async (req, res) => {
+  try {
+    console.log('🔧 ESTRUCTURA: Arreglando tabla promedios_diarios...');
+    
+    const results = [];
+    
+    // 1. Verificar estructura actual
+    const currentStructure = await pool.query(`
+      SELECT column_name, data_type, is_nullable
+      FROM information_schema.columns
+      WHERE table_name = 'promedios_diarios'
+      ORDER BY ordinal_position
+    `);
+    
+    results.push(`📋 Estructura actual: ${currentStructure.rows.length} columnas`);
+    
+    // 2. Verificar constraints existentes
+    const constraints = await pool.query(`
+      SELECT constraint_name, constraint_type
+      FROM information_schema.table_constraints
+      WHERE table_name = 'promedios_diarios'
+    `);
+    
+    results.push(`🔐 Constraints actuales: ${constraints.rows.length}`);
+    
+    // 3. Eliminar constraint anterior si existe (por si acaso)
+    try {
+      await pool.query(`
+        ALTER TABLE promedios_diarios 
+        DROP CONSTRAINT IF EXISTS promedios_diarios_fecha_key
+      `);
+      results.push('✅ Constraint anterior eliminado (si existía)');
+    } catch (error) {
+      results.push('⏭️ No había constraint anterior para eliminar');
+    }
+    
+    // 4. Asegurar que tenemos las columnas necesarias
+    try {
+      await pool.query(`
+        ALTER TABLE promedios_diarios 
+        ADD COLUMN IF NOT EXISTS parametro VARCHAR(50) DEFAULT 'pm25'
+      `);
+      results.push('✅ Columna parametro asegurada');
+    } catch (error) {
+      results.push('⚠️ Error con columna parametro: ' + error.message);
+    }
+    
+    try {
+      await pool.query(`
+        ALTER TABLE promedios_diarios 
+        ADD COLUMN IF NOT EXISTS source VARCHAR(100) DEFAULT 'api'
+      `);
+      results.push('✅ Columna source asegurada');
+    } catch (error) {
+      results.push('⚠️ Error con columna source: ' + error.message);
+    }
+    
+    // 5. Actualizar datos existentes
+    try {
+      const updateResult = await pool.query(`
+        UPDATE promedios_diarios 
+        SET parametro = 'pm25' 
+        WHERE parametro IS NULL OR parametro = ''
+      `);
+      results.push(`✅ Actualizados ${updateResult.rowCount} registros con parametro=pm25`);
+    } catch (error) {
+      results.push('⚠️ Error actualizando parametro: ' + error.message);
+    }
+    
+    // 6. Crear constraint único
+    try {
+      await pool.query(`
+        ALTER TABLE promedios_diarios 
+        ADD CONSTRAINT promedios_diarios_fecha_parametro_unique 
+        UNIQUE (fecha, parametro)
+      `);
+      results.push('✅ Constraint único (fecha, parametro) creado');
+    } catch (error) {
+      if (error.code === '23505' || error.message.includes('already exists')) {
+        results.push('✅ Constraint único ya existe');
+      } else {
+        results.push('⚠️ Error creando constraint: ' + error.message);
+      }
+    }
+    
+    // 7. Crear índices adicionales
+    try {
+      await pool.query(`
+        CREATE INDEX IF NOT EXISTS idx_promedios_fecha_parametro 
+        ON promedios_diarios(fecha, parametro)
+      `);
+      results.push('✅ Índice (fecha, parametro) creado');
+    } catch (error) {
+      results.push('⚠️ Error creando índice: ' + error.message);
+    }
+    
+    // 8. Verificar estructura final
+    const finalStructure = await pool.query(`
+      SELECT column_name, data_type, is_nullable
+      FROM information_schema.columns
+      WHERE table_name = 'promedios_diarios'
+      ORDER BY ordinal_position
+    `);
+    
+    const finalConstraints = await pool.query(`
+      SELECT constraint_name, constraint_type
+      FROM information_schema.table_constraints
+      WHERE table_name = 'promedios_diarios'
+    `);
+    
+    results.push(`📋 Estructura final: ${finalStructure.rows.length} columnas`);
+    results.push(`🔐 Constraints finales: ${finalConstraints.rows.length}`);
+    
+    console.log('✅ ESTRUCTURA DE PROMEDIOS_DIARIOS ARREGLADA');
+    
+    res.json({
+      success: true,
+      mensaje: 'Estructura de promedios_diarios arreglada exitosamente',
+      resultados: results,
+      estructura_final: finalStructure.rows,
+      constraints_finales: finalConstraints.rows,
+      timestamp: new Date().toISOString(),
+      siguiente_paso: 'Ahora ejecuta /api/migrate/historical-data/execute otra vez'
+    });
+    
+  } catch (error) {
+    console.error('❌ Error arreglando estructura:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error arreglando estructura de promedios_diarios',
+      details: error.message
+    });
+  }
+});
+
 // Inicialización del servidor simplificada
 async function initializeServer() {
   try {
