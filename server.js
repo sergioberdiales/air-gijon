@@ -1444,6 +1444,66 @@ app.get('/api/test/predicciones/execute', async (req, res) => {
   }
 });
 
+// ENDPOINT TEMPORAL PARA VERIFICAR DATOS HISTÓRICOS ESPECÍFICOS
+app.get('/api/debug/historical-data', async (req, res) => {
+  try {
+    console.log('🔍 DEBUG: Verificando datos históricos específicos...');
+    
+    // Consultar datos históricos de los últimos 7 días
+    const historicos = await pool.query(`
+      SELECT 
+        fecha,
+        parametro,
+        valor,
+        estado,
+        source,
+        created_at
+      FROM promedios_diarios
+      WHERE parametro = 'pm25'
+        AND fecha >= '2025-06-01'
+      ORDER BY fecha ASC
+    `);
+    
+    // Consultar específicamente las fechas del gráfico
+    const fechasGrafico = [
+      '2025-06-03', '2025-06-04', '2025-06-05', 
+      '2025-06-06', '2025-06-07'
+    ];
+    
+    const datosGrafico = await pool.query(`
+      SELECT fecha, valor, estado, source
+      FROM promedios_diarios
+      WHERE fecha = ANY($1) AND parametro = 'pm25'
+      ORDER BY fecha ASC
+    `, [fechasGrafico]);
+    
+    // Verificar total de registros
+    const totalCount = await pool.query(`
+      SELECT COUNT(*) as total
+      FROM promedios_diarios
+      WHERE parametro = 'pm25'
+    `);
+    
+    res.json({
+      success: true,
+      total_registros: parseInt(totalCount.rows[0].total),
+      datos_completos: historicos.rows,
+      datos_grafico_especificos: datosGrafico.rows,
+      fechas_solicitadas: fechasGrafico,
+      nota: "Estos son los datos reales de la tabla promedios_diarios",
+      timestamp: new Date().toISOString()
+    });
+    
+  } catch (error) {
+    console.error('❌ Error verificando datos históricos:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error verificando datos históricos',
+      details: error.message
+    });
+  }
+});
+
 // Inicialización del servidor simplificada
 async function initializeServer() {
   try {
