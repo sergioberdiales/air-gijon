@@ -1,6 +1,6 @@
 const nodemailer = require('nodemailer');
-const { logNotificationSent, getUsersForDailyPredictions } = require('./db');
-const { getEstadoPM25, getColorEstado } = require('./utils');
+const { logNotificationSent, getUsersForDailyPredictions } = require('../database/db');
+const { getEstadoPM25, getColorEstado } = require('../utils/utils');
 
 
 
