@@ -16,7 +16,7 @@ if (process.env.NODE_ENV !== 'production') {
 
 // Configuración
 const CONFIG = {
-  TOKEN: process.env.AQICN_TOKEN,
+  TOKEN: process.env.AQICN_API_KEY,
   BASE_URL: 'https://api.waqi.info/feed',
   MAX_RETRIES: 3,
   RETRY_DELAY: 1000, // ms
@@ -24,7 +24,7 @@ const CONFIG = {
 
 // Validar configuración
 if (!CONFIG.TOKEN) {
-  throw new Error('AQICN_TOKEN no está configurado en las variables de entorno');
+  throw new Error('AQICN_API_KEY no está configurado en las variables de entorno');
 }
 
 /**

@@ -26,7 +26,7 @@ services:
     env: node
     schedule: "0 * * * *"  # Cada hora en punto
     buildCommand: npm install
-    startCommand: node scripts/cron/cron_update.js
+    startCommand: npm run update-aqicn
     envVars:
       - key: NODE_ENV
         value: production
