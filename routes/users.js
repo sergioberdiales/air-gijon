@@ -98,8 +98,9 @@ router.post('/register', async (req, res) => {
     }
 
     // Construir el enlace de confirmación
-    // Asegúrate de que process.env.BASE_URL esté configurado (ej: http://localhost:3000 o tu dominio de producción)
-    const confirmationLink = `${process.env.BASE_URL || 'http://localhost:3000'}/api/users/confirmar-correo/${result.confirmation_token}`;
+    // Usar el backend URL para confirmación de correo
+    const backendBaseUrl = process.env.BASE_URL || 'https://air-gijon-backend.onrender.com';
+    const confirmationLink = `${backendBaseUrl}/api/users/confirmar-correo/${result.confirmation_token}`;
 
     // Enviar email de confirmación (no bloqueante)
     sendConfirmationEmail(result.user.email, result.user.name, confirmationLink, result.user.id)

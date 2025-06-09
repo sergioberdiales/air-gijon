@@ -353,7 +353,7 @@ async function sendEmail(to, subject, htmlContent, userId = null, type = 'genera
   }
 
   const mailOptions = {
-    from: `"Air Gijón" <${process.env.EMAIL_USER}>`,
+    from: `"Air Gijón" <${process.env.EMAIL_FROM || process.env.EMAIL_USER}>`,
     to: to,
     subject: subject,
     html: htmlContent,
