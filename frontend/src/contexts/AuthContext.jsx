@@ -67,7 +67,7 @@ export const AuthProvider = ({ children }) => {
 
       if (response.ok) {
         const userData = await response.json();
-        setUser(userData);
+        setUser(userData.user);
       } else {
         // Token inválido, limpiar
         logout();
