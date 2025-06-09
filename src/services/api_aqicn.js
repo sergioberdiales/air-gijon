@@ -2,7 +2,7 @@
 const fetch = require('node-fetch');
 const dotenv = require('dotenv');
 const path = require('path');
-const { pool } = require('./db');
+const { pool } = require('../database/db');
 
 // Cargar variables de entorno solo en desarrollo
 if (process.env.NODE_ENV !== 'production') {

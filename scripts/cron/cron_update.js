@@ -26,8 +26,8 @@ async function main() {
   try {
     // Cargar módulos después de verificar variables
     console.log('\n📦 Cargando módulos...');
-    const { getAirQualityData, storeAirQualityData, cleanOldData, getDataStats } = require('./api_aqicn');
-    const { pool: dbPool, testConnection } = require('./db');
+    const { getAirQualityData, storeAirQualityData, cleanOldData, getDataStats } = require('../../src/services/api_aqicn');
+    const { pool: dbPool, testConnection } = require('../../src/database/db');
     pool = dbPool;
 
     // Test de conexión

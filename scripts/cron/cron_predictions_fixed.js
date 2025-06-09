@@ -28,8 +28,8 @@ const {
   getUsersForDailyPredictions, 
   createTables,      
   createIndexes      
-} = require('./db');
-const { sendNotificationEmail } = require('./mailer');
+} = require('../../src/database/db');
+const { sendNotificationEmail } = require('../../src/utils/mailer');
 
 const execAsync = promisify(exec);
 

@@ -1,223 +1,226 @@
-# Air-Gijón
+# 🌬️ Air Gijón - Sistema de Monitoreo de Calidad del Aire
 
-Air-Gijón es una aplicación web para la consulta y predicción de la calidad del aire en Gijón, centrada en la estación de la Avenida Constitución. Permite visualizar datos actuales de contaminantes (como PM10) y mantiene un historial completo para análisis temporales y modelos predictivos.
+Sistema web para el monitoreo de la calidad del aire en Gijón utilizando datos de PM2.5 y predicciones con Machine Learning.
 
-## Características principales
-- Consulta de datos actuales de calidad del aire (PM10, NO2, etc.)
-- **Sistema de datos históricos** para análisis temporales y predicciones
-- Backend en Node.js con Express y PostgreSQL optimizado
-- Integración con la API internacional AQICN
-- Base de datos optimizada para consultas históricas
-- Actualización automática cada 6 horas
-- Scripts de gestión y monitoreo
+## 📁 Estructura del Proyecto
 
-## Instalación y ejecución
-
-1. **Clona el repositorio:**
-   ```bash
-   git clone https://github.com/sergioberdiales/air-gijon.git
-   cd air-gijon
-   ```
-
-2. **Instala las dependencias:**
-   ```bash
-   npm install
-   ```
-
-3. **Configura las variables de entorno:**
-   Crea un archivo `.env` en la raíz del proyecto con el siguiente contenido (ajusta los valores según tu entorno):
-   ```env
-   DATABASE_URL=postgresql://usuario:contraseña@localhost/air_gijon
-   AQICN_TOKEN=tu_token_de_aqicn
-   DB_USER=usuario
-   DB_HOST=localhost
-   DB_NAME=air_gijon
-   DB_PASSWORD=contraseña
-   DB_PORT=5432
-   ```
-
-4. **Ejecuta el backend:**
-   ```bash
-   node server.js
-   ```
-   El servidor escuchará por defecto en `http://localhost:3000`.
-
-## Scripts disponibles
-
-- `npm start`: Ejecutar el servidor en producción
-- `npm run dev`: Ejecutar en modo desarrollo con nodemon
-- `npm run update-aqicn`: Actualizar datos históricos de AQICN
-- `npm run stats`: Ver estadísticas de datos históricos
-- `npm run check-env`: Verificar configuración de variables de entorno
-- `npm run test-db`: Probar conexión a base de datos
-
-## Documentación de la API
-
-### Obtener el valor actual de PM10 (Avenida Constitución)
-
-**Endpoint:**
 ```
-GET /api/air/constitucion/pm10
+/
+├── src/                      # 🏗️ Código fuente del backend
+│   ├── server.js            # Servidor principal Express.js
+│   ├── database/            # 🗄️ Módulos de base de datos
+│   │   ├── db.js           # Configuración y operaciones PostgreSQL
+│   │   └── *.sql           # Scripts SQL de base de datos
+│   ├── services/            # 🔧 Servicios externos y APIs
+│   │   ├── api_aqicn.js    # Cliente API World Air Quality Index
+│   │   ├── email_service.js # Servicio de notificaciones por email
+│   │   ├── api_client.js   # Cliente API genérico
+│   │   └── waqiDataFetcher.js # Fetcher de datos WAQI
+│   ├── auth/               # 🔐 Sistema de autenticación
+│   │   └── auth.js         # JWT, bcrypt, validación usuarios
+│   ├── utils/              # 🛠️ Utilidades generales
+│   │   ├── utils.js        # Funciones auxiliares
+│   │   └── mailer.js       # Utilidades de email
+│   └── routes/             # 🛣️ Rutas API Express
+│       └── users.js        # Endpoints autenticación y usuarios
+├── scripts/                # 📜 Scripts de automatización
+│   ├── cron/              # ⏰ Jobs programados
+│   │   ├── cron_update.js
+│   │   ├── cron_predictions_fixed.js
+│   │   └── daily_prediction_process.js
+│   ├── migration/         # 🔄 Scripts de migración BD
+│   │   ├── migrate_to_new_predictions.js
+│   │   └── migrate_promedios_estructura.js
+│   ├── setup/             # ⚙️ Configuración inicial
+│   │   ├── create_manager.js
+│   │   └── create_lightgbm_model.js
+│   ├── maintenance/       # 🧹 Mantenimiento y actualizaciones
+│   │   ├── update_aqicn.js
+│   │   ├── load_historical_data.js
+│   │   ├── update_pm25_states.js
+│   │   └── promedios_predicciones.js
+│   └── test_*.js          # 🧪 Scripts de testing
+├── frontend/              # 🎨 Aplicación React (SPA)
+│   ├── src/
+│   ├── public/
+│   └── package.json
+├── modelos_prediccion/    # 🤖 Modelos ML (Python/LightGBM)
+├── config/               # ⚙️ Archivos de configuración
+│   ├── .env              # Variables de entorno producción
+│   ├── .env_local        # Variables de entorno desarrollo
+│   └── requirements.txt  # Dependencias Python
+├── docs/                 # 📚 Documentación del proyecto
+└── cleaning/             # 🗂️ Archivos de desarrollo (ignorados)
 ```
 
-**Respuesta exitosa (`200 OK`):**
-```json
-{
-  "estacion": "Avenida Constitución",
-  "fecha": "2025-04-25T15:00:00.000Z",
-  "pm10": 21,
-  "estado": "Buena"
-}
-```
-- **estacion**: Nombre de la estación.
-- **fecha**: Fecha y hora de la medición (ISO).
-- **pm10**: Valor de PM10 en µg/m³.
-- **estado**: Estado de la calidad del aire según el valor de PM10 (`Buena`, `Moderada`, `Regular`, `Mala`).
+## 🚀 Scripts NPM Disponibles
 
-**Respuesta si no hay datos (`404 Not Found`):**
-```json
-{ "error": "No hay datos disponibles" }
+### Servidor
+```bash
+npm start                    # Inicia servidor en producción
+npm run dev                  # Desarrollo con vite
 ```
 
-**Respuesta de error interno (`500 Internal Server Error`):**
-```json
-{ "error": "Error consultando la base de datos" }
+### Mantenimiento
+```bash
+npm run update-aqicn         # Actualiza datos API AQICN
+npm run cron-update          # Ejecuta job de actualización
+npm run cron-predictions     # Genera predicciones diarias
+npm run update-promedios     # Actualiza promedios diarios
+npm run stats               # Muestra estadísticas de datos
 ```
 
-## Sistema de Datos Históricos
-
-### Características del Sistema
-
-Air-Gijón implementa un **sistema avanzado de gestión de datos históricos** que:
-
-- **Acumula datos** en lugar de eliminarlos para permitir análisis temporales
-- **Detecta y actualiza duplicados** automáticamente
-- **Optimiza el rendimiento** con índices específicos para consultas históricas
-- **Limpia datos antiguos** (>30 días) automáticamente para mantener la eficiencia
-- **Proporciona estadísticas** detalladas del historial de datos
-
-### Estructura de Base de Datos
-
-#### Tabla `mediciones_api`
-```sql
-CREATE TABLE mediciones_api (
-    id SERIAL PRIMARY KEY,
-    estacion_id VARCHAR(50) NOT NULL,
-    fecha TIMESTAMP WITH TIME ZONE NOT NULL,
-    parametro VARCHAR(50) NOT NULL,
-    valor DECIMAL(10,2),
-    aqi INTEGER,
-    is_validated BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(estacion_id, fecha, parametro)
-);
+### Configuración
+```bash
+npm run create-manager       # Crea usuario administrador
+npm run migrate-predictions  # Migra estructura predicciones
 ```
 
-#### Índices Optimizados
-- `idx_mediciones_api_estacion_fecha`: Para consultas por estación y fecha
-- `idx_mediciones_api_parametro_fecha`: Para consultas por parámetro específico
-- `idx_mediciones_api_fecha`: Para consultas temporales generales
-- `idx_mediciones_api_created_at`: Para limpieza de datos antiguos
-
-### Parámetros Almacenados
-
-El sistema almacena los siguientes parámetros de calidad del aire:
-- **PM10** y **PM2.5**: Partículas en suspensión
-- **NO2**: Dióxido de nitrógeno
-- **SO2**: Dióxido de azufre
-- **O3**: Ozono
-- **Variables meteorológicas**: Temperatura, humedad, presión, viento
-
-## Automatización y Cron Job
-
-### Configuración del Cron Job en Render
-
-- **Nombre del job:** `update-aqicn`
-- **Comando ejecutado:** `npm run update-aqicn`
-- **Frecuencia recomendada:** `0 */6 * * *` (cada 6 horas)
-- **Variables de entorno requeridas:**
-  ```env
-  DATABASE_URL=postgresql://...  # URL de PostgreSQL en Render
-  NODE_ENV=production
-  ```
-
-### Proceso de Actualización
-
-El cron job ejecuta el siguiente flujo optimizado:
-
-1. **📊 Estadísticas iniciales**: Muestra el estado actual de la base de datos
-2. **🧹 Limpieza inteligente**: Elimina solo datos antiguos (>30 días)
-3. **📥 Obtención de datos**: Consulta la API AQICN con reintentos automáticos
-4. **💾 Almacenamiento inteligente**: Detecta duplicados y actualiza/inserta según corresponda
-5. **📊 Estadísticas finales**: Confirma el crecimiento del historial
-
-### Logs del Sistema
-
-Ejemplo de logs exitosos:
-```
-🚀 Iniciando actualización de datos AQICN...
-📊 Estadísticas actuales: 150 registros, 15 días con datos
-🧹 Limpiando datos antiguos: 0 registros eliminados
-📥 Obteniendo datos de la API...
-💾 Almacenando datos: Nuevos datos insertados
-📊 Estadísticas finales: 160 registros, 16 días con datos
-✅ Actualización completada exitosamente
+### Datos Históricos
+```bash
+npm run populate-historical  # Puebla datos históricos
+npm run generate-historical  # Genera datos sintéticos
 ```
 
-## Ventajas del Sistema Histórico
+## 🔧 Tecnologías
 
-### Para Análisis y Predicciones
-- **Tendencias temporales**: Identificación de patrones de contaminación
-- **Análisis estacional**: Variaciones por época del año
-- **Correlaciones**: Relación entre diferentes parámetros ambientales
-- **Machine Learning**: Base sólida para modelos predictivos
+### Backend
+- **Node.js** + **Express.js** - Servidor web
+- **PostgreSQL** - Base de datos principal
+- **JWT** + **bcrypt** - Autenticación segura
+- **Nodemailer** - Notificaciones email
+- **node-cron** - Jobs programados
 
-### Para Rendimiento
-- **Consultas optimizadas**: Índices específicos para análisis temporal
-- **Escalabilidad**: Preparado para grandes volúmenes de datos
-- **Mantenimiento automático**: Limpieza de datos antiguos
-- **Integridad garantizada**: Prevención de duplicados y corrupción
+### Frontend
+- **React 18** - Framework UI
+- **Vite** - Build tool y desarrollo
+- **Lucide React** - Iconografía moderna
+- **CSS3** - Estilos responsive
 
-## Solución de Problemas
+### Visualización de Datos
+- **SVG nativo** - Gráficos vectoriales escalables
+- **JavaScript ES6** - Lógica de renderizado matemático
+- **CSS3 Animations** - Transiciones y efectos visuales
+- **Responsive Design** - Adaptación automática a dispositivos
 
-### Verificación del Sistema
+### Machine Learning
+- **Python 3** - Procesamiento de datos
+- **LightGBM** - Modelo de predicción PM2.5
+- **Scikit-learn** - Preprocessing y métricas
 
-1. **Verificar configuración:**
-   ```bash
-   npm run check-env
-   ```
+### APIs Externas
+- **World Air Quality Index API** - Datos tiempo real
 
-2. **Probar conexión a base de datos:**
-   ```bash
-   npm run test-db
-   ```
+## 🌍 Variables de Entorno
 
-3. **Ver estadísticas de datos:**
-   ```bash
-   npm run stats
-   ```
+```env
+# Base de datos
+DATABASE_URL=postgresql://usuario:password@host:puerto/db
+DB_USER=usuario
+DB_PASSWORD=password
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=air_gijon
 
-4. **Ejecutar actualización manual:**
-   ```bash
-   npm run update-aqicn
-   ```
+# APIs externas
+AQICN_TOKEN=tu_token_aqicn
 
-### Problemas Comunes
+# Email (SMTP)
+MAIL_HOST=smtp.gmail.com
+MAIL_PORT=587
+MAIL_USER=tu_email@gmail.com
+MAIL_PASS=tu_app_password
 
-- **Error ECONNREFUSED**: Verificar que `DATABASE_URL` esté configurada en Render
-- **Datos no actualizados**: Revisar logs del cron job en Render Dashboard
-- **Duplicados**: El sistema los maneja automáticamente con constraints UNIQUE
+# JWT
+JWT_SECRET=tu_secreto_jwt_super_seguro
 
-## Documentación Adicional
+# URLs
+BASE_URL=https://tu-backend.onrender.com
+FRONTEND_URL=https://tu-frontend.onrender.com
+```
 
-- **`render-cron-config.md`**: Guía completa de configuración en Render
-- **`memoria_proyecto_air_gijon.md`**: Documentación técnica detallada
-- **Código fuente**: Comentado y documentado en el repositorio
+## 📊 Base de Datos
 
-## Créditos
-- Sergio Berdiales
-- Basado en datos de AQICN y Ayuntamiento de Gijón
+### Tablas Principales
+- `mediciones_api` - Datos tiempo real PM2.5
+- `predicciones` - Predicciones ML generadas
+- `promedios_diarios` - Agregaciones diarias
+- `usuarios` - Gestión usuarios y autenticación
+- `modelos_prediccion` - Metadatos modelos ML
 
-## Licencia
-MIT 
+## 🤖 Sistema de Predicciones
+
+El sistema utiliza **LightGBM** para generar predicciones de PM2.5 con:
+- Horizonte de predicción: 1-2 días
+- Variables: PM2.5 histórico, tendencias, estacionalidad
+- Precisión: MAE ~8.37 µg/m³
+- Generación automática diaria vía cron
+
+## 🔄 Jobs Automatizados
+
+1. **Actualización datos AQICN** - Cada hora
+2. **Generación predicciones** - Diario a las 6:00 AM
+3. **Cálculo promedios** - Diario tras nuevos datos
+4. **Notificaciones email** - Cuando PM2.5 > 25 µg/m³
+
+## 📧 Sistema de Notificaciones
+
+- **Registro usuario** - Email confirmación cuenta
+- **Predicciones altas** - PM2.5 > 25 µg/m³ automático
+- **Recuperación contraseña** - Token seguro temporal
+- **Plantillas HTML** - Diseño profesional con logo
+
+## 🎯 Estados Calidad del Aire
+
+| PM2.5 (µg/m³) | Estado    | Color    | OMS     |
+|---------------|-----------|----------|---------|
+| 0-15          | Buena     | Verde    | AQG     |
+| 16-25         | Moderada  | Amarillo | IT-4    |
+| 26-50         | Regular   | Naranja  | IT-3/2  |
+| 51+           | Mala      | Rojo     | IT-1    |
+
+## 📊 Sistema de Gráficos
+
+### Tecnologías de Visualización
+Los gráficos están implementados con **SVG nativo** y **JavaScript** dentro de **React**, sin librerías externas de charting.
+
+### Gráfico de Evolución (EvolutionCard.jsx)
+```javascript
+// SVG nativo con JavaScript para crear gráficos de líneas
+<svg viewBox={`0 0 ${svgWidth} 220`} className="evolution-chart">
+  {/* Grid lines, líneas de referencia */}
+  <line x1={} y1={} x2={} y2={} stroke="..." />
+  
+  {/* Línea principal de datos */}
+  <path d={pathData} fill="none" stroke="..." strokeWidth="3" />
+  
+  {/* Puntos de datos */}
+  <circle cx={point.x} cy={point.y} r="5" fill="..." />
+  
+  {/* Etiquetas de texto */}
+  <text x={} y={} fontSize={} fill="...">Valores</text>
+</svg>
+```
+
+### Características Técnicas
+1. **SVG Responsive**: Usa `viewBox` para escalabilidad automática
+2. **Cálculos matemáticos**: JavaScript para posicionamiento de puntos
+3. **CSS3**: Animaciones y transiciones suaves
+4. **Diseño adaptativo**: Diferentes configuraciones para móvil/desktop
+
+### Elementos Visuales
+1. **Gráfico de líneas**: Para evolución temporal PM2.5
+2. **Barras de progreso**: HTML + CSS para indicadores de calidad
+3. **Iconos**: **Lucide React** (librería de iconos SVG)
+4. **Indicadores de estado**: Círculos de colores y badges
+
+### Ventajas de la Implementación
+✅ **Ligero**: No dependencias pesadas  
+✅ **Rápido**: Renderizado nativo del navegador  
+✅ **Personalizable**: Control total sobre diseño  
+✅ **Responsive**: Se adapta a cualquier pantalla  
+✅ **Accesible**: Texto legible por lectores de pantalla  
+
+---
+
+**Air Gijón Team** - Monitoreo inteligente de calidad del aire 🌱 

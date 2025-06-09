@@ -7,11 +7,11 @@ const {
   loginUser, 
   validateRegistrationData,
   generateToken
-} = require('../auth');
+} = require('../auth/auth');
 const { 
   authenticateToken, 
   requireManager 
-} = require('../auth');
+} = require('../auth/auth');
 const { 
   updateUserPreferences, 
   getPredictionMetrics, 
@@ -24,8 +24,8 @@ const {
   setResetPasswordToken,
   getUserByValidResetToken,
   updateUserPassword
-} = require('../db');
-const { sendConfirmationEmail, sendWelcomeEmail, sendPasswordResetEmail } = require('../email_service');
+} = require('../database/db');
+const { sendConfirmationEmail, sendWelcomeEmail, sendPasswordResetEmail } = require('../services/email_service');
 
 // --- Plantillas HTML para respuestas de confirmación ---
 

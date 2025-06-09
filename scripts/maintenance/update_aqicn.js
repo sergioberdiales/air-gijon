@@ -3,8 +3,8 @@ if (process.env.NODE_ENV !== 'production') {
   require('dotenv').config();
 }
 
-const { getAirQualityData, storeAirQualityData, cleanOldData, getDataStats } = require('./api_aqicn');
-const { pool, testConnection } = require('./db');
+const { getAirQualityData, storeAirQualityData, cleanOldData, getDataStats } = require('../../src/services/api_aqicn');
+const { pool, testConnection } = require('../../src/database/db');
 
 async function main() {
   console.log('🚀 Iniciando actualización de datos AQICN...');
