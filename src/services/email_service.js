@@ -1,5 +1,5 @@
 const nodemailer = require('nodemailer');
-const { logNotificationSent, getUsersForDailyPredictions } = require('../database/db');
+const { logNotificationSent, getUsersForDailyPredictions, hasUserReceivedAlertToday } = require('../database/db');
 const { getEstadoPM25, getColorEstado } = require('../utils/utils');
 
 
@@ -166,6 +166,9 @@ function getDailyPredictionTemplate(predictionData) {
   const colorHoy = getColorEstado(estadoHoy);
   const colorManana = getColorEstado(estadoManana);
 
+  const commentHoy = getOmsComment(hoy.valor);
+  const commentManana = getOmsComment(manana.valor);
+
   const content = `
     <p>Hola ${userName || 'usuario'},</p>
     <p>Aquí tienes la predicción de calidad del aire para hoy y mañana:</p>
@@ -180,6 +183,7 @@ function getDailyPredictionTemplate(predictionData) {
         ${estadoHoy}
       </div>
       ${hoy.modelo ? `<p style="font-size:0.9em; color:#666;"><em>Modelo: ${hoy.modelo} (Confianza: ${hoy.roc_index ? (hoy.roc_index * 100).toFixed(0) + '%' : 'N/A'})</em></p>` : ''}
+      <p style="margin-top:8px; font-size:0.9em;">${commentHoy}</p>
     </div>
 
     <div class="prediction-card">
@@ -192,6 +196,7 @@ function getDailyPredictionTemplate(predictionData) {
         ${estadoManana}
       </div>
       ${manana.modelo ? `<p style="font-size:0.9em; color:#666;"><em>Modelo: ${manana.modelo} (Confianza: ${manana.roc_index ? (manana.roc_index * 100).toFixed(0) + '%' : 'N/A'})</em></p>` : ''}
+      <p style="margin-top:8px; font-size:0.9em;">${commentManana}</p>
     </div>
     
     <div style="text-align: center; margin-top: 30px;">
@@ -214,6 +219,8 @@ function getAlertTemplate(alertData) {
   const color = getColorEstado(estado);
   const frontendBaseUrl = process.env.FRONTEND_URL || 'https://air-gijon-front-end.onrender.com';
 
+  const comment = getOmsComment(valor);
+
   const content = `
     <p>Hola ${userName || 'usuario'},</p>
     <div style="background-color: #fff3cd; border: 1px solid #ffeaa7; padding: 20px; border-radius: 8px; margin: 20px 0;">
@@ -229,8 +236,12 @@ function getAlertTemplate(alertData) {
       ${estado}
     </div>
 
+    <p style="margin-top:10px; font-size:0.9em;">${comment}</p>
+
     <p><strong>Estación:</strong> ${estacion}</p>
     <p><strong>Fecha y hora:</strong> ${new Date(fecha).toLocaleString('es-ES')}</p>
+
+    <p style="margin-top:15px; font-size:0.9em;">Esta alerta se envía como máximo una vez al día. Te recomendamos seguir la evolución de los niveles en la aplicación.</p>
 
     <div style="text-align: center; margin-top: 30px;">
       <a href="${frontendBaseUrl}" class="button">
@@ -453,6 +464,20 @@ async function sendPasswordResetEmail(to, userName, resetLink, userId) {
   return result;
 }
 
+// Comentarios según los rangos oficiales de la OMS para PM2.5
+function getOmsComment(pm25) {
+  if (pm25 <= 15) {
+    return 'La calidad del aire es buena (≤15 µg/m³). No se esperan riesgos para la población.';
+  }
+  if (pm25 <= 25) {
+    return 'Calidad del aire moderada (16-25 µg/m³). Las personas sensibles deberían vigilar posibles síntomas.';
+  }
+  if (pm25 <= 50) {
+    return 'La calidad del aire es regular (26-50 µg/m³). Se aconseja reducir actividades físicas intensas al aire libre.';
+  }
+  return 'La calidad del aire es mala (>50 µg/m³). Evita el ejercicio al aire libre y permanece atento a la evolución en la aplicación.';
+}
+
 module.exports = {
   verifyEmailConfig,
   sendEmail,
@@ -465,5 +490,6 @@ module.exports = {
   getAlertTemplate,
   getWelcomeTemplate,
   getConfirmationTemplate,
-  getPasswordResetTemplate
+  getPasswordResetTemplate,
+  getOmsComment
 }; 
