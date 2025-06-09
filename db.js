@@ -587,7 +587,7 @@ async function createUser(email, passwordHash, role = 'external', name = null, c
 // Obtener usuario por email
 async function getUserByEmail(email) {
   const result = await pool.query(`
-    SELECT id, email, password_hash, role, name, email_verified, email_alerts, daily_predictions, last_login
+    SELECT id, email, password_hash, role, name, is_confirmed, email_alerts, daily_predictions, last_login
     FROM users 
     WHERE email = $1
   `, [email]);
