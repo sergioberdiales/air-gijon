@@ -19,7 +19,10 @@ function UserDashboard() {
   const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
+    console.log('UserDashboard: user data received:', user);
     if (user) {
+      console.log('UserDashboard: email_alerts =', user.email_alerts);
+      console.log('UserDashboard: daily_predictions =', user.daily_predictions);
       setPreferences({
         email_alerts: user.email_alerts || false,
         daily_predictions: user.daily_predictions || false
@@ -94,66 +97,9 @@ function UserDashboard() {
     }
   };
 
-  const getWelcomeMessage = () => {
-    const hour = new Date().getHours();
-    if (hour < 12) return '🌅 Buenos días';
-    if (hour < 18) return '☀️ Buenas tardes';
-    return '🌙 Buenas noches';
-  };
-
-  const getUserDisplayName = () => {
-    if (user?.name && user.name.trim()) {
-      return user.name.trim();
-    }
-    if (user?.email) {
-      // Extraer la parte local del email como nombre de fallback
-      return user.email.split('@')[0];
-    }
-    return 'Usuario';
-  };
-
   return (
     <div className="page-container">
-      {/* Header Principal */}
-      <div className="page-header">
-        <div className="header-content">
-          <div className="welcome-section">
-            <h1 className="page-title">
-              {getWelcomeMessage()}, {getUserDisplayName()}
-            </h1>
-            <div className="user-info">
-              <div className="user-email">
-                <Mail size={16} />
-                <span>{user?.email || 'Email no disponible'}</span>
-              </div>
-              <div className="user-role">
-                {user?.role === 'manager' ? (
-                  <>
-                    <Shield size={16} />
-                    <span className="role-badge manager">Usuario Gestor</span>
-                  </>
-                ) : (
-                  <>
-                    <User size={16} />
-                    <span className="role-badge external">Usuario Externo</span>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-          <div className="header-actions">
-            <button onClick={logout} className="btn btn-secondary">
-              <LogOut size={18} />
-              Cerrar Sesión
-            </button>
-            <button onClick={openDeleteModal} className="btn btn-danger">
-              <Trash2 size={18} />
-              Eliminar Cuenta
-            </button>
-          </div>
-        </div>
-      </div>
-
+      {/* Contenido principal sin header de saludo */}
       <div className="content-wrapper">
         {/* Configuración de Notificaciones */}
         <div className="card">
@@ -169,6 +115,15 @@ function UserDashboard() {
 
           <div className="card-content">
             <div className="notification-settings">
+              {/* Debug info */}
+              <div style={{ background: '#f0f0f0', padding: '10px', marginBottom: '20px', fontSize: '12px' }}>
+                <strong>DEBUG:</strong><br/>
+                User object: {JSON.stringify(user, null, 2)}<br/>
+                Email alerts: {user?.email_alerts?.toString()}<br/>
+                Daily predictions: {user?.daily_predictions?.toString()}<br/>
+                Preferences state: {JSON.stringify(preferences, null, 2)}
+              </div>
+
               {/* Alertas de Calidad del Aire */}
               <div className="setting-item">
                 <div className="setting-icon danger">
@@ -229,6 +184,18 @@ function UserDashboard() {
                 {loading ? 'Guardando...' : saved ? 'Guardado' : 'Guardar Preferencias'}
               </button>
             </div>
+
+            {/* Botón para eliminar cuenta */}
+            <div className="danger-zone" style={{ marginTop: '40px', padding: '20px', border: '1px solid #ff6b6b', borderRadius: '8px', backgroundColor: '#fff5f5' }}>
+              <h3 style={{ color: '#d63031', marginBottom: '10px' }}>Zona de Peligro</h3>
+              <p style={{ marginBottom: '15px', color: '#636e72' }}>
+                Esta acción eliminará permanentemente tu cuenta y todos los datos asociados.
+              </p>
+              <button onClick={openDeleteModal} className="btn btn-danger">
+                <Trash2 size={18} />
+                Eliminar Cuenta
+              </button>
+            </div>
           </div>
         </div>
 
@@ -282,90 +249,81 @@ function UserDashboard() {
                 </div>
               </div>
 
-              <div className="stat-item">
-                <div className="stat-icon">
-                  <Clock size={20} />
+              {user?.last_login && (
+                <div className="stat-item">
+                  <div className="stat-icon">
+                    <Clock size={20} />
+                  </div>
+                  <div className="stat-content">
+                    <label>Último acceso</label>
+                    <span>
+                      {new Date(user.last_login).toLocaleDateString('es-ES', {
+                        day: 'numeric',
+                        month: 'long',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </span>
+                  </div>
                 </div>
-                <div className="stat-content">
-                  <label>Último acceso</label>
-                  <span>
-                    {user?.last_login 
-                      ? new Date(user.last_login).toLocaleDateString('es-ES', {
-                          day: 'numeric',
-                          month: 'long',
-                          year: 'numeric'
-                        })
-                      : 'Primer acceso'
-                    }
-                  </span>
-                </div>
-              </div>
+              )}
+            </div>
+
+            <div className="account-actions">
+              <button onClick={logout} className="btn btn-secondary">
+                <LogOut size={18} />
+                Cerrar Sesión
+              </button>
             </div>
           </div>
         </div>
 
-        {/* Panel de Gestión (solo para managers) */}
-        {user?.role === 'manager' && (
-          <div className="card">
-            <div className="card-header">
-              <div className="card-title">
-                <Shield size={24} />
-                <h2>Panel de Gestión</h2>
-              </div>
-              <p className="card-description">
-                Como gestor, tienes acceso a herramientas adicionales de administración.
+        {/* Modal de eliminación de cuenta */}
+        {showDeleteModal && (
+          <Modal onClose={closeDeleteModal}>
+            <div className="modal-header">
+              <h2>⚠️ Confirmar Eliminación de Cuenta</h2>
+            </div>
+            <div className="modal-content">
+              <p>
+                <strong>¿Estás seguro de que quieres eliminar tu cuenta?</strong>
               </p>
+              <p>
+                Esta acción es <strong>irreversible</strong> y eliminará permanentemente:
+              </p>
+              <ul>
+                <li>Tu perfil de usuario</li>
+                <li>Tus preferencias de notificación</li>
+                <li>Todo el historial asociado a tu cuenta</li>
+              </ul>
+              
+              {deleteError && (
+                <div className="error-message">
+                  {deleteError}
+                </div>
+              )}
             </div>
-
-            <div className="card-content">
-              <div className="manager-actions">
-                <button className="btn btn-outline">
-                  <TrendingUp size={18} />
-                  Ver Métricas del Modelo
-                </button>
-                <button className="btn btn-outline">
-                  <Mail size={18} />
-                  Probar Sistema de Emails
-                </button>
-                <button className="btn btn-outline">
-                  <User size={18} />
-                  Gestionar Usuarios
-                </button>
-              </div>
+            <div className="modal-actions">
+              <button 
+                onClick={closeDeleteModal} 
+                className="btn btn-secondary"
+                disabled={isDeleting}
+              >
+                Cancelar
+              </button>
+              <button 
+                onClick={handleDeleteAccount} 
+                className="btn btn-danger"
+                disabled={isDeleting}
+              >
+                <Trash2 size={18} />
+                {isDeleting ? 'Eliminando...' : 'Eliminar Permanentemente'}
+              </button>
             </div>
-          </div>
+          </Modal>
         )}
       </div>
-
-      {/* Modal de Confirmación de Eliminación */}
-      {showDeleteModal && (
-        <Modal isOpen={showDeleteModal} onClose={closeDeleteModal} title="Confirmar Eliminación de Cuenta">
-          <p className="modal-text">
-            ¿Estás seguro de que deseas eliminar tu cuenta permanentemente? Esta acción no se puede deshacer y todos tus datos asociados se perderán.
-          </p>
-          {deleteError && (
-            <div className="message error">
-              {deleteError}
-            </div>
-          )}
-          <div className="modal-actions">
-            <button
-              onClick={closeDeleteModal}
-              disabled={isDeleting}
-              className="btn btn-secondary"
-            >
-              Cancelar
-            </button>
-            <button
-              onClick={handleDeleteAccount}
-              disabled={isDeleting}
-              className="btn btn-danger"
-            >
-              {isDeleting ? 'Eliminando...' : 'Sí, Eliminar Mi Cuenta'}
-            </button>
-          </div>
-        </Modal>
-      )}
     </div>
   );
 }
