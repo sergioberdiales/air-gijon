@@ -449,6 +449,26 @@ router.delete('/me', authenticateToken, async (req, res) => {
 
 // --- Rutas para Reseteo de Contraseña ---
 
+// GET /api/users/check-env - Verificar variables de entorno (solo desarrollo)
+router.get('/check-env', async (req, res) => {
+  // Solo disponible en desarrollo o para administradores
+  if (process.env.NODE_ENV === 'production' && !req.query.admin) {
+    return res.status(404).json({ error: 'Not found' });
+  }
+  
+  res.json({
+    NODE_ENV: process.env.NODE_ENV,
+    BASE_URL: process.env.BASE_URL || 'NOT_SET',
+    FRONTEND_URL: process.env.FRONTEND_URL || 'NOT_SET',
+    EMAIL_USER: process.env.EMAIL_USER ? 'SET' : 'NOT_SET',
+    EMAIL_PASSWORD: process.env.EMAIL_PASSWORD ? 'SET' : 'NOT_SET',
+    EMAIL_FROM: process.env.EMAIL_FROM || 'NOT_SET',
+    DATABASE_URL: process.env.DATABASE_URL ? 'SET' : 'NOT_SET',
+    port: process.env.PORT || '3000',
+    timestamp: new Date().toISOString()
+  });
+});
+
 // POST /api/users/forgot-password - Solicitar reseteo de contraseña
 router.post('/forgot-password', async (req, res) => {
   console.log('[FORGOT_PASSWORD] Received request:', req.body);
