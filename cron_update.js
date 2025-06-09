@@ -80,12 +80,6 @@ async function main() {
     console.error('\n❌ ERROR EN CRON JOB:', error.message);
     console.error('Stack:', error.stack);
     
-    // Información adicional para debugging
-    console.error('\n🔍 INFORMACIÓN DE DEBUG:');
-    console.error(`Timestamp: ${new Date().toISOString()}`);
-    console.error(`Working directory: ${process.cwd()}`);
-    console.error(`Memory usage:`, process.memoryUsage());
-    
     process.exit(1);
   } finally {
     // Cerrar conexión de base de datos

@@ -450,88 +450,6 @@ router.delete('/me', authenticateToken, async (req, res) => {
 
 // --- Rutas para Reseteo de Contraseña ---
 
-// GET /api/users/check-env - Verificar variables de entorno (solo desarrollo)
-router.get('/check-env', async (req, res) => {
-  // Solo disponible en desarrollo o para administradores
-  if (process.env.NODE_ENV === 'production' && !req.query.admin) {
-    return res.status(404).json({ error: 'Not found' });
-  }
-  
-  res.json({
-    NODE_ENV: process.env.NODE_ENV,
-    BASE_URL: process.env.BASE_URL || 'NOT_SET',
-    FRONTEND_URL: process.env.FRONTEND_URL || 'NOT_SET',
-    EMAIL_USER: process.env.EMAIL_USER ? 'SET' : 'NOT_SET',
-    EMAIL_PASSWORD: process.env.EMAIL_PASSWORD ? 'SET' : 'NOT_SET',
-    EMAIL_FROM: process.env.EMAIL_FROM || 'NOT_SET',
-    DATABASE_URL: process.env.DATABASE_URL ? 'SET' : 'NOT_SET',
-    port: process.env.PORT || '3000',
-    timestamp: new Date().toISOString()
-  });
-});
-
-// GET /api/users/check-table - Verificar estructura de tabla users (temporal)
-router.get('/check-table', async (req, res) => {
-  if (process.env.NODE_ENV === 'production' && !req.query.admin) {
-    return res.status(404).json({ error: 'Not found' });
-  }
-  
-  try {
-    const { pool } = require('../db');
-    const result = await pool.query(`
-      SELECT column_name, data_type, is_nullable, column_default 
-      FROM information_schema.columns 
-      WHERE table_name = 'users' AND table_schema = 'public'
-      ORDER BY ordinal_position
-    `);
-    
-    res.json({
-      columns: result.rows,
-      total_columns: result.rows.length
-    });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// POST /api/users/cleanup-redundant-fields - Eliminar campos redundantes (temporal)
-router.post('/cleanup-redundant-fields', async (req, res) => {
-  if (process.env.NODE_ENV === 'production' && !req.query.admin) {
-    return res.status(404).json({ error: 'Not found' });
-  }
-  
-  try {
-    const { pool } = require('../db');
-    
-    // 1. Verificar discrepancias antes de eliminar
-    const discrepancies = await pool.query(`
-      SELECT email, is_confirmed, email_verified 
-      FROM users 
-      WHERE is_confirmed != email_verified
-    `);
-    
-    // 2. Eliminar la columna redundante
-    await pool.query('ALTER TABLE users DROP COLUMN IF EXISTS email_verified');
-    
-    // 3. Verificar que se eliminó
-    const verifyResult = await pool.query(`
-      SELECT column_name 
-      FROM information_schema.columns 
-      WHERE table_name = 'users' AND column_name IN ('is_confirmed', 'email_verified')
-    `);
-    
-    res.json({
-      success: true,
-      discrepancies_found: discrepancies.rows,
-      remaining_columns: verifyResult.rows,
-      message: 'Campo email_verified eliminado exitosamente'
-    });
-    
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
 // POST /api/users/forgot-password - Solicitar reseteo de contraseña
 router.post('/forgot-password', async (req, res) => {
   console.log('[FORGOT_PASSWORD] Received request:', req.body);
@@ -629,7 +547,6 @@ router.post('/reset-password/:token', async (req, res) => {
     sendPasswordChangedConfirmationEmail(user.email, user.name, user.id)
       .catch(err => console.error(\`Error enviando email de confirmación de cambio de contraseña a ${user.email}: \`, err));
     */
-    console.log(`🔒 Contraseña actualizada para ${user.email}`); // Temporal
 
     res.json({ success: true, message: 'Contraseña actualizada correctamente. Ahora puedes iniciar sesión con tu nueva contraseña.' });
 

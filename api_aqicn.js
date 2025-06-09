@@ -14,12 +14,9 @@ if (process.env.NODE_ENV !== 'production') {
   });
 }
 
-// TEMPORAL: Usar el token directamente para pruebas
-const TEMP_TOKEN = '4ed30034c188bdd07806729760dc34ab5857725f';
-
 // Configuración
 const CONFIG = {
-  TOKEN: TEMP_TOKEN, // Temporal para pruebas
+  TOKEN: process.env.WAQI_API_TOKEN,
   BASE_URL: 'https://api.waqi.info/feed',
   MAX_RETRIES: 3,
   RETRY_DELAY: 1000, // ms

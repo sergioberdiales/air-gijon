@@ -2,9 +2,7 @@ const nodemailer = require('nodemailer');
 const { logNotificationSent, getUsersForDailyPredictions } = require('./db');
 const { getEstadoPM25, getColorEstado } = require('./utils');
 
-// DEBUG: Log environment variables for email
-console.log('[DEBUG Email Service] EMAIL_USER:', process.env.EMAIL_USER);
-console.log('[DEBUG Email Service] EMAIL_PASSWORD exists:', !!process.env.EMAIL_PASSWORD);
+
 
 // Configuración del transporter de email
 const transporter = nodemailer.createTransport({

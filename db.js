@@ -854,7 +854,6 @@ module.exports = {
     upsertWaqiDailyAverage,
     batchInsertHourlyWaqiReadings,
     getHourlyReadingsForDate,
-    // insertarPredicciones, // Comentada temporalmente
     // Nuevas funciones de usuarios
     createUser,
     getUserByEmail,
