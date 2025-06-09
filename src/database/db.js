@@ -841,6 +841,19 @@ async function updateUserPassword(userId, newPasswordHash) {
   }
 }
 
+// Función para comprobar si el usuario ya recibió una alerta hoy
+async function hasUserReceivedAlertToday(userId) {
+  const result = await pool.query(
+    `SELECT 1 FROM notifications_sent 
+     WHERE user_id = $1 
+       AND type = 'quality_alert' 
+       AND sent_at::date = CURRENT_DATE 
+     LIMIT 1`,
+    [userId]
+  );
+  return result.rowCount > 0;
+}
+
 // Exportar la conexión y las funciones
 module.exports = {
     pool,
@@ -872,7 +885,8 @@ module.exports = {
     // Nuevas funciones para reseteo de contraseña
     setResetPasswordToken,
     getUserByValidResetToken,
-    updateUserPassword
+    updateUserPassword,
+    hasUserReceivedAlertToday
 };
 
 // Solo ejecutar la inicialización si no estamos en un script de actualización
