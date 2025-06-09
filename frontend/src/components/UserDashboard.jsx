@@ -155,19 +155,35 @@ function UserDashboard() {
             </div>
           </div>
 
-          {message && (
-            <div className={`message ${message.includes('✅') ? 'success' : 'error'}`}>
-              {message}
-            </div>
-          )}
+          <div className="preferences-actions">
+            {message && (
+              <div className={`message ${message.includes('✅') ? 'success' : 'error'}`}>
+                {message}
+              </div>
+            )}
 
-          <button 
-            onClick={handleSavePreferences}
-            className="save-btn"
-            disabled={loading}
-          >
-            {loading ? 'Guardando...' : 'Guardar Preferencias'}
-          </button>
+            <button 
+              onClick={handleSavePreferences}
+              className="save-preferences-btn"
+              disabled={loading}
+              style={{
+                backgroundColor: '#0075FF',
+                color: 'white',
+                padding: '12px 24px',
+                borderRadius: '8px',
+                border: 'none',
+                fontSize: '16px',
+                fontWeight: '600',
+                cursor: loading ? 'not-allowed' : 'pointer',
+                opacity: loading ? 0.7 : 1,
+                marginTop: '20px',
+                width: '100%',
+                maxWidth: '300px'
+              }}
+            >
+              {loading ? 'Guardando...' : '💾 Guardar Preferencias'}
+            </button>
+          </div>
         </div>
 
         <div className="account-info">
