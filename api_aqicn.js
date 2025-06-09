@@ -16,7 +16,7 @@ if (process.env.NODE_ENV !== 'production') {
 
 // Configuración
 const CONFIG = {
-  TOKEN: process.env.WAQI_API_TOKEN,
+  TOKEN: process.env.AQICN_TOKEN,
   BASE_URL: 'https://api.waqi.info/feed',
   MAX_RETRIES: 3,
   RETRY_DELAY: 1000, // ms
