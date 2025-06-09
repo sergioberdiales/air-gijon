@@ -1,5 +1,5 @@
-const { pool } = require('./db');
-const { getEstadoPM25, getEstadoPM10 } = require('./utils'); // Asumiendo que utils.js está en la misma raíz
+const { pool } = require('../../src/database/db');
+const { getEstadoPM25, getEstadoPM10 } = require('../../src/utils/utils');
 
 // Definición de la nueva estructura de la tabla (para crearla si no existe)
 const NUEVA_TABLA_PROMEDIOS_SQL = `

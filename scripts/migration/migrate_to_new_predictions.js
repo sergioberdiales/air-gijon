@@ -3,7 +3,7 @@
 // Script de migración para la nueva arquitectura de predicciones
 // Migra datos existentes y configura el modelo inicial
 
-const { pool } = require('./db');
+const { pool } = require('../../src/database/db');
 
 async function migrate() {
   try {
