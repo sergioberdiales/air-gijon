@@ -96,8 +96,21 @@ function UserDashboard() {
 
   return (
     <div className="page-container">
-      {/* Contenido principal sin header de saludo */}
-      <div className="content-wrapper">
+      {/* Header de página simplificado */}
+      <div className="page-header" style={{ padding: '20px 0', marginBottom: '30px' }}>
+        <div className="header-content" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <h1 style={{ margin: 0, fontSize: '2rem', fontWeight: '600', color: '#2d3748' }}>Mi Cuenta</h1>
+            <p style={{ margin: '5px 0 0 0', color: '#718096' }}>Gestiona tus preferencias y configuración</p>
+          </div>
+          <button onClick={logout} className="btn btn-secondary">
+            <LogOut size={18} />
+            Cerrar Sesión
+          </button>
+        </div>
+      </div>
+
+      <div className="content-wrapper" style={{ maxWidth: '800px', margin: '0 auto', gap: '30px', display: 'flex', flexDirection: 'column' }}>
         {/* Configuración de Notificaciones */}
         <div className="card">
           <div className="card-header">
@@ -172,18 +185,6 @@ function UserDashboard() {
                 {loading ? 'Guardando...' : saved ? 'Guardado' : 'Guardar Preferencias'}
               </button>
             </div>
-
-            {/* Botón para eliminar cuenta */}
-            <div className="danger-zone" style={{ marginTop: '40px', padding: '20px', border: '1px solid #ff6b6b', borderRadius: '8px', backgroundColor: '#fff5f5' }}>
-              <h3 style={{ color: '#d63031', marginBottom: '10px' }}>Zona de Peligro</h3>
-              <p style={{ marginBottom: '15px', color: '#636e72' }}>
-                Esta acción eliminará permanentemente tu cuenta y todos los datos asociados.
-              </p>
-              <button onClick={openDeleteModal} className="btn btn-danger">
-                <Trash2 size={18} />
-                Eliminar Cuenta
-              </button>
-            </div>
           </div>
         </div>
 
@@ -197,7 +198,7 @@ function UserDashboard() {
           </div>
 
           <div className="card-content">
-            <div className="account-stats">
+            <div className="account-stats" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '25px' }}>
               <div className="stat-item">
                 <div className="stat-icon">
                   <Mail size={20} />
@@ -237,32 +238,16 @@ function UserDashboard() {
                 </div>
               </div>
 
-              {user?.last_login && (
-                <div className="stat-item">
-                  <div className="stat-icon">
-                    <Clock size={20} />
-                  </div>
-                  <div className="stat-content">
-                    <label>Último acceso</label>
-                    <span>
-                      {new Date(user.last_login).toLocaleDateString('es-ES', {
-                        day: 'numeric',
-                        month: 'long',
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      })}
-                    </span>
-                  </div>
+              {/* Nueva opción: Eliminar Cuenta */}
+              <div className="stat-item" style={{ cursor: 'pointer' }} onClick={openDeleteModal}>
+                <div className="stat-icon" style={{ backgroundColor: '#fee', color: '#dc2626' }}>
+                  <Trash2 size={20} />
                 </div>
-              )}
-            </div>
-
-            <div className="account-actions">
-              <button onClick={logout} className="btn btn-secondary">
-                <LogOut size={18} />
-                Cerrar Sesión
-              </button>
+                <div className="stat-content">
+                  <label>Eliminar Cuenta</label>
+                  <span style={{ color: '#dc2626', fontWeight: '500' }}>Eliminar permanentemente</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
