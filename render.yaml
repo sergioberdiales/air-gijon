@@ -13,12 +13,7 @@ services:
         fromDatabase:
           name: air-gijon-db
           property: connectionString
-      - key: AQICN_API_KEY
-        sync: false
-      - key: EMAIL_USER
-        sync: false
-      - key: EMAIL_PASS
-        sync: false
+      - fromGroup: air-gijon-env
 
   # Cron job para actualizar datos cada hora
   - type: cron
@@ -34,8 +29,7 @@ services:
         fromDatabase:
           name: air-gijon-db
           property: connectionString
-      - key: AQICN_API_KEY
-        sync: false
+      - fromGroup: air-gijon-env
 
   # Cron job para enviar predicciones diarias
   - type: cron
@@ -51,10 +45,7 @@ services:
         fromDatabase:
           name: air-gijon-db
           property: connectionString
-      - key: EMAIL_USER
-        sync: false
-      - key: EMAIL_PASS
-        sync: false
+      - fromGroup: air-gijon-env
 
   # Cron job para alertas de PM2.5 alto
   - type: cron
@@ -70,10 +61,7 @@ services:
         fromDatabase:
           name: air-gijon-db
           property: connectionString
-      - key: EMAIL_USER
-        sync: false
-      - key: EMAIL_PASS
-        sync: false
+      - fromGroup: air-gijon-env
 
 databases:
   - name: air-gijon-db
