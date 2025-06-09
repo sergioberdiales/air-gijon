@@ -37,6 +37,10 @@ __pycache__/
 # Todo el contenido de la carpeta cleaning (archivos de desarrollo, documentación temporal, etc.)
 cleaning/
 
+# === DOCUMENTOS PERSONALES DE PREPARACIÓN ===
+# Documentos específicos para presentaciones y preparación personal
+docs/estructura_proyecto_detallada.md
+
 # === ARCHIVOS DE DESARROLLO Y DOCUMENTACIÓN (LEGACY - movidos a cleaning/) ===
 # Mantenemos estas reglas por compatibilidad con versiones anteriores
 air_data_csv/
