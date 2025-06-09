@@ -33,17 +33,16 @@ Thumbs.db
 __pycache__/
 *.pyc
 
-# Datos intermedios
+# === CARPETA DE LIMPIEZA ===
+# Todo el contenido de la carpeta cleaning (archivos de desarrollo, documentación temporal, etc.)
+cleaning/
+
+# === ARCHIVOS DE DESARROLLO Y DOCUMENTACIÓN (LEGACY - movidos a cleaning/) ===
+# Mantenemos estas reglas por compatibilidad con versiones anteriores
 air_data_csv/
 exploracion_csvs/
-
-# Información sensible
 info_api_ayto_gijon.txt
-
-# Ideas para el diseño
 mock_up_lovable_air_wise/
-
-# Archivo de contexto para IA (no subir)
 prompt_contexto.md
 prompt_contexto_air_gijon.md
 docs/puntos_realizados.txt
