@@ -59,12 +59,22 @@ function AirQualityCard({ data }) {
   const fecha = new Date(data.fecha);
 
   // Calcular el porcentaje para la barra de progreso (PM2.5: 0-15 Buena, 15-25 Moderada, 25-50 Regular, 50+ Mala)
-  // Esta lógica se mantiene igual
   const getProgressPercentage = (value) => {
-    if (value <= 15) return (value / 15) * 25;
-    if (value <= 25) return 25 + ((value - 15) / 10) * 25;
-    if (value <= 50) return 50 + ((value - 25) / 25) * 25;
-    return 75 + Math.min(((value - 50) / 25) * 25, 25); // Asegura no pasar del 100%
+    // Escala de 0-50 µg/m³ distribuida en 3 segmentos y saturación completa para >50
+    if (value <= 15) {
+      // 0-15 ocupa 33% de la barra
+      return (value / 15) * 33.33;
+    }
+    if (value <= 25) {
+      // 15-25 ocupa 33% siguiente
+      return 33.33 + ((value - 15) / 10) * 33.33;
+    }
+    if (value <= 50) {
+      // 25-50 ocupa último 33%
+      return 66.66 + ((value - 25) / 25) * 33.34;
+    }
+    // ≥50 µg/m³: barra completa
+    return 100;
   };
   
   const progressPercentage = getProgressPercentage(data.pm25);
