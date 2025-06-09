@@ -196,10 +196,13 @@ async function getAirQualityData(stationId) {
       const data = await response.json();
 
       if (data.status === 'ok') {
+        // Manejar AQI cuando es "-" (sin datos disponibles)
+        const aqiValue = data.data.aqi === '-' ? null : parseInt(data.data.aqi);
+        
         return {
           timestamp: new Date(),
           stationId,
-          aqi: data.data.aqi,
+          aqi: aqiValue,
           measurementTime: data.data.time.s,
           parameters: Object.entries(data.data.iaqi).map(([key, value]) => ({
             parameter: key,
