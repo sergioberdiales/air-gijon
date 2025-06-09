@@ -1,7 +1,7 @@
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
-const { createUser, getUserByEmail } = require('./db');
+const { createUser, getUserByEmail } = require('../database/db');
 
 // Configuración
 const JWT_SECRET = process.env.JWT_SECRET || 'air-gijon-secret-key-2024';
