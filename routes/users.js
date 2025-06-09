@@ -470,6 +470,30 @@ router.get('/check-env', async (req, res) => {
   });
 });
 
+// GET /api/users/check-table - Verificar estructura de tabla users (temporal)
+router.get('/check-table', async (req, res) => {
+  if (process.env.NODE_ENV === 'production' && !req.query.admin) {
+    return res.status(404).json({ error: 'Not found' });
+  }
+  
+  try {
+    const { pool } = require('../db');
+    const result = await pool.query(`
+      SELECT column_name, data_type, is_nullable, column_default 
+      FROM information_schema.columns 
+      WHERE table_name = 'users' AND table_schema = 'public'
+      ORDER BY ordinal_position
+    `);
+    
+    res.json({
+      columns: result.rows,
+      total_columns: result.rows.length
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // POST /api/users/forgot-password - Solicitar reseteo de contraseña
 router.post('/forgot-password', async (req, res) => {
   console.log('[FORGOT_PASSWORD] Received request:', req.body);
