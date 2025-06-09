@@ -556,4 +556,149 @@ router.post('/reset-password/:token', async (req, res) => {
   }
 });
 
+// GET /api/users/test-predictions - Test de correos de predicciones (temporal)
+router.get('/test-predictions', async (req, res) => {
+  try {
+    console.log('🧪 Testing prediction emails...');
+    
+    const { sendDailyPredictions } = require('../services/email_service');
+    const { getUsersForDailyPredictions } = require('../database/db');
+    
+    // Obtener usuarios suscritos a predicciones
+    const users = await getUsersForDailyPredictions('predictions');
+    
+    if (users.length === 0) {
+      return res.json({
+        success: false,
+        message: 'No hay usuarios suscritos a predicciones diarias',
+        users_found: 0
+      });
+    }
+    
+    // Datos de prueba para predicciones
+    const testPredictions = users.map(user => ({
+      email: user.email,
+      user_name: user.name,
+      user_id: user.id,
+      hoy: {
+        fecha: '2025-06-09',
+        valor: 45,
+        modelo: 'LightGBM Test',
+        roc_index: 0.85
+      },
+      manana: {
+        fecha: '2025-06-10',  
+        valor: 38,
+        modelo: 'LightGBM Test',
+        roc_index: 0.85
+      },
+      fecha_hoy_format: '9 de junio',
+      fecha_manana_format: '10 de junio'
+    }));
+    
+    console.log(`📧 Enviando predicciones de prueba a ${users.length} usuarios...`);
+    
+    // Enviar correos de prueba
+    const results = await sendDailyPredictions(testPredictions);
+    
+    const exitosos = results.filter(r => r.status === 'enviado').length;
+    const fallidos = results.filter(r => r.status === 'error').length;
+    
+    res.json({
+      success: true,
+      message: 'Test de predicciones completado',
+      stats: {
+        total_users: users.length,
+        emails_sent: exitosos,
+        emails_failed: fallidos
+      },
+      results: results
+    });
+    
+  } catch (error) {
+    console.error('❌ Error en test de predicciones:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error interno del servidor',
+      message: error.message
+    });
+  }
+});
+
+// GET /api/users/test-alerts - Test de correos de alertas (temporal)
+router.get('/test-alerts', async (req, res) => {
+  try {
+    console.log('🧪 Testing alert emails...');
+    
+    const { sendAirQualityAlert } = require('../services/email_service');
+    const { getUsersForDailyPredictions } = require('../database/db');
+    
+    // Obtener usuarios suscritos a alertas
+    const users = await getUsersForDailyPredictions('alerts');
+    
+    if (users.length === 0) {
+      return res.json({
+        success: false,
+        message: 'No hay usuarios suscritos a alertas',
+        users_found: 0
+      });
+    }
+    
+    // Datos de prueba para alerta (PM2.5 alto)
+    const testAlertData = {
+      valor: 65,
+      estado: 'Pobre',
+      estacion: 'Avenida Constitución',
+      fecha: new Date()
+    };
+    
+    console.log(`🚨 Enviando alertas de prueba a ${users.length} usuarios...`);
+    
+    let alertsSent = 0;
+    let alertsFailed = 0;
+    const results = [];
+    
+    // Enviar alertas de prueba
+    for (const user of users) {
+      try {
+        await sendAirQualityAlert(user.email, user.name, testAlertData, user.id);
+        console.log(`✅ Alerta enviada a ${user.email}`);
+        results.push({
+          email: user.email,
+          status: 'enviado'
+        });
+        alertsSent++;
+      } catch (error) {
+        console.error(`❌ Error enviando alerta a ${user.email}:`, error);
+        results.push({
+          email: user.email,
+          status: 'error',
+          error: error.message
+        });
+        alertsFailed++;
+      }
+    }
+    
+    res.json({
+      success: true,
+      message: 'Test de alertas completado',
+      stats: {
+        total_users: users.length,
+        alerts_sent: alertsSent,
+        alerts_failed: alertsFailed
+      },
+      test_data: testAlertData,
+      results: results
+    });
+    
+  } catch (error) {
+    console.error('❌ Error en test de alertas:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error interno del servidor',
+      message: error.message
+    });
+  }
+});
+
 module.exports = router; 
