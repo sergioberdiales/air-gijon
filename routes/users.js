@@ -494,6 +494,44 @@ router.get('/check-table', async (req, res) => {
   }
 });
 
+// POST /api/users/cleanup-redundant-fields - Eliminar campos redundantes (temporal)
+router.post('/cleanup-redundant-fields', async (req, res) => {
+  if (process.env.NODE_ENV === 'production' && !req.query.admin) {
+    return res.status(404).json({ error: 'Not found' });
+  }
+  
+  try {
+    const { pool } = require('../db');
+    
+    // 1. Verificar discrepancias antes de eliminar
+    const discrepancies = await pool.query(`
+      SELECT email, is_confirmed, email_verified 
+      FROM users 
+      WHERE is_confirmed != email_verified
+    `);
+    
+    // 2. Eliminar la columna redundante
+    await pool.query('ALTER TABLE users DROP COLUMN IF EXISTS email_verified');
+    
+    // 3. Verificar que se eliminó
+    const verifyResult = await pool.query(`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name = 'users' AND column_name IN ('is_confirmed', 'email_verified')
+    `);
+    
+    res.json({
+      success: true,
+      discrepancies_found: discrepancies.rows,
+      remaining_columns: verifyResult.rows,
+      message: 'Campo email_verified eliminado exitosamente'
+    });
+    
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // POST /api/users/forgot-password - Solicitar reseteo de contraseña
 router.post('/forgot-password', async (req, res) => {
   console.log('[FORGOT_PASSWORD] Received request:', req.body);
