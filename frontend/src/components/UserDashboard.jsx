@@ -19,10 +19,7 @@ function UserDashboard() {
   const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
-    console.log('UserDashboard: user data received:', user);
     if (user) {
-      console.log('UserDashboard: email_alerts =', user.email_alerts);
-      console.log('UserDashboard: daily_predictions =', user.daily_predictions);
       setPreferences({
         email_alerts: user.email_alerts || false,
         daily_predictions: user.daily_predictions || false
@@ -115,15 +112,6 @@ function UserDashboard() {
 
           <div className="card-content">
             <div className="notification-settings">
-              {/* Debug info */}
-              <div style={{ background: '#f0f0f0', padding: '10px', marginBottom: '20px', fontSize: '12px' }}>
-                <strong>DEBUG:</strong><br/>
-                User object: {JSON.stringify(user, null, 2)}<br/>
-                Email alerts: {user?.email_alerts?.toString()}<br/>
-                Daily predictions: {user?.daily_predictions?.toString()}<br/>
-                Preferences state: {JSON.stringify(preferences, null, 2)}
-              </div>
-
               {/* Alertas de Calidad del Aire */}
               <div className="setting-item">
                 <div className="setting-icon danger">
