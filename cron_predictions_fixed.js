@@ -218,7 +218,7 @@ async function generarPrediccionesDiarias() {
       if (pred.valor > UMBRAL_ALERTA_PM25) {
         console.log(`🔔 ALERTA: PM2.5 (${pred.valor} µg/m³) supera el umbral de ${UMBRAL_ALERTA_PM25} µg/m³ para el ${pred.fecha}`);
         
-        const usuariosSuscritos = await getUsersForDailyPredictions();
+        const usuariosSuscritos = await getUsersForDailyPredictions('alerts');
         
         if (usuariosSuscritos.length > 0) {
           console.log(`📨 Enviando alertas a ${usuariosSuscritos.length} usuarios...`);

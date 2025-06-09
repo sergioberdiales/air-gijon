@@ -621,24 +621,39 @@ async function confirmUserEmail(userId) {
 
 // Actualizar preferencias de usuario
 async function updateUserPreferences(userId, preferences) {
+  const { email_alerts, daily_predictions } = preferences;
+  
   const result = await pool.query(
-    'UPDATE users SET preferences = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING *',
-    [preferences, userId]
+    'UPDATE users SET email_alerts = $1, daily_predictions = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3 RETURNING id, email, name, email_alerts, daily_predictions',
+    [email_alerts, daily_predictions, userId]
   );
   return result.rows[0];
 }
 
 /**
  * Obtiene todos los usuarios que tienen las notificaciones por correo activadas.
- * @returns {Promise<Array<{id: number, email: string}>>}
+ * Ahora respeta las preferencias específicas del usuario.
+ * @param {string} type - Tipo de notificación: 'alerts' para alertas automáticas, 'predictions' para predicciones diarias
+ * @returns {Promise<Array<{id: number, email: string, name: string}>>}
  */
-async function getUsersForDailyPredictions() {
+async function getUsersForDailyPredictions(type = 'predictions') {
   try {
+    let whereClause;
+    if (type === 'alerts') {
+      whereClause = 'email_alerts = true AND is_confirmed = true';
+    } else if (type === 'predictions') {
+      whereClause = 'daily_predictions = true AND is_confirmed = true';
+    } else {
+      // Fallback para compatibilidad
+      whereClause = 'email_notifications_active = true AND is_confirmed = true';
+    }
+    
     const result = await pool.query(`
-      SELECT id, email 
+      SELECT id, email, name 
       FROM users 
-      WHERE email_notifications_active = true
+      WHERE ${whereClause}
     `);
+    console.log(`📧 Found ${result.rows.length} users for ${type} notifications`);
     return result.rows;
   } catch (error) {
     console.error('❌ Error obteniendo usuarios para predicciones:', error);
