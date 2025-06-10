@@ -541,20 +541,47 @@ async function createPredictionMetricsTable() {
 // Crear tabla de notificaciones enviadas
 async function createNotificationsTable() {
   const createTableSQL = `
-    CREATE TABLE IF NOT EXISTS notifications_sent (
+    CREATE TABLE IF NOT EXISTS notificaciones_enviadas (
       id SERIAL PRIMARY KEY,
       user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-      type VARCHAR(50) NOT NULL, -- 'daily_prediction', 'alert', 'welcome'
+      type VARCHAR(50) NOT NULL, -- 'daily_prediction', 'pm25_alert', 'welcome'
       email VARCHAR(255) NOT NULL,
       subject VARCHAR(255) NOT NULL,
       content TEXT,
+      fecha_medicion TIMESTAMP, -- Fecha de la medición original (para evitar duplicados)
+      parametro VARCHAR(10), -- 'pm25', 'pm10', 'no2', etc.
+      valor NUMERIC(5,2), -- Valor numérico del parámetro
+      estacion_id VARCHAR(10), -- ID de la estación de medición
       sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       status VARCHAR(20) DEFAULT 'sent' CHECK (status IN ('sent', 'failed', 'pending'))
     );
+    
+    -- Migrar datos de tabla antigua si existe
+    INSERT INTO notificaciones_enviadas (id, user_id, type, email, subject, content, sent_at, status)
+    SELECT id, user_id, type, email, subject, content, sent_at, status 
+    FROM notifications_sent 
+    WHERE NOT EXISTS (SELECT 1 FROM notificaciones_enviadas WHERE notificaciones_enviadas.id = notifications_sent.id)
+    ON CONFLICT (id) DO NOTHING;
+    
+    -- Crear índice único para evitar alertas duplicadas de la misma medición
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_notificaciones_medicion_unica 
+    ON notificaciones_enviadas (user_id, fecha_medicion, estacion_id, parametro, type) 
+    WHERE fecha_medicion IS NOT NULL AND estacion_id IS NOT NULL AND parametro IS NOT NULL;
+    
+    -- Índices para consultas frecuentes
+    CREATE INDEX IF NOT EXISTS idx_notificaciones_user_type_date 
+    ON notificaciones_enviadas (user_id, type, sent_at);
+    
+    CREATE INDEX IF NOT EXISTS idx_notificaciones_fecha_medicion 
+    ON notificaciones_enviadas (fecha_medicion) WHERE fecha_medicion IS NOT NULL;
+    
+    -- Índice para consultas por parámetro
+    CREATE INDEX IF NOT EXISTS idx_notificaciones_parametro 
+    ON notificaciones_enviadas (parametro) WHERE parametro IS NOT NULL;
   `;
   
   await pool.query(createTableSQL);
-  console.log('✅ Tabla notifications_sent creada/actualizada correctamente');
+  console.log('✅ Tabla notificaciones_enviadas creada/actualizada correctamente');
 }
 
 // Crear índices para las nuevas tablas
@@ -751,13 +778,31 @@ async function getModelAccuracyStats(modeloVersion = 'Modelo Predictivo 0.0') {
 }
 
 // Función para registrar notificación enviada
-async function logNotificationSent(userId, type, email, subject, content, status = 'sent') {
-  const result = await pool.query(`
-    INSERT INTO notifications_sent (user_id, type, email, subject, content, status)
-    VALUES ($1, $2, $3, $4, $5, $6)
-    RETURNING id
-  `, [userId, type, email, subject, content, status]);
+async function logNotificationSent(userId, type, email, subject, content, status = 'sent', measurementData = null) {
+  let query, params;
   
+  if (measurementData && measurementData.fecha && measurementData.valor && measurementData.estacion_id && measurementData.parametro) {
+    // Con datos de medición (para alertas de calidad del aire)
+    query = `
+      INSERT INTO notificaciones_enviadas 
+      (user_id, type, email, subject, content, status, fecha_medicion, parametro, valor, estacion_id)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      ON CONFLICT (user_id, fecha_medicion, estacion_id, parametro, type) DO NOTHING
+      RETURNING id
+    `;
+    params = [userId, type, email, subject, content, status, 
+             measurementData.fecha, measurementData.parametro, measurementData.valor, measurementData.estacion_id];
+  } else {
+    // Sin datos de medición (predicciones diarias, etc.)
+    query = `
+      INSERT INTO notificaciones_enviadas (user_id, type, email, subject, content, status)
+      VALUES ($1, $2, $3, $4, $5, $6)
+      RETURNING id
+    `;
+    params = [userId, type, email, subject, content, status];
+  }
+  
+  const result = await pool.query(query, params);
   return result.rows[0];
 }
 
@@ -844,12 +889,27 @@ async function updateUserPassword(userId, newPasswordHash) {
 // Función para comprobar si el usuario ya recibió una alerta hoy
 async function hasUserReceivedAlertToday(userId) {
   const result = await pool.query(
-    `SELECT 1 FROM notifications_sent 
+    `SELECT 1 FROM notificaciones_enviadas 
      WHERE user_id = $1 
-       AND type = 'quality_alert' 
+       AND type = 'pm25_alert' 
        AND sent_at::date = CURRENT_DATE 
      LIMIT 1`,
     [userId]
+  );
+  return result.rowCount > 0;
+}
+
+// Nueva función para verificar si ya se envió alerta para una medición específica
+async function hasAlertBeenSentForMeasurement(userId, fechaMedicion, estacionId, parametro = 'pm25') {
+  const result = await pool.query(
+    `SELECT 1 FROM notificaciones_enviadas 
+     WHERE user_id = $1 
+       AND fecha_medicion = $2 
+       AND estacion_id = $3 
+       AND parametro = $4
+       AND type = 'pm25_alert' 
+     LIMIT 1`,
+    [userId, fechaMedicion, estacionId, parametro]
   );
   return result.rowCount > 0;
 }
@@ -886,7 +946,8 @@ module.exports = {
     setResetPasswordToken,
     getUserByValidResetToken,
     updateUserPassword,
-    hasUserReceivedAlertToday
+    hasUserReceivedAlertToday,
+    hasAlertBeenSentForMeasurement
 };
 
 // Solo ejecutar la inicialización si no estamos en un script de actualización

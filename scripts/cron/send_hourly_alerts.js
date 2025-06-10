@@ -3,7 +3,7 @@
 // Cargar variables de entorno
 require('dotenv').config({ path: require('path').resolve(process.cwd(), '.env_local') });
 
-const { pool, getUsersForDailyPredictions, hasUserReceivedAlertToday } = require('../../src/database/db');
+const { pool, getUsersForDailyPredictions, hasAlertBeenSentForMeasurement } = require('../../src/database/db');
 const { sendAirQualityAlert } = require('../../src/services/email_service');
 const { getEstadoPM25 } = require('../../src/utils/utils');
 
@@ -19,42 +19,49 @@ async function checkForHighPM25() {
   try {
     console.log('🔍 Verificando niveles de PM2.5...');
     
-    // Obtener la última medición horaria
+    // Obtener la última medición disponible (sin límite de tiempo)
     const result = await pool.query(`
       SELECT 
         fecha,
         valor,
-        estacion_id
+        estacion_id,
+        EXTRACT(EPOCH FROM (NOW() - fecha))/3600 as horas_desde_medicion
       FROM mediciones_api 
       WHERE estacion_id = $1 
         AND parametro = 'pm25'
-        AND fecha >= NOW() - INTERVAL '2 hours'
+        AND valor IS NOT NULL
       ORDER BY fecha DESC 
       LIMIT 1
     `, [ESTACION_ID]);
 
     if (result.rows.length === 0) {
-      console.log('⚠️ No se encontraron mediciones recientes');
+      console.log('❌ No se encontraron mediciones de PM2.5 en la base de datos');
       return null;
     }
 
     const medicion = result.rows[0];
     const valor = parseFloat(medicion.valor);
+    const horasDesde = Math.round(medicion.horas_desde_medicion * 10) / 10; // Redondear a 1 decimal
     
-    console.log(`📊 Última medición: ${valor} µg/m³ (${new Date(medicion.fecha).toLocaleString('es-ES')})`);
+    console.log(`📊 Última medición: ${valor} µg/m³ (hace ${horasDesde} horas - ${new Date(medicion.fecha).toLocaleString('es-ES')})`);
     
-    if (valor > ALERT_THRESHOLD) {
+    // Determinar si es alerta por valor alto o simplemente información
+    const esAlerta = valor > ALERT_THRESHOLD;
+    
+    if (esAlerta) {
       console.log(`🚨 ALERTA: PM2.5 (${valor} µg/m³) supera el umbral de ${ALERT_THRESHOLD} µg/m³`);
-      return {
-        valor: Math.round(valor),
-        estado: getEstadoPM25(valor),
-        estacion: 'Avenida Constitución',
-        fecha: medicion.fecha
-      };
     } else {
-      console.log(`✅ Niveles normales: ${valor} µg/m³ (< ${ALERT_THRESHOLD} µg/m³)`);
-      return null;
+      console.log(`ℹ️ Enviando información: PM2.5 (${valor} µg/m³) - nivel normal`);
     }
+    
+    return {
+      valor: Math.round(valor),
+      estado: getEstadoPM25(valor),
+      estacion: 'Avenida Constitución',
+      fecha: medicion.fecha,
+      horasDesde: horasDesde,
+      esAlerta: esAlerta
+    };
     
   } catch (error) {
     console.error('❌ Error verificando PM2.5:', error);
@@ -97,6 +104,14 @@ async function sendHighPM25Alerts() {
         //   alertsSkipped++;
         //   continue;
         // }
+        
+        // Verificar si ya se envió alerta para esta medición específica
+        const alreadySent = await hasAlertBeenSentForMeasurement(user.id, alertData.fecha, ESTACION_ID, 'pm25');
+        if (alreadySent) {
+          console.log(`⏩ Usuario ${user.email}: Ya recibió alerta para esta medición PM2.5 (omitiendo)`);
+          alertsSkipped++;
+          continue;
+        }
         
         // Enviar alerta
         await sendAirQualityAlert(user.email, user.name, alertData, user.id);

@@ -1,5 +1,5 @@
 const nodemailer = require('nodemailer');
-const { logNotificationSent, getUsersForDailyPredictions, hasUserReceivedAlertToday } = require('../database/db');
+const { logNotificationSent, getUsersForDailyPredictions, hasAlertBeenSentForMeasurement } = require('../database/db');
 const { getEstadoPM25, getColorEstado } = require('../utils/utils');
 
 
@@ -355,7 +355,7 @@ function getPasswordResetTemplate(resetLink, userName) {
 }
 
 // Enviar email
-async function sendEmail(to, subject, htmlContent, userId = null, type = 'general') {
+async function sendEmail(to, subject, htmlContent, userId = null, type = 'general', measurementData = null) {
   if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
     console.error('❌ EMAIL_USER o EMAIL_PASSWORD no están configuradas en las variables de entorno. No se pueden enviar emails.');
     return { success: false, message: "Variables de entorno de email no configuradas." };
@@ -373,7 +373,7 @@ async function sendEmail(to, subject, htmlContent, userId = null, type = 'genera
     console.log(`✅ Email enviado (${type}) a ${to}: ${info.messageId}`);
     // Registrar notificación si es relevante y se proporciona userId
     if (userId) {
-      await logNotificationSent(userId, type, to, subject);
+      await logNotificationSent(userId, type, to, subject, htmlContent, 'sent', measurementData);
     }
     return { success: true, messageId: info.messageId };
   } catch (error) {
@@ -442,9 +442,25 @@ async function sendAirQualityAlert(userEmail, userName, alertData, userId) {
     console.error('❌ Faltan credenciales de email (EMAIL_USER o EMAIL_PASSWORD). No se enviará correo de alerta.');
     return;
   }
+  
+  // Preparar datos de medición para tracking
+  const measurementData = {
+    fecha: alertData.fecha,
+    parametro: 'pm25', // Parámetro de la medición
+    valor: alertData.valor,
+    estacion_id: '6699' // Avenida Constitución
+  };
+  
   const enrichedAlertData = { ...alertData, userName };
   const htmlContent = getAlertTemplate(enrichedAlertData);
-  return sendEmail(userEmail, `🚨 Alerta de Calidad del Aire: ${alertData.estado} en ${alertData.estacion}`, htmlContent, userId, 'quality_alert');
+  return sendEmail(
+    userEmail, 
+    `🚨 Alerta de Calidad del Aire: ${alertData.estado} en ${alertData.estacion}`, 
+    htmlContent, 
+    userId, 
+    'pm25_alert', 
+    measurementData
+  );
 }
 
 // Enviar email de reseteo de contraseña
@@ -492,4 +508,4 @@ module.exports = {
   getConfirmationTemplate,
   getPasswordResetTemplate,
   getOmsComment
-}; 
+};
