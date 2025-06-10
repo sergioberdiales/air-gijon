@@ -93,7 +93,10 @@ async function registerUser(email, password, role_id = 1, name = null) {
     // Verificar que el usuario no existe
     const existingUser = await getUserByEmail(email);
     if (existingUser) {
-      throw new Error('El usuario ya existe');
+      return {
+        success: false,
+        error: 'El usuario ya existe'
+      };
     }
 
     // Hash de la contraseña
@@ -107,12 +110,16 @@ async function registerUser(email, password, role_id = 1, name = null) {
     const newUser = await createUser(email, passwordHash, role_id, name, confirmationToken, tokenExpiresAt);
     
     return {
+      success: true,
       user: newUser,
-      confirmationToken
+      confirmation_token: confirmationToken
     };
   } catch (error) {
     console.error('Error registrando usuario:', error);
-    throw error;
+    return {
+      success: false,
+      error: error.message || 'Error interno del servidor'
+    };
   }
 }
 
