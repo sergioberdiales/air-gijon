@@ -23,7 +23,7 @@ function generateToken(user) {
   const payload = {
     id: user.id,
     email: user.email,
-    role: user.role,
+    role_name: user.role_name || user.role,
     name: user.name
   };
   
@@ -73,7 +73,9 @@ function requireRole(role) {
       });
     }
 
-    if (req.user.role !== role) {
+    // Usar role_name para compatibilidad con nuevo sistema
+    const userRole = req.user.role_name || req.user.role;
+    if (userRole !== role) {
       return res.status(403).json({ 
         error: `Acceso denegado. Se requiere rol: ${role}`,
         code: 'INSUFFICIENT_PERMISSIONS'
@@ -146,7 +148,7 @@ async function loginUser(email, password) {
       user: {
         id: user.id,
         email: user.email,
-        role: user.role,
+        role_name: user.role_name,
         name: user.name,
         is_confirmed: user.is_confirmed,
         email_alerts: user.email_alerts,

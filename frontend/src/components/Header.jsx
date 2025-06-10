@@ -9,6 +9,7 @@ import ChevronDownIcon from './icons/ChevronDownIcon';
 import SettingsIcon from './icons/SettingsIcon';
 import LogOutIcon from './icons/LogOutIcon';
 import CrownIcon from './icons/CrownIcon';
+import AdminIcon from './icons/AdminIcon';
 
 function Header({ activeView, setActiveView, activeTab, setActiveTab, onAuthModalOpen }) {
   const { user, isAuthenticated, logout } = useAuth();
@@ -30,7 +31,7 @@ function Header({ activeView, setActiveView, activeTab, setActiveTab, onAuthModa
           setActiveTab('prediccion');
         }
       } else {
-        // Otros botones (alertas, perfil) - usar vista normal
+        // Otros botones (alertas, perfil, admin) - usar vista normal
         setActiveView(view);
       }
     }
@@ -87,6 +88,17 @@ function Header({ activeView, setActiveView, activeTab, setActiveTab, onAuthModa
                 <span className="nav-text">Alertas</span>
               </button>
               
+              {/* Mostrar botón Admin solo para administradores */}
+              {isAuthenticated && user?.role_name === 'admin' && (
+                <button 
+                  className={`nav-link ${activeView === 'admin' ? 'active' : ''}`}
+                  onClick={() => handleNavClick('admin')}
+                >
+                  <AdminIcon className="nav-icon" />
+                  <span className="nav-text">Admin</span>
+                </button>
+              )}
+              
               {/* Mostrar botón Cuenta/Perfil solo si no está autenticado O si es móvil (en móvil sí se necesita) */}
               {(!isAuthenticated || isMobile) && (
                 <button 
@@ -129,8 +141,8 @@ function Header({ activeView, setActiveView, activeTab, setActiveTab, onAuthModa
                         <div className="user-info">
                           <p className="user-email">{user?.email}</p>
                           <span className="user-role">
-                            {user?.role === 'manager' ? <CrownIcon size={16} style={{ marginRight: '0.25rem' }} /> : <UserIcon size={14} style={{ marginRight: '0.25rem' }} />} 
-                            {user?.role === 'manager' ? 'Gestor' : 'Usuario'}
+                            {user?.role_name === 'admin' ? <CrownIcon size={16} style={{ marginRight: '0.25rem' }} /> : <UserIcon size={14} style={{ marginRight: '0.25rem' }} />} 
+                            {user?.role_name === 'admin' ? 'Administrador' : 'Usuario'}
                           </span>
                         </div>
                         <hr />
@@ -143,6 +155,20 @@ function Header({ activeView, setActiveView, activeTab, setActiveTab, onAuthModa
                         >
                           <SettingsIcon size={16} /> Mi Cuenta
                         </button>
+                        
+                        {/* Mostrar opción Admin en dropdown solo para administradores */}
+                        {user?.role_name === 'admin' && (
+                          <button 
+                            className="dropdown-item"
+                            onClick={() => {
+                              handleNavClick('admin');
+                              setShowUserMenu(false);
+                            }}
+                          >
+                            <AdminIcon size={16} /> Panel Admin
+                          </button>
+                        )}
+                        
                         <button 
                           className="dropdown-item"
                           onClick={handleLogout}

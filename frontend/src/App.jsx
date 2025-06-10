@@ -8,6 +8,7 @@ import InfoSection from "./components/InfoSection";
 // import UpdatesSection from "./components/UpdatesSection"; // Comentado
 import LoadingCard from "./components/LoadingCard";
 import UserDashboard from "./components/UserDashboard";
+import AdminDashboard from "./components/AdminDashboard";
 import AuthModal from "./components/AuthModal";
 import ResetPasswordPage from "./components/ResetPasswordPage";
 import UserIcon from "./components/icons/UserIcon";
@@ -22,7 +23,7 @@ function AppContent() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('actual');
-  const [activeView, setActiveView] = useState('home'); // home, perfil, alertas, resetPassword
+  const [activeView, setActiveView] = useState('home'); // home, perfil, alertas, resetPassword, admin
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authModalTab, setAuthModalTab] = useState('login'); // 'login' o 'register'
   const [resetPasswordToken, setResetPasswordToken] = useState(null);
@@ -95,6 +96,9 @@ function AppContent() {
         );
       case 'perfil':
         return isAuthenticated ? <UserDashboard /> : null;
+      
+      case 'admin':
+        return isAuthenticated ? <AdminDashboard /> : null;
       
       case 'alertas':
         return (
