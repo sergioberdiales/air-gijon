@@ -657,6 +657,82 @@ app.post('/api/debug/test-register', async (req, res) => {
   }
 });
 
+// Endpoint más simple para debug de base de datos
+app.get('/api/debug/db-compatibility', async (req, res) => {
+  try {
+    console.log('🔍 DEBUG: Verificando compatibilidad de BD...');
+    
+    // 1. Probar estructura de tabla users
+    const userTableInfo = await pool.query(`
+      SELECT column_name, data_type, is_nullable, column_default
+      FROM information_schema.columns 
+      WHERE table_name = 'users' 
+      ORDER BY ordinal_position
+    `);
+    
+    // 2. Probar si existe tabla roles
+    const rolesExists = await pool.query(`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_name = 'roles'
+      )
+    `);
+    
+    // 3. Probar un INSERT simple
+    const bcrypt = require('bcrypt');
+    const crypto = require('crypto');
+    
+    const testEmail = `test-${Date.now()}@debug.com`;
+    const testPasswordHash = await bcrypt.hash('test123', 10);
+    const testToken = crypto.randomBytes(16).toString('hex');
+    const testExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    
+    try {
+      const insertResult = await pool.query(`
+        INSERT INTO users (email, password_hash, role_id, name, confirmation_token, confirmation_token_expires_at, is_confirmed)
+        VALUES ($1, $2, $3, $4, $5, $6, false)
+        RETURNING id, email, role_id, name, created_at, is_confirmed
+      `, [testEmail, testPasswordHash, 1, 'Debug Test', testToken, testExpires]);
+      
+      console.log('✅ DEBUG: INSERT exitoso:', insertResult.rows[0]);
+      
+      res.json({
+        success: true,
+        userTableColumns: userTableInfo.rows,
+        rolesTableExists: rolesExists.rows[0].exists,
+        insertTest: {
+          success: true,
+          insertedUser: insertResult.rows[0]
+        },
+        timestamp: new Date().toISOString()
+      });
+      
+    } catch (insertError) {
+      console.error('❌ DEBUG: Error en INSERT:', insertError);
+      res.json({
+        success: false,
+        userTableColumns: userTableInfo.rows,
+        rolesTableExists: rolesExists.rows[0].exists,
+        insertTest: {
+          success: false,
+          error: insertError.message,
+          code: insertError.code
+        },
+        timestamp: new Date().toISOString()
+      });
+    }
+    
+  } catch (error) {
+    console.error('❌ DEBUG: Error general:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      code: error.code,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
 // Inicialización del servidor simplificada
 async function initializeServer() {
   try {
