@@ -11,15 +11,6 @@ const AdminDashboard = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Verificar si es admin
-  if (!user || user.role_name !== 'admin') {
-    return (
-      <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-        <strong>Acceso denegado:</strong> Solo los administradores pueden acceder a esta página.
-      </div>
-    );
-  }
-
   // Función para obtener datos del dashboard
   const fetchDashboardData = async () => {
     try {
@@ -121,6 +112,15 @@ const AdminDashboard = () => {
       className: isAdmin ? 'role-admin' : 'role-user'
     };
   };
+
+  // Verificar si es admin DESPUÉS de definir las funciones
+  if (!user || user.role_name !== 'admin') {
+    return (
+      <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+        <strong>Acceso denegado:</strong> Solo los administradores pueden acceder a esta página.
+      </div>
+    );
+  }
 
   return (
     <div className="admin-dashboard">
