@@ -49,10 +49,11 @@ async function main() {
       console.log(`   Última fecha: ${initialStats.fecha_mas_reciente}`);
     }
     
-    // Limpiar datos antiguos
-    console.log('\n🧹 Limpiando datos antiguos...');
-    const deletedCount = await cleanOldData();
-    console.log(`   Eliminados: ${deletedCount} registros`);
+    // DESHABILITADO: Limpiar datos antiguos (>30 días) - conservamos históricos  
+    // console.log('\n🧹 Limpiando datos antiguos...');
+    // const deletedCount = await cleanOldData();
+    // console.log(`   Eliminados: ${deletedCount} registros`);
+    console.log('\n💾 Conservando todos los datos históricos (limpieza deshabilitada)');
     
     // Obtener nuevos datos
     console.log('\n📥 Obteniendo datos de AQICN...');

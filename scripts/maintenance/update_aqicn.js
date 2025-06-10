@@ -32,14 +32,15 @@ async function main() {
       console.log(`   • Fecha más reciente: ${stats.fecha_mas_reciente}`);
     }
     
-    // Limpiar datos antiguos (>30 días) para optimizar la tabla
-    console.log('🧹 Limpiando datos antiguos (>30 días)...');
-    const deletedCount = await cleanOldData();
-    if (deletedCount > 0) {
-      console.log(`   • Eliminados ${deletedCount} registros antiguos`);
-    } else {
-      console.log('   • No hay datos antiguos para eliminar');
-    }
+    // DESHABILITADO: Limpiar datos antiguos (>30 días) - conservamos históricos
+    // console.log('🧹 Limpiando datos antiguos (>30 días)...');
+    // const deletedCount = await cleanOldData();
+    // if (deletedCount > 0) {
+    //   console.log(`   • Eliminados ${deletedCount} registros antiguos`);
+    // } else {
+    //   console.log('   • No hay datos antiguos para eliminar');
+    // }
+    console.log('💾 Conservando todos los datos históricos (limpieza deshabilitada)');
     
     // Obtenemos y almacenamos los nuevos datos
     console.log('📥 Obteniendo datos de la API...');
