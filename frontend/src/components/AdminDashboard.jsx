@@ -5,10 +5,10 @@ import './AdminDashboard.css';
 
 const AdminDashboard = () => {
   const { user, token } = useAuth();
-  const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState(null);
-  const [users, setUsers] = useState([]);
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [dashboardData, setDashboardData] = useState(null);
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
   // Verificar si es admin
@@ -20,113 +20,96 @@ const AdminDashboard = () => {
     );
   }
 
-  useEffect(() => {
-    loadAdminData();
-  }, []);
-
-  const loadAdminData = async () => {
+  // Función para obtener datos del dashboard
+  const fetchDashboardData = async () => {
     try {
       setLoading(true);
-      
-      // Cargar estadísticas del dashboard
-      const statsResponse = await fetch(`${config.API_BASE}/api/admin/dashboard`, {
+      const response = await fetch(`${config.API_BASE}/api/admin/dashboard`, {
         headers: {
           'Authorization': `Bearer ${token}`,
-        },
+          'Content-Type': 'application/json'
+        }
       });
 
-      if (statsResponse.ok) {
-        const statsData = await statsResponse.json();
-        setStats(statsData);
+      if (response.ok) {
+        const data = await response.json();
+        setDashboardData(data);
+      } else {
+        setError('Error cargando dashboard');
       }
-
-      // Cargar lista de usuarios
-      const usersResponse = await fetch(`${config.API_BASE}/api/admin/users`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (usersResponse.ok) {
-        const usersData = await usersResponse.json();
-        setUsers(usersData.users);
-      }
-
-      setError(null);
-    } catch (error) {
-      console.error('Error loading admin data:', error);
-      setError('Error cargando datos de administración');
+    } catch (err) {
+      setError('Error de conexión');
     } finally {
       setLoading(false);
     }
   };
 
-  const updateUserRole = async (userId, newRoleId) => {
+  // Función para obtener lista de usuarios
+  const fetchUsers = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(`${config.API_BASE}/api/admin/users`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setUsers(data.users || []);
+      } else {
+        setError('Error cargando usuarios');
+      }
+    } catch (err) {
+      setError('Error de conexión');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Función para cambiar rol de usuario
+  const changeUserRole = async (userId, newRoleId) => {
     try {
       const response = await fetch(`${config.API_BASE}/api/admin/users/${userId}/role`, {
         method: 'PUT',
         headers: {
-          'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ role_id: newRoleId }),
+        body: JSON.stringify({ role_id: newRoleId })
       });
 
       if (response.ok) {
-        // Recargar usuarios
-        loadAdminData();
-        alert('Rol actualizado correctamente');
+        // Recargar lista de usuarios para reflejar cambios
+        fetchUsers();
+        // También recargar dashboard para actualizar contadores
+        fetchDashboardData();
       } else {
-        const error = await response.json();
-        alert(`Error: ${error.error}`);
+        setError('Error cambiando rol de usuario');
       }
-    } catch (error) {
-      console.error('Error updating user role:', error);
-      alert('Error actualizando rol de usuario');
+    } catch (err) {
+      setError('Error de conexión');
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center py-12">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
-        <span className="ml-4 text-gray-600">Cargando panel de administración...</span>
-      </div>
-    );
-  }
+  // Cargar datos según la pestaña activa
+  useEffect(() => {
+    if (activeTab === 'dashboard') {
+      fetchDashboardData();
+    } else if (activeTab === 'users') {
+      fetchUsers();
+    }
+  }, [activeTab]);
 
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('es-ES', {
-      year: 'numeric',
+      day: '2-digit',
       month: 'short',
-      day: 'numeric',
+      year: 'numeric',
       hour: '2-digit',
       minute: '2-digit'
     });
-  };
-
-  const getRoleBadge = (roleName) => {
-    return roleName === 'admin' ? (
-      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-        👑 Admin
-      </span>
-    ) : (
-      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-        👤 Usuario
-      </span>
-    );
-  };
-
-  const getConfirmationBadge = (isConfirmed) => {
-    return isConfirmed ? (
-      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-        ✅ Confirmado
-      </span>
-    ) : (
-      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-        ⏳ Pendiente
-      </span>
-    );
   };
 
   const getUserRoleInfo = (user) => {
@@ -179,13 +162,13 @@ const AdminDashboard = () => {
         )}
 
         {/* Dashboard Tab */}
-        {activeTab === 'dashboard' && stats && (
+        {activeTab === 'dashboard' && dashboardData && (
           <div className="dashboard-content">
             <div className="stats-grid">
               <div className="stat-card">
                 <div className="stat-icon">👥</div>
                 <div className="stat-content">
-                  <div className="stat-number">{stats.total_users}</div>
+                  <div className="stat-number">{dashboardData.total_users}</div>
                   <div className="stat-label">Total Usuarios</div>
                 </div>
               </div>
@@ -193,7 +176,7 @@ const AdminDashboard = () => {
               <div className="stat-card">
                 <div className="stat-icon">✅</div>
                 <div className="stat-content">
-                  <div className="stat-number">{stats.confirmed_users}</div>
+                  <div className="stat-number">{dashboardData.confirmed_users}</div>
                   <div className="stat-label">Usuarios Confirmados</div>
                 </div>
               </div>
@@ -201,7 +184,7 @@ const AdminDashboard = () => {
               <div className="stat-card">
                 <div className="stat-icon">🆕</div>
                 <div className="stat-content">
-                  <div className="stat-number">{stats.new_users_today}</div>
+                  <div className="stat-number">{dashboardData.new_users_today}</div>
                   <div className="stat-label">Nuevos Hoy</div>
                 </div>
               </div>
@@ -209,7 +192,7 @@ const AdminDashboard = () => {
               <div className="stat-card">
                 <div className="stat-icon">👑</div>
                 <div className="stat-content">
-                  <div className="stat-number">{stats.admin_users}</div>
+                  <div className="stat-number">{dashboardData.admin_count}</div>
                   <div className="stat-label">Administradores</div>
                 </div>
               </div>
@@ -239,7 +222,7 @@ const AdminDashboard = () => {
               <p>Lista de todos los usuarios registrados y sus roles.</p>
               <button 
                 className="refresh-button"
-                onClick={loadAdminData}
+                onClick={fetchUsers}
                 disabled={loading}
               >
                 🔄 Actualizar
@@ -289,7 +272,7 @@ const AdminDashboard = () => {
                             {!roleInfo.isAdmin ? (
                               <button
                                 className="action-button promote"
-                                onClick={() => updateUserRole(user.id, 2)}
+                                onClick={() => changeUserRole(user.id, 2)}
                                 disabled={loading}
                               >
                                 👑 Hacer Admin
@@ -297,7 +280,7 @@ const AdminDashboard = () => {
                             ) : (
                               <button
                                 className="action-button demote"
-                                onClick={() => updateUserRole(user.id, 1)}
+                                onClick={() => changeUserRole(user.id, 1)}
                                 disabled={loading}
                               >
                                 👤 Quitar Admin
