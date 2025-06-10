@@ -104,7 +104,7 @@ async function createManager() {
 console.log('🔍 VERIFICANDO CONFIGURACIÓN:');
 console.log(`   DATABASE_URL: ${process.env.DATABASE_URL ? '✅ Configurada' : '❌ No configurada'}`);
 console.log(`   EMAIL_USER: ${process.env.EMAIL_USER ? '✅ Configurada' : '⚠️ No configurada (emails deshabilitados)'}`);
-console.log(`   EMAIL_PASSWORD: ${process.env.EMAIL_PASSWORD ? '✅ Configurada' : '⚠️ No configurada (emails deshabilitados)'}`);
+console.log(`   EMAIL_PASS: ${process.env.EMAIL_PASS ? '✅ Configurada' : '⚠️ No configurada (emails deshabilitados)'}`);
 console.log('');
 
 if (!process.env.DATABASE_URL) {

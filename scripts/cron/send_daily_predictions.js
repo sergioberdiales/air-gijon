@@ -102,6 +102,12 @@ async function sendDailyPredictionEmails() {
     // Enviar correos
     const results = await sendDailyPredictions(usersWithPredictions);
     
+    // Verificar si el envío fue exitoso
+    if (!results) {
+      console.log('❌ Error en el servicio de email. No se pudieron enviar predicciones.');
+      return;
+    }
+    
     // Mostrar resumen
     const exitosos = results.filter(r => r.status === 'enviado').length;
     const fallidos = results.filter(r => r.status === 'error').length;

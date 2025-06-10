@@ -9,7 +9,7 @@ const transporter = nodemailer.createTransport({
   service: 'gmail', // o el servicio que prefieras
   auth: {
     user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASSWORD // App Password para Gmail
+    pass: process.env.EMAIL_PASS // App Password para Gmail
   }
 });
 
@@ -356,8 +356,8 @@ function getPasswordResetTemplate(resetLink, userName) {
 
 // Enviar email
 async function sendEmail(to, subject, htmlContent, userId = null, type = 'general', measurementData = null) {
-  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
-    console.error('❌ EMAIL_USER o EMAIL_PASSWORD no están configuradas en las variables de entorno. No se pueden enviar emails.');
+  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+    console.error('❌ EMAIL_USER o EMAIL_PASS no están configuradas en las variables de entorno. No se pueden enviar emails.');
     return { success: false, message: "Variables de entorno de email no configuradas." };
   }
 
@@ -386,9 +386,9 @@ async function sendEmail(to, subject, htmlContent, userId = null, type = 'genera
 
 // Enviar predicción diaria a todos los usuarios suscritos
 async function sendDailyPredictions(usersWithPredictions) {
-  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
-    console.error('❌ Faltan credenciales de email (EMAIL_USER o EMAIL_PASSWORD). No se enviarán correos de predicción.');
-    return;
+  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+    console.error('❌ Faltan credenciales de email (EMAIL_USER o EMAIL_PASS). No se enviarán correos de predicción.');
+    return [];
   }
 
   const results = [];
@@ -418,8 +418,8 @@ async function sendDailyPredictions(usersWithPredictions) {
 
 // Enviar email de bienvenida
 async function sendWelcomeEmail(userEmail, userName, userId) {
-  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
-    console.error('❌ Faltan credenciales de email (EMAIL_USER o EMAIL_PASSWORD). No se enviará correo de bienvenida.');
+  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+    console.error('❌ Faltan credenciales de email (EMAIL_USER o EMAIL_PASS). No se enviará correo de bienvenida.');
     return;
   }
   const htmlContent = getWelcomeTemplate(userName);
@@ -428,8 +428,8 @@ async function sendWelcomeEmail(userEmail, userName, userId) {
 
 // Nueva función para enviar email de confirmación
 async function sendConfirmationEmail(userEmail, userName, confirmationLink, userId = null) {
-  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
-    console.error('❌ Faltan credenciales de email (EMAIL_USER o EMAIL_PASSWORD). No se enviará correo de confirmación.');
+  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+    console.error('❌ Faltan credenciales de email (EMAIL_USER o EMAIL_PASS). No se enviará correo de confirmación.');
     return;
   }
   const htmlContent = getConfirmationTemplate(userName, confirmationLink);
@@ -438,8 +438,8 @@ async function sendConfirmationEmail(userEmail, userName, confirmationLink, user
 
 // Enviar alerta de calidad del aire
 async function sendAirQualityAlert(userEmail, userName, alertData, userId) {
-  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
-    console.error('❌ Faltan credenciales de email (EMAIL_USER o EMAIL_PASSWORD). No se enviará correo de alerta.');
+  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+    console.error('❌ Faltan credenciales de email (EMAIL_USER o EMAIL_PASS). No se enviará correo de alerta.');
     return;
   }
   
@@ -466,8 +466,8 @@ async function sendAirQualityAlert(userEmail, userName, alertData, userId) {
 // Enviar email de reseteo de contraseña
 async function sendPasswordResetEmail(to, userName, resetLink, userId) {
   console.log(`[EMAIL_SERVICE] sendPasswordResetEmail called. To: ${to}, userName: ${userName}, userId: ${userId}, resetLink: ${resetLink}`);
-  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
-    console.error('[EMAIL_SERVICE] ❌ Faltan credenciales de email (EMAIL_USER o EMAIL_PASSWORD). No se enviará correo de reseteo.');
+  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+    console.error('[EMAIL_SERVICE] ❌ Faltan credenciales de email (EMAIL_USER o EMAIL_PASS). No se enviará correo de reseteo.');
     return { success: false, error: 'Missing email credentials' };
   }
   const subject = 'Restablece tu contraseña en Air Gijón';
