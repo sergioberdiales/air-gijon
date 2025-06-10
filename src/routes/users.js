@@ -87,8 +87,7 @@ router.post('/register', async (req, res) => {
       });
     }
 
-    // Registrar usuario (ahora devuelve también confirmation_token)
-    // role_id = 1 para usuarios normales (valor por defecto)
+    // Registrar usuario con role_id = 1 para usuarios normales
     const result = await registerUser(email, password, 1, name?.trim() || null);
 
     if (!result.success) {
@@ -99,7 +98,6 @@ router.post('/register', async (req, res) => {
     }
 
     // Construir el enlace de confirmación
-    // Usar el backend URL para confirmación de correo
     const backendBaseUrl = process.env.BASE_URL || 'https://air-gijon-backend.onrender.com';
     const confirmationLink = `${backendBaseUrl}/api/users/confirmar-correo/${result.confirmation_token}`;
 
@@ -107,11 +105,6 @@ router.post('/register', async (req, res) => {
     sendConfirmationEmail(result.user.email, result.user.name, confirmationLink, result.user.id)
       .catch(error => console.error('Error enviando email de confirmación:', error));
     
-    // Opcional: Aún podemos enviar el de bienvenida, o esperar a la confirmación.
-    // Por ahora, lo dejamos para dar feedback inmediato.
-    // sendWelcomeEmail(result.user.email, result.user.name, result.user.id)
-    //  .catch(error => console.error('Error enviando email de bienvenida tras registro:', error));
-
     res.status(201).json({
       success: true,
       message: 'Usuario registrado. Por favor, revisa tu correo para confirmar tu cuenta y poder iniciar sesión.',
@@ -122,7 +115,8 @@ router.post('/register', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error en registro:', error);
+    console.error('❌ Error en registro:', error);
+    console.error('❌ Stack trace:', error.stack);
     res.status(500).json({
       success: false,
       error: 'Error interno del servidor'
