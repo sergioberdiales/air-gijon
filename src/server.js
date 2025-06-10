@@ -606,6 +606,57 @@ app.get('/api/test/status', async (req, res) => {
   }
 });
 
+// Endpoint temporal para debug del registro en producción
+app.post('/api/debug/test-register', async (req, res) => {
+  try {
+    console.log('🔍 DEBUG: Probando registro en producción...');
+    
+    // Importar funciones necesarias
+    const { registerUser, validateRegistrationData } = require('./auth/auth');
+    
+    const testData = {
+      email: 'debug-test@example.com',
+      password: '123456',
+      name: 'Debug Test'
+    };
+    
+    console.log('🔍 DEBUG: Datos de prueba:', testData);
+    
+    // 1. Probar validación
+    const validationErrors = validateRegistrationData(testData.email, testData.password, testData.name);
+    console.log('🔍 DEBUG: Errores de validación:', validationErrors);
+    
+    if (validationErrors.length > 0) {
+      return res.json({
+        step: 'validation',
+        success: false,
+        errors: validationErrors
+      });
+    }
+    
+    // 2. Probar registerUser
+    console.log('🔍 DEBUG: Llamando a registerUser...');
+    const result = await registerUser(testData.email, testData.password, 1, testData.name);
+    console.log('🔍 DEBUG: Resultado registerUser:', result);
+    
+    res.json({
+      step: 'register',
+      result: result,
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV || 'development'
+    });
+    
+  } catch (error) {
+    console.error('❌ DEBUG: Error en test de registro:', error);
+    res.status(500).json({
+      step: 'error',
+      error: error.message,
+      stack: error.stack,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
 // Inicialización del servidor simplificada
 async function initializeServer() {
   try {
