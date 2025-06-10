@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { config } from '../config';
+import './AdminDashboard.css';
 
 const AdminDashboard = () => {
   const { user, token } = useAuth();
@@ -128,252 +129,197 @@ const AdminDashboard = () => {
     );
   };
 
+  const getUserRoleInfo = (user) => {
+    const isAdmin = user.role_id === 2;
+    return {
+      isAdmin,
+      label: isAdmin ? 'Admin' : 'Usuario',
+      icon: isAdmin ? '👑' : '👤',
+      className: isAdmin ? 'role-admin' : 'role-user'
+    };
+  };
+
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Panel de Administración</h1>
-        <p className="mt-2 text-gray-600">Gestión del sistema Air Gijón</p>
+    <div className="admin-dashboard">
+      <div className="admin-header">
+        <h1>Panel de Administración</h1>
+        <p>Gestión del sistema Air Gijón</p>
       </div>
 
-      {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">
-          {error}
-        </div>
-      )}
-
-      {/* Tab Navigation */}
-      <div className="border-b border-gray-200 mb-6">
-        <nav className="flex space-x-8">
-          <button
-            onClick={() => setActiveTab('dashboard')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm ${
-              activeTab === 'dashboard'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            📊 Dashboard
-          </button>
-          <button
-            onClick={() => setActiveTab('users')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm ${
-              activeTab === 'users'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            👥 Usuarios
-          </button>
-        </nav>
+      {/* Navegación por pestañas */}
+      <div className="admin-tabs">
+        <button 
+          className={`tab-button ${activeTab === 'dashboard' ? 'active' : ''}`}
+          onClick={() => setActiveTab('dashboard')}
+        >
+          📊 Dashboard
+        </button>
+        <button 
+          className={`tab-button ${activeTab === 'users' ? 'active' : ''}`}
+          onClick={() => setActiveTab('users')}
+        >
+          👥 Usuarios
+        </button>
       </div>
 
-      {/* Dashboard Tab */}
-      {activeTab === 'dashboard' && stats && (
-        <div className="space-y-6">
-          {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div className="bg-white overflow-hidden shadow rounded-lg">
-              <div className="p-5">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <div className="text-2xl">👥</div>
-                  </div>
-                  <div className="ml-5 w-0 flex-1">
-                    <dl>
-                      <dt className="text-sm font-medium text-gray-500 truncate">
-                        Total Usuarios
-                      </dt>
-                      <dd className="text-lg font-medium text-gray-900">
-                        {stats.total_users}
-                      </dd>
-                    </dl>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white overflow-hidden shadow rounded-lg">
-              <div className="p-5">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <div className="text-2xl">✅</div>
-                  </div>
-                  <div className="ml-5 w-0 flex-1">
-                    <dl>
-                      <dt className="text-sm font-medium text-gray-500 truncate">
-                        Usuarios Confirmados
-                      </dt>
-                      <dd className="text-lg font-medium text-gray-900">
-                        {stats.confirmed_users}
-                      </dd>
-                    </dl>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white overflow-hidden shadow rounded-lg">
-              <div className="p-5">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <div className="text-2xl">🆕</div>
-                  </div>
-                  <div className="ml-5 w-0 flex-1">
-                    <dl>
-                      <dt className="text-sm font-medium text-gray-500 truncate">
-                        Nuevos Hoy
-                      </dt>
-                      <dd className="text-lg font-medium text-gray-900">
-                        {stats.new_users_today}
-                      </dd>
-                    </dl>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white overflow-hidden shadow rounded-lg">
-              <div className="p-5">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <div className="text-2xl">👑</div>
-                  </div>
-                  <div className="ml-5 w-0 flex-1">
-                    <dl>
-                      <dt className="text-sm font-medium text-gray-500 truncate">
-                        Administradores
-                      </dt>
-                      <dd className="text-lg font-medium text-gray-900">
-                        {stats.admin_users}
-                      </dd>
-                    </dl>
-                  </div>
-                </div>
-              </div>
-            </div>
+      {/* Contenido */}
+      <div className="admin-content">
+        {loading && (
+          <div className="loading-message">
+            <div className="spinner"></div>
+            Cargando...
           </div>
-
-          {/* System Info */}
-          <div className="bg-white shadow rounded-lg">
-            <div className="px-4 py-5 sm:p-6">
-              <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
-                Información del Sistema
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <dt className="text-sm font-medium text-gray-500">Estado del Sistema</dt>
-                  <dd className="mt-1 text-sm text-green-600">🟢 Operativo</dd>
-                </div>
-                <div>
-                  <dt className="text-sm font-medium text-gray-500">Última Actualización</dt>
-                  <dd className="mt-1 text-sm text-gray-900">{formatDate(new Date())}</dd>
-                </div>
-              </div>
-            </div>
+        )}
+        
+        {error && (
+          <div className="error-message">
+            ❌ {error}
+            <button onClick={() => setError(null)} className="error-close">×</button>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Users Tab */}
-      {activeTab === 'users' && (
-        <div className="space-y-6">
-          <div className="bg-white shadow rounded-lg">
-            <div className="px-4 py-5 sm:p-6">
-              <div className="sm:flex sm:items-center">
-                <div className="sm:flex-auto">
-                  <h3 className="text-lg leading-6 font-medium text-gray-900">
-                    Gestión de Usuarios
-                  </h3>
-                  <p className="mt-2 text-sm text-gray-700">
-                    Lista de todos los usuarios registrados y sus roles.
-                  </p>
-                </div>
-                <div className="mt-4 sm:mt-0 sm:ml-16 sm:flex-none">
-                  <button
-                    onClick={loadAdminData}
-                    className="inline-flex items-center justify-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700"
-                  >
-                    🔄 Actualizar
-                  </button>
+        {/* Dashboard Tab */}
+        {activeTab === 'dashboard' && stats && (
+          <div className="dashboard-content">
+            <div className="stats-grid">
+              <div className="stat-card">
+                <div className="stat-icon">👥</div>
+                <div className="stat-content">
+                  <div className="stat-number">{stats.total_users}</div>
+                  <div className="stat-label">Total Usuarios</div>
                 </div>
               </div>
               
-              <div className="mt-8 flow-root">
-                <div className="-my-2 -mx-4 overflow-x-auto sm:-mx-6 lg:-mx-8">
-                  <div className="inline-block min-w-full py-2 align-middle sm:px-6 lg:px-8">
-                    <table className="min-w-full divide-y divide-gray-300">
-                      <thead>
-                        <tr>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Usuario
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Estado
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Rol
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Registro
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Acciones
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {users.map((user) => (
-                          <tr key={user.id}>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="flex items-center">
-                                <div>
-                                  <div className="text-sm font-medium text-gray-900">
-                                    {user.name || 'Sin nombre'}
-                                  </div>
-                                  <div className="text-sm text-gray-500">
-                                    {user.email}
-                                  </div>
-                                </div>
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              {getConfirmationBadge(user.is_confirmed)}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              {getRoleBadge(user.role_name)}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {formatDate(user.created_at)}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                              {user.role_name !== 'admin' ? (
-                                <button
-                                  onClick={() => updateUserRole(user.id, 2)}
-                                  className="text-blue-600 hover:text-blue-900 mr-3"
-                                >
-                                  👑 Hacer Admin
-                                </button>
-                              ) : (
-                                <button
-                                  onClick={() => updateUserRole(user.id, 1)}
-                                  className="text-orange-600 hover:text-orange-900 mr-3"
-                                >
-                                  👤 Quitar Admin
-                                </button>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+              <div className="stat-card">
+                <div className="stat-icon">✅</div>
+                <div className="stat-content">
+                  <div className="stat-number">{stats.confirmed_users}</div>
+                  <div className="stat-label">Usuarios Confirmados</div>
+                </div>
+              </div>
+              
+              <div className="stat-card">
+                <div className="stat-icon">🆕</div>
+                <div className="stat-content">
+                  <div className="stat-number">{stats.new_users_today}</div>
+                  <div className="stat-label">Nuevos Hoy</div>
+                </div>
+              </div>
+              
+              <div className="stat-card">
+                <div className="stat-icon">👑</div>
+                <div className="stat-content">
+                  <div className="stat-number">{stats.admin_users}</div>
+                  <div className="stat-label">Administradores</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="system-info">
+              <h3>Información del Sistema</h3>
+              <div className="info-grid">
+                <div className="info-item">
+                  <span className="info-label">Estado del Sistema</span>
+                  <span className="info-value status-active">🟢 Operativo</span>
+                </div>
+                <div className="info-item">
+                  <span className="info-label">Última Actualización</span>
+                  <span className="info-value">{formatDate(new Date())}</span>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+
+        {/* Users Tab */}
+        {activeTab === 'users' && (
+          <div className="users-content">
+            <div className="users-header">
+              <h3>Gestión de Usuarios</h3>
+              <p>Lista de todos los usuarios registrados y sus roles.</p>
+              <button 
+                className="refresh-button"
+                onClick={loadAdminData}
+                disabled={loading}
+              >
+                🔄 Actualizar
+              </button>
+            </div>
+
+            {users.length > 0 ? (
+              <div className="users-table-container">
+                <table className="users-table">
+                  <thead>
+                    <tr>
+                      <th>Usuario</th>
+                      <th>Estado</th>
+                      <th>Rol</th>
+                      <th>Registro</th>
+                      <th>Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {users.map((user) => {
+                      const roleInfo = getUserRoleInfo(user);
+                      return (
+                        <tr key={user.id} className="user-row">
+                          <td className="user-info">
+                            <div className="user-avatar">
+                              {user.name ? user.name.charAt(0).toUpperCase() : '👤'}
+                            </div>
+                            <div className="user-details">
+                              <div className="user-name">{user.name || 'Sin nombre'}</div>
+                              <div className="user-email">{user.email}</div>
+                            </div>
+                          </td>
+                          <td>
+                            <span className={`status-badge ${user.is_confirmed ? 'confirmed' : 'pending'}`}>
+                              {user.is_confirmed ? '✅ Confirmado' : '⏳ Pendiente'}
+                            </span>
+                          </td>
+                          <td>
+                            <span className={`role-badge ${roleInfo.className}`}>
+                              {roleInfo.icon} {roleInfo.label}
+                            </span>
+                          </td>
+                          <td className="date-cell">
+                            {formatDate(user.created_at)}
+                          </td>
+                          <td>
+                            {!roleInfo.isAdmin ? (
+                              <button
+                                className="action-button promote"
+                                onClick={() => updateUserRole(user.id, 2)}
+                                disabled={loading}
+                              >
+                                👑 Hacer Admin
+                              </button>
+                            ) : (
+                              <button
+                                className="action-button demote"
+                                onClick={() => updateUserRole(user.id, 1)}
+                                disabled={loading}
+                              >
+                                👤 Quitar Admin
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="empty-state">
+                <div className="empty-icon">👥</div>
+                <h3>No hay usuarios</h3>
+                <p>No se encontraron usuarios en el sistema.</p>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 };
