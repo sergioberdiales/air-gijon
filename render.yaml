@@ -33,9 +33,9 @@ services:
 
   # Cron job para enviar predicciones diarias
   - type: cron
-    name: daily-predictions
+    name: email-predictions
     env: node
-    schedule: "0 8 * * *"  # Todos los días a las 8:00 AM
+    schedule: "0 6 * * *"  # Todos los días a las 6:00 AM UTC (8:00 AM España)
     buildCommand: npm install
     startCommand: node scripts/cron/send_daily_predictions.js
     envVars:
@@ -49,9 +49,9 @@ services:
 
   # Cron job para alertas de PM2.5 alto
   - type: cron
-    name: hourly-alerts
+    name: email-alerts
     env: node
-    schedule: "0 * * * *"  # Cada hora para verificar alertas
+    schedule: "5 * * * *"  # Cada hora a los 5 min (evitar conflicto con datos)
     buildCommand: npm install
     startCommand: node scripts/cron/send_hourly_alerts.js
     envVars:
