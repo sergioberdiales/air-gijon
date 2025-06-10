@@ -733,6 +733,16 @@ app.get('/api/debug/db-compatibility', async (req, res) => {
   }
 });
 
+// Endpoint temporal para verificar que el servidor está funcionando
+app.get('/api/test-production', (req, res) => {
+  res.json({
+    status: 'Server running',
+    timestamp: new Date().toISOString(),
+    version: 'with-registration-fixes',
+    env: process.env.NODE_ENV || 'development'
+  });
+});
+
 // Inicialización del servidor simplificada
 async function initializeServer() {
   try {
