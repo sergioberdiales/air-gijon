@@ -623,7 +623,7 @@ async function initializeServer() {
       console.log('⚠️ Tablas ya existen o error de concurrencia (continuando)');
     }
     
-    // Ejecutar migraciones automáticamente en producción
+    // Ejecutar migraciones de estructura automáticamente en producción (es idempotente)
     if (process.env.NODE_ENV === 'production' || process.env.RENDER) {
       console.log('🔄 Ejecutando migración de estructura de promedios_diarios en producción...');
       try {
@@ -631,17 +631,7 @@ async function initializeServer() {
         console.log('✅ Migración de estructura de promedios_diarios completada.');
       } catch (migrationError) {
         console.error('❌ Error crítico durante la migración de estructura de promedios_diarios:', migrationError);
-        console.log('⚠️ Error en migración de estructura de promedios (puede ser normal si ya se ejecutó o si la tabla no existía con formato antiguo):', migrationError.message);
-      }
-
-      console.log('🔄 Ejecutando migración de predicciones en producción...');
-      try {
-        const { migrateToPredictionsArchitecture } = require('./migrate_to_new_predictions');
-        await migrateToPredictionsArchitecture();
-        console.log('✅ Migración completada exitosamente');
-      } catch (migrationError) {
-        console.error('❌ Error crítico durante la migración de predicciones:', migrationError);
-        console.log('⚠️ Error en migración de predicciones (puede ser normal si ya se ejecutó o si la tabla no existía con formato antiguo):', migrationError.message);
+        console.log('⚠️ Error en migración de estructura de promedios (puede ser normal si ya se ejecutó):', migrationError.message);
       }
     }
     
