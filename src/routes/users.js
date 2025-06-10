@@ -88,7 +88,8 @@ router.post('/register', async (req, res) => {
     }
 
     // Registrar usuario (ahora devuelve también confirmation_token)
-    const result = await registerUser(email, password, 'external', name?.trim() || null);
+    // role_id = 1 para usuarios normales (valor por defecto)
+    const result = await registerUser(email, password, 1, name?.trim() || null);
 
     if (!result.success) {
       return res.status(400).json({
