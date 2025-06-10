@@ -1,5 +1,5 @@
 const { Pool } = require('pg');
-const bcrypt = require('bcryptjs');
+const bcrypt = require('bcrypt');
 
 // Configuración de base de datos
 const pool = new Pool({
