@@ -28,7 +28,7 @@ async function verifyEmailConfig() {
 // Plantilla base para emails
 function getBaseEmailTemplate(title, content, footerText = '') {
   const frontendBaseUrl = process.env.FRONTEND_URL || 'https://air-gijon-front-end.onrender.com';
-  const logoUrl = `${frontendBaseUrl}/src/components/logos/air_gijon_logo_v1.png`;
+  const logoUrl = `${frontendBaseUrl}/logos/air_gijon_logo_v1.png`;
 
   return `
     <!DOCTYPE html>
@@ -171,7 +171,7 @@ function getDailyPredictionTemplate(predictionData) {
 
   const content = `
     <p>Hola ${userName || 'usuario'},</p>
-    <p>Aquí tienes la predicción de calidad del aire para hoy y mañana:</p>
+    <p><strong>Aquí tienes la predicción de PM2.5 (partículas en suspensión) para hoy y mañana:</strong></p>
     
     <div class="prediction-card">
       <h3>🌅 Hoy - ${fechaHoyFormat}</h3>
@@ -179,10 +179,9 @@ function getDailyPredictionTemplate(predictionData) {
         <div class="value">${hoy.valor}</div>
         <div class="unit">µg/m³ PM2.5</div>
       </div>
-      <div class="quality-badge" style="background-color: ${colorHoy};">
+      <div class="quality-badge" style="background-color: ${colorHoy.color}; color: white; padding: 8px 16px; border-radius: 20px; display: inline-block; font-weight: bold; margin: 10px 0;">
         ${estadoHoy}
       </div>
-      ${hoy.modelo ? `<p style="font-size:0.9em; color:#666;"><em>Modelo: ${hoy.modelo} (Confianza: ${hoy.roc_index ? (hoy.roc_index * 100).toFixed(0) + '%' : 'N/A'})</em></p>` : ''}
       <p style="margin-top:8px; font-size:0.9em;">${commentHoy}</p>
     </div>
 
@@ -192,10 +191,9 @@ function getDailyPredictionTemplate(predictionData) {
         <div class="value">${manana.valor}</div>
         <div class="unit">µg/m³ PM2.5</div>
       </div>
-      <div class="quality-badge" style="background-color: ${colorManana};">
+      <div class="quality-badge" style="background-color: ${colorManana.color}; color: white; padding: 8px 16px; border-radius: 20px; display: inline-block; font-weight: bold; margin: 10px 0;">
         ${estadoManana}
       </div>
-      ${manana.modelo ? `<p style="font-size:0.9em; color:#666;"><em>Modelo: ${manana.modelo} (Confianza: ${manana.roc_index ? (manana.roc_index * 100).toFixed(0) + '%' : 'N/A'})</em></p>` : ''}
       <p style="margin-top:8px; font-size:0.9em;">${commentManana}</p>
     </div>
     
@@ -232,7 +230,7 @@ function getAlertTemplate(alertData) {
       <div class="unit">µg/m³ PM2.5</div>
     </div>
     
-    <div class="quality-badge" style="background-color: ${color};">
+    <div class="quality-badge" style="background-color: ${color.color}; color: white; padding: 8px 16px; border-radius: 20px; display: inline-block; font-weight: bold; margin: 10px 0;">
       ${estado}
     </div>
 
