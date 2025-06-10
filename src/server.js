@@ -1,9 +1,10 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-const { pool, createTables, createIndexes, testConnection } = require('./database/db');
+const { pool, createTables, createIndexes, testConnection, createUser } = require('./database/db');
 const { ejecutarMigracionEstructuraPromedios } = require(path.join(__dirname, '../scripts/migration/migrate_promedios_estructura'));
 const { verifyEmailConfig } = require('./services/email_service');
+const bcrypt = require('bcryptjs');
 
 const app = express();
 
@@ -743,6 +744,53 @@ app.get('/api/test-production', (req, res) => {
   });
 });
 
+// Función para asegurar que existe un usuario admin
+async function ensureAdminUser() {
+  try {
+    console.log('🔧 Verificando usuario administrador...');
+    
+    const adminEmail = 'admin@air-gijon.es';
+    const adminPassword = 'AdminAirGijon2025!';
+    
+    // Verificar si ya existe
+    const existingUser = await pool.query(
+      'SELECT id, email, role_id FROM users WHERE email = $1',
+      [adminEmail]
+    );
+    
+    if (existingUser.rows.length > 0) {
+      // Si existe, asegurar que tiene rol de admin
+      const user = existingUser.rows[0];
+      if (user.role_id !== 2) {
+        await pool.query(
+          'UPDATE users SET role_id = 2 WHERE id = $1',
+          [user.id]
+        );
+        console.log('✅ Usuario admin actualizado con rol de administrador');
+      } else {
+        console.log('✅ Usuario admin ya existe con permisos correctos');
+      }
+    } else {
+      // Crear nuevo usuario admin
+      const hashedPassword = await bcrypt.hash(adminPassword, 10);
+      const newUser = await createUser(adminEmail, hashedPassword, 2, 'Administrador');
+      
+      // Confirmar automáticamente
+      await pool.query(
+        'UPDATE users SET is_confirmed = true WHERE id = $1',
+        [newUser.id]
+      );
+      
+      console.log('✅ Usuario admin creado exitosamente');
+      console.log('📧 Email:', adminEmail);
+      console.log('🔑 Password: AdminAirGijon2025!');
+    }
+    
+  } catch (error) {
+    console.error('❌ Error creando usuario admin:', error);
+  }
+}
+
 // Inicialización del servidor simplificada
 async function initializeServer() {
   try {
@@ -760,8 +808,19 @@ async function initializeServer() {
       await createTables();
       await createIndexes();
       console.log('✅ Tablas inicializadas');
+      
+      // Crear usuario admin automáticamente
+      await ensureAdminUser();
+      
     } catch (error) {
       console.log('⚠️ Tablas ya existen o error de concurrencia (continuando)');
+      
+      // Intentar crear usuario admin aunque las tablas ya existan
+      try {
+        await ensureAdminUser();
+      } catch (adminError) {
+        console.error('❌ Error creando usuario admin:', adminError);
+      }
     }
     
     // Ejecutar migraciones de estructura automáticamente en producción (es idempotente)
