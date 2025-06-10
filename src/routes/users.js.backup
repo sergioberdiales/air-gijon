@@ -32,7 +32,7 @@ const { sendConfirmationEmail, sendWelcomeEmail, sendPasswordResetEmail } = requ
 function getConfirmationResponsePageTemplate(title, message, userName, showLoginLink = false) {
   const frontendUrl = process.env.FRONTEND_URL || 'https://air-gijon-front-end.onrender.com';
   // Intentamos obtener la URL del logo de forma similar a los emails, pero con fallback simple si no está en env
-  const logoPath = '/src/components/logos/air_gijon_logo_v1.png'; // Ruta relativa en el frontend
+  const logoPath = '/logos/air_gijon_logo_v1.png'; // Ruta corregida - directorio público
   const logoUrl = process.env.FRONTEND_URL ? `${frontendUrl}${logoPath}` : `https://air-gijon-front-end.onrender.com${logoPath}`;
 
 

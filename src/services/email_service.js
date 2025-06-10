@@ -56,12 +56,12 @@ function getBaseEmailTemplate(title, content, footerText = '') {
         .header { 
           background: #0075FF; /* Azul Primario */
           color: white; 
-          padding: 25px 20px; 
+          padding: 15px 20px; 
           text-align: center; 
         }
         .header img {
           max-width: 180px;
-          margin-bottom: 10px;
+          margin-bottom: 5px;
         }
         .header h1 { 
           margin: 0; 
