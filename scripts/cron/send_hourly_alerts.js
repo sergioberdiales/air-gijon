@@ -3,7 +3,7 @@
 // Cargar variables de entorno
 require('dotenv').config({ path: require('path').resolve(process.cwd(), 'config/.env_local') });
 
-const { pool, getUsersForDailyPredictions, hasAlertBeenSentForMeasurement } = require('../../src/database/db');
+const { pool, getUsersForDailyPredictions, hasAlertBeenSentForMeasurement, hasUserReceivedAlertToday, logNotificationSent } = require('../../src/database/db');
 const { sendAirQualityAlert } = require('../../src/services/email_service');
 const { getEstadoPM25 } = require('../../src/utils/utils');
 
@@ -93,17 +93,17 @@ async function sendHighPM25Alerts() {
     let alertsSent = 0;
     let alertsSkipped = 0;
     
-    // Enviar alertas a todos los usuarios (sin restricción diaria)
+    // Enviar alertas a todos los usuarios (con restricción diaria reactivada)
     for (const user of users) {
       try {
-        // RESTRICCIÓN DIARIA TEMPORALMENTE DESACTIVADA
-        // const alreadyReceived = await hasUserReceivedAlertToday(user.id);
-        // 
-        // if (alreadyReceived) {
-        //   console.log(`⏩ Usuario ${user.email}: Ya recibió alerta hoy (omitiendo)`);
-        //   alertsSkipped++;
-        //   continue;
-        // }
+        // Verificar si ya recibió alerta hoy (máximo 1 alerta por día)
+        const alreadyReceived = await hasUserReceivedAlertToday(user.id);
+        
+        if (alreadyReceived) {
+          console.log(`⏩ Usuario ${user.email}: Ya recibió alerta hoy (omitiendo)`);
+          alertsSkipped++;
+          continue;
+        }
         
         // Verificar si ya se envió alerta para esta medición específica
         const alreadySent = await hasAlertBeenSentForMeasurement(user.id, alertData.fecha, ESTACION_ID, 'pm25');
@@ -116,6 +116,24 @@ async function sendHighPM25Alerts() {
         // Enviar alerta
         await sendAirQualityAlert(user.email, user.name, alertData, user.id);
         console.log(`📧 Usuario ${user.email}: Alerta enviada`);
+        
+        // Registrar que se envió la alerta para aplicar restricción diaria
+        await logNotificationSent(
+          user.id,
+          'pm25_alert',
+          user.email,
+          `Alerta de Calidad del Aire - PM2.5: ${alertData.valor} µg/m³`,
+          `Alerta de PM2.5 en ${alertData.estacion}: ${alertData.valor} µg/m³ (${alertData.estado})`,
+          'sent',
+          {
+            fecha_medicion: alertData.fecha,
+            estacion_id: ESTACION_ID,
+            parametro: 'pm25',
+            valor: alertData.valor,
+            estado: alertData.estado
+          }
+        );
+        
         alertsSent++;
         
       } catch (error) {
