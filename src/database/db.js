@@ -564,6 +564,9 @@ async function createNotificationsTable() {
     WHERE NOT EXISTS (SELECT 1 FROM notificaciones_enviadas WHERE notificaciones_enviadas.id = notifications_sent.id)
     ON CONFLICT (id) DO NOTHING;
     
+    -- Eliminar tabla antigua después de migrar
+    DROP TABLE IF EXISTS notifications_sent;
+    
     -- Crear índice único para evitar alertas duplicadas de la misma medición
     CREATE UNIQUE INDEX IF NOT EXISTS idx_notificaciones_medicion_unica 
     ON notificaciones_enviadas (user_id, fecha_medicion, estacion_id, parametro, type) 
