@@ -56,12 +56,12 @@ function getBaseEmailTemplate(title, content, footerText = '') {
         .header { 
           background: #0075FF; /* Azul Primario */
           color: white; 
-          padding: 15px 20px; 
+          padding: 10px 20px; 
           text-align: center; 
         }
         .header img {
-          max-width: 180px;
-          margin-bottom: 5px;
+          max-width: 360px;
+          margin-bottom: 2px;
         }
         .header h1 { 
           margin: 0; 
@@ -255,38 +255,30 @@ function getAlertTemplate(alertData) {
   );
 }
 
-// Plantilla de bienvenida
+// Plantilla de bienvenida (después de confirmar)
 function getWelcomeTemplate(userName) {
   const frontendBaseUrl = process.env.FRONTEND_URL || 'https://air-gijon-front-end.onrender.com';
-  const content = `
-    <h2>👋 ¡Te damos la bienvenida a Air Gijón!</h2>
-    
-    <p>Hola ${userName || 'Usuario'},</p>
-    
-    <p>Gracias por registrarte en nuestro sistema de monitoreo de calidad del aire. Para completar tu registro y empezar a recibir notificaciones, por favor, confirma tu dirección de correo electrónico haciendo clic en el enlace que te hemos enviado en un mensaje separado.</p>
-    
-    <p>Una vez confirmado, podrás:</p>
-    
-    <ul>
-      <li>📅 Recibir <strong>predicciones diarias</strong> de PM2.5</li>
-      <li>🚨 Obtener <strong>alertas automáticas</strong> cuando la calidad del aire cambie significativamente</li>
-      <li>📊 Acceder al <strong>panel de control</strong> con datos en tiempo real e históricos</li>
-    </ul>
-    
-    <p>Puedes gestionar tus preferencias de notificación desde tu perfil una vez hayas confirmado tu correo y hayas iniciado sesión.</p>
+  const subject = userName ? `👋 ¡Bienvenido/a a Air Gijón, ${userName}!` : '👋 ¡Bienvenido/a a Air Gijón!';
+  const greeting = userName ? `¡Hola, ${userName}!` : '¡Te damos la bienvenida a Air Gijón!';
 
+  const content = `
+    <p>${greeting}</p>
+    <p>¡Gracias por unirte a nuestra comunidad! Tu cuenta ha sido confirmada y ya está todo listo para que empieces a usar la aplicación.</p>
+    <p>Desde ahora, podrás:</p>
+    <ul style="padding-left: 20px; margin-bottom: 20px;">
+      <li style="margin-bottom: 10px;">✅ Recibir <strong>predicciones diarias</strong> de PM2.5.</li>
+      <li style="margin-bottom: 10px;">🚨 Obtener <strong>alertas automáticas</strong> cuando la calidad del aire cambie significativamente.</li>
+      <li style="margin-bottom: 10px;">📊 Acceder al <strong>panel de control</strong> con datos en tiempo real e históricos.</li>
+    </ul>
+    <p>Puedes gestionar tus preferencias de notificación desde tu perfil en cualquier momento.</p>
     <div style="text-align: center; margin-top: 30px;">
       <a href="${frontendBaseUrl}" class="button">
         Ir a la aplicación
       </a>
     </div>
   `;
-
-  return getBaseEmailTemplate(
-    '👋 Bienvenido/a a Air Gijón',
-    content,
-    '<p>¡Gracias por unirte!</p>'
-  );
+  
+  return getBaseEmailTemplate(subject, content);
 }
 
 // Plantilla para email de confirmación de cuenta
@@ -416,12 +408,10 @@ async function sendDailyPredictions(usersWithPredictions) {
 
 // Enviar email de bienvenida
 async function sendWelcomeEmail(userEmail, userName, userId) {
-  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-    console.error('❌ Faltan credenciales de email (EMAIL_USER o EMAIL_PASS). No se enviará correo de bienvenida.');
-    return;
-  }
   const htmlContent = getWelcomeTemplate(userName);
-  return sendEmail(userEmail, `👋 ¡Bienvenido/a a Air Gijón, ${userName}!`, htmlContent, userId, 'welcome');
+  // El asunto se genera ahora dentro de getWelcomeTemplate
+  const subject = userName ? `👋 ¡Bienvenido/a a Air Gijón, ${userName}!` : '👋 ¡Bienvenido/a a Air Gijón!';
+  return sendEmail(userEmail, subject, htmlContent, userId, 'welcome');
 }
 
 // Nueva función para enviar email de confirmación
