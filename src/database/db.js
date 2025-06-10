@@ -468,7 +468,7 @@ async function createUsersTable() {
       id SERIAL PRIMARY KEY,
       email VARCHAR(255) UNIQUE NOT NULL,
       password_hash VARCHAR(255) NOT NULL,
-      role VARCHAR(50) DEFAULT 'external',
+      role_id INTEGER REFERENCES roles(id) ON DELETE CASCADE,
       name VARCHAR(255),
       created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -589,7 +589,7 @@ async function createNotificationsTable() {
 async function createUserIndexes() {
   const indexes = [
     'CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);',
-    'CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);',
+    'CREATE INDEX IF NOT EXISTS idx_users_role ON users(role_id);',
     'CREATE INDEX IF NOT EXISTS idx_users_created_at ON users(created_at);',
     'CREATE INDEX IF NOT EXISTS idx_users_email_notifications_active ON users(email_notifications_active);',
     'CREATE INDEX IF NOT EXISTS idx_users_confirmation_token ON users(confirmation_token);'
@@ -602,12 +602,12 @@ async function createUserIndexes() {
 }
 
 // Crear nuevo usuario
-async function createUser(email, passwordHash, role = 'external', name = null, confirmationToken = null, tokenExpiresAt = null) {
+async function createUser(email, passwordHash, role_id = 1, name = null, confirmationToken = null, tokenExpiresAt = null) {
   const result = await pool.query(
-    `INSERT INTO users (email, password_hash, role, name, confirmation_token, confirmation_token_expires_at, is_confirmed)
+    `INSERT INTO users (email, password_hash, role_id, name, confirmation_token, confirmation_token_expires_at, is_confirmed)
      VALUES ($1, $2, $3, $4, $5, $6, false)
-     RETURNING id, email, role, name, created_at, is_confirmed`,
-    [email, passwordHash, role, name, confirmationToken, tokenExpiresAt]
+     RETURNING id, email, role_id, name, created_at, is_confirmed`,
+    [email, passwordHash, role_id, name, confirmationToken, tokenExpiresAt]
   );
   return result.rows[0];
 }
@@ -615,9 +615,10 @@ async function createUser(email, passwordHash, role = 'external', name = null, c
 // Obtener usuario por email
 async function getUserByEmail(email) {
   const result = await pool.query(`
-    SELECT id, email, password_hash, role, name, is_confirmed, email_alerts, daily_predictions, last_login
-    FROM users 
-    WHERE email = $1
+    SELECT u.id, u.email, u.password_hash, u.role_id, r.name as role_name, u.name, u.is_confirmed, u.email_alerts, u.daily_predictions, u.last_login
+    FROM users u
+    LEFT JOIN roles r ON u.role_id = r.id
+    WHERE u.email = $1
   `, [email]);
   
   return result.rows[0];
@@ -625,7 +626,12 @@ async function getUserByEmail(email) {
 
 // Obtener usuario por ID
 async function getUserById(userId) {
-  const result = await pool.query('SELECT * FROM users WHERE id = $1', [userId]);
+  const result = await pool.query(`
+    SELECT u.id, u.email, u.role_id, r.name as role_name, u.name, u.is_confirmed, u.email_alerts, u.daily_predictions, u.created_at, u.last_login
+    FROM users u
+    LEFT JOIN roles r ON u.role_id = r.id
+    WHERE u.id = $1
+  `, [userId]);
   return result.rows[0];
 }
 
@@ -1001,6 +1007,62 @@ async function getParametrosByCategoria(categoria) {
   return result.rows;
 }
 
+// Funciones para administración
+async function getAllUsers() {
+  const result = await pool.query(`
+    SELECT u.id, u.email, u.name, u.is_confirmed, u.created_at, u.last_login, r.name as role_name
+    FROM users u
+    LEFT JOIN roles r ON u.role_id = r.id
+    ORDER BY u.created_at DESC
+  `);
+  return result.rows;
+}
+
+async function updateUserRole(userId, roleId) {
+  const result = await pool.query(
+    'UPDATE users SET role_id = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING id, email, role_id',
+    [roleId, userId]
+  );
+  return result.rows[0];
+}
+
+async function getAdminDashboardStats() {
+  const stats = {};
+  
+  // Total usuarios
+  const totalUsers = await pool.query('SELECT COUNT(*) as count FROM users');
+  stats.totalUsers = parseInt(totalUsers.rows[0].count);
+  
+  // Usuarios nuevos hoy
+  const newUsersToday = await pool.query(`
+    SELECT COUNT(*) as count FROM users 
+    WHERE DATE(created_at) = CURRENT_DATE
+  `);
+  stats.newUsersToday = parseInt(newUsersToday.rows[0].count);
+  
+  // Usuarios confirmados
+  const confirmedUsers = await pool.query('SELECT COUNT(*) as count FROM users WHERE is_confirmed = true');
+  stats.confirmedUsers = parseInt(confirmedUsers.rows[0].count);
+  
+  // Última predicción
+  const lastPrediction = await pool.query(`
+    SELECT p.fecha, p.valor, p.fecha_generacion, m.nombre_modelo
+    FROM predicciones p
+    JOIN modelos_prediccion m ON p.modelo_id = m.id
+    WHERE m.activo = true AND p.estacion_id = '6699' AND p.parametro = 'pm25'
+    ORDER BY p.fecha_generacion DESC
+    LIMIT 1
+  `);
+  stats.lastPrediction = lastPrediction.rows[0] || null;
+  
+  return stats;
+}
+
+async function getRoles() {
+  const result = await pool.query('SELECT id, name, description FROM roles ORDER BY id');
+  return result.rows;
+}
+
 // Exportar la conexión y las funciones
 module.exports = {
     pool,
@@ -1038,7 +1100,11 @@ module.exports = {
     createParametrosAireTable,
     getParametroInfo,
     getAllParametros,
-    getParametrosByCategoria
+    getParametrosByCategoria,
+    getAllUsers,
+    updateUserRole,
+    getAdminDashboardStats,
+    getRoles
 };
 
 // Solo ejecutar la inicialización si no estamos en un script de actualización

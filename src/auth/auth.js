@@ -88,68 +88,31 @@ function requireRole(role) {
 const requireManager = requireRole('manager');
 
 // Función para registrar usuario
-async function registerUser(email, password, role = 'external', name = null) {
+async function registerUser(email, password, role_id = 1, name = null) {
   try {
-    // Verificar si el usuario ya existe
+    // Verificar que el usuario no existe
     const existingUser = await getUserByEmail(email);
     if (existingUser) {
-      if (!existingUser.is_confirmed) {
-        // TODO: Considerar reenviar email de confirmación si no está confirmado y se intenta registrar de nuevo.
-        // Por ahora, mantenemos el error genérico para no revelar si el email existe.
-      }
-      throw new Error('El email ya está registrado');
+      throw new Error('El usuario ya existe');
     }
 
-    // Validar formato del email
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      throw new Error('Formato de email inválido');
-    }
-
-    // Validar contraseña
-    if (password.length < 6) {
-      throw new Error('La contraseña debe tener al menos 6 caracteres');
-    }
-
-    // Crear hash de la contraseña
-    const passwordHash = await hashPassword(password);
-
+    // Hash de la contraseña
+    const passwordHash = await bcrypt.hash(password, 10);
+    
     // Generar token de confirmación
     const confirmationToken = crypto.randomBytes(32).toString('hex');
-    const tokenExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // Expira en 24 horas
+    const tokenExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 horas
 
-    // Crear usuario con token de confirmación
-    const newUser = await createUser(
-      email, 
-      passwordHash, 
-      role, 
-      name, 
-      confirmationToken, 
-      tokenExpiresAt
-    );
-
-    // Generar token JWT de sesión (se sigue generando para login inmediato si se desea)
-    const sessionToken = generateToken(newUser);
-
+    // Crear usuario en la base de datos
+    const newUser = await createUser(email, passwordHash, role_id, name, confirmationToken, tokenExpiresAt);
+    
     return {
-      success: true,
-      user: {
-        id: newUser.id,
-        email: newUser.email,
-        role: newUser.role,
-        name: newUser.name,
-        is_confirmed: newUser.is_confirmed,
-        created_at: newUser.created_at
-      },
-      token: sessionToken,
-      confirmation_token: confirmationToken
+      user: newUser,
+      confirmationToken
     };
-
   } catch (error) {
-    return {
-      success: false,
-      error: error.message
-    };
+    console.error('Error registrando usuario:', error);
+    throw error;
   }
 }
 

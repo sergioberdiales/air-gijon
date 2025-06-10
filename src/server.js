@@ -21,6 +21,10 @@ app.use(cors({
 const usersRouter = require('./routes/users');
 app.use('/api/users', usersRouter);
 
+// Rutas de administración
+const adminRouter = require('./routes/admin');
+app.use('/api/admin', adminRouter);
+
 // Función para calcular el estado de calidad del aire según PM2.5
 function getEstadoPM25(pm25) {
   if (pm25 <= 15) return 'Buena';
@@ -599,6 +603,97 @@ app.get('/api/test/status', async (req, res) => {
   } catch (error) {
     console.error('❌ Error consultando estado del sistema:', error);
     res.status(500).json({ error: 'Error consultando estado del sistema' });
+  }
+});
+
+// Endpoint temporal para inspeccionar base de datos
+app.get('/api/debug/db-structure', async (req, res) => {
+  try {
+    console.log('🔍 Inspeccionando estructura de base de datos...');
+    
+    const dbInfo = {};
+    
+    // 1. Verificar si existe tabla roles
+    try {
+      const rolesExists = await pool.query(`
+        SELECT EXISTS (
+          SELECT FROM information_schema.tables 
+          WHERE table_name = 'roles'
+        );
+      `);
+      dbInfo.rolesTableExists = rolesExists.rows[0].exists;
+      
+      if (dbInfo.rolesTableExists) {
+        const rolesData = await pool.query('SELECT * FROM roles ORDER BY id');
+        dbInfo.rolesData = rolesData.rows;
+      }
+    } catch (error) {
+      dbInfo.rolesError = error.message;
+    }
+    
+    // 2. Verificar estructura de tabla users
+    try {
+      const usersColumns = await pool.query(`
+        SELECT column_name, data_type, is_nullable, column_default
+        FROM information_schema.columns
+        WHERE table_name = 'users'
+        ORDER BY ordinal_position;
+      `);
+      dbInfo.usersColumns = usersColumns.rows;
+      
+      // Verificar algunos usuarios de ejemplo
+      const sampleUsers = await pool.query(`
+        SELECT id, email, role, role_id, name, is_confirmed, created_at
+        FROM users
+        ORDER BY created_at DESC
+        LIMIT 3
+      `);
+      dbInfo.sampleUsers = sampleUsers.rows;
+      
+    } catch (error) {
+      dbInfo.usersError = error.message;
+    }
+    
+    // 3. Verificar constrains y foreign keys
+    try {
+      const constraints = await pool.query(`
+        SELECT 
+          conname as constraint_name,
+          contype as constraint_type,
+          pg_get_constraintdef(oid) as definition
+        FROM pg_constraint
+        WHERE conrelid = 'users'::regclass;
+      `);
+      dbInfo.userConstraints = constraints.rows;
+    } catch (error) {
+      dbInfo.constraintsError = error.message;
+    }
+    
+    // 4. Verificar índices
+    try {
+      const indexes = await pool.query(`
+        SELECT indexname, indexdef
+        FROM pg_indexes
+        WHERE tablename = 'users';
+      `);
+      dbInfo.userIndexes = indexes.rows;
+    } catch (error) {
+      dbInfo.indexesError = error.message;
+    }
+    
+    res.json({
+      success: true,
+      environment: process.env.NODE_ENV || 'development',
+      timestamp: new Date().toISOString(),
+      databaseInfo: dbInfo
+    });
+    
+  } catch (error) {
+    console.error('❌ Error inspeccionando BD:', error);
+    res.status(500).json({ 
+      error: 'Error inspeccionando base de datos',
+      details: error.message 
+    });
   }
 });
 
