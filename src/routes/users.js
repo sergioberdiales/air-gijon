@@ -234,7 +234,7 @@ router.get('/profile', authenticateToken, async (req, res) => {
       user: {
         id: fullUser.id,
         email: fullUser.email,
-        role: fullUser.role,
+        role_name: fullUser.role_name,
         name: fullUser.name,
         email_alerts: fullUser.email_alerts,
         daily_predictions: fullUser.daily_predictions,
