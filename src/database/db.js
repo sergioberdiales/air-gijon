@@ -56,6 +56,7 @@ async function createTables() {
     await createUsersTable();
     await createPredictionMetricsTable();
     await createNotificationsTable();
+    await createParametrosAireTable();
 
     // Nueva tabla para modelos de predicción
     await pool.query(`
@@ -914,6 +915,82 @@ async function hasAlertBeenSentForMeasurement(userId, fechaMedicion, estacionId,
   return result.rowCount > 0;
 }
 
+// Crear tabla de parámetros de calidad del aire
+async function createParametrosAireTable() {
+  const createTableSQL = `
+    CREATE TABLE IF NOT EXISTS parametros_aire (
+      id SERIAL PRIMARY KEY,
+      codigo VARCHAR(10) UNIQUE NOT NULL,
+      nombre VARCHAR(100) NOT NULL,
+      descripcion TEXT,
+      unidad VARCHAR(20) NOT NULL,
+      categoria VARCHAR(50) DEFAULT 'contaminante',
+      activo BOOLEAN DEFAULT true,
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+    
+    -- Insertar datos de parámetros conocidos
+    INSERT INTO parametros_aire (codigo, nombre, descripcion, unidad, categoria) VALUES
+    ('PM25', 'Partículas en Suspensión <2,5 µm', 'Partículas en suspensión con diámetro aerodinámico menor a 2,5 micrómetros', 'µg/m³', 'contaminante'),
+    ('PM10', 'Partículas en suspensión <10 µm', 'Partículas en suspensión con diámetro aerodinámico menor a 10 micrómetros', 'µg/m³', 'contaminante'),
+    ('NO2', 'Concentración de NO2', 'Dióxido de nitrógeno', 'µg/m³', 'contaminante'),
+    ('NO', 'Concentración de NO', 'Monóxido de nitrógeno', 'µg/m³', 'contaminante'),
+    ('O3', 'Concentración de Ozono', 'Ozono troposférico', 'µg/m³', 'contaminante'),
+    ('SO2', 'Concentración de SO2', 'Dióxido de azufre', 'µg/m³', 'contaminante'),
+    ('CO', 'Concentración de CO', 'Monóxido de carbono', 'mg/m³', 'contaminante'),
+    ('BEN', 'Benceno', 'Concentración de benceno', 'µg/m³', 'contaminante'),
+    ('TOL', 'Tolueno', 'Concentración de tolueno', 'µg/m³', 'contaminante'),
+    ('MPX', 'MetaParaXileno', 'Meta-para-xileno', 'µg/m³', 'contaminante'),
+    ('MXIL', 'MXileno', 'Meta-xileno', 'µg/m³', 'contaminante'),
+    ('TMP', 'Temperatura Seca', 'Temperatura del aire seco', 'ºC', 'meteorologico'),
+    ('HR', 'Humedad relativa', 'Humedad relativa del aire', '%hr', 'meteorologico'),
+    ('PRB', 'Presion Atmosferica', 'Presión barométrica', 'mb', 'meteorologico'),
+    ('VV', 'Velocidad del viento', 'Velocidad del viento', 'm/s', 'meteorologico'),
+    ('DD', 'Direccion del viento', 'Dirección del viento', 'Grados', 'meteorologico'),
+    ('LL', 'Precipitacion', 'Precipitación acumulada', 'l/m²', 'meteorologico'),
+    ('RS', 'Radiacion Solar', 'Radiación solar', 'W/m²', 'meteorologico')
+    ON CONFLICT (codigo) DO UPDATE SET 
+      nombre = EXCLUDED.nombre,
+      descripcion = EXCLUDED.descripcion,
+      unidad = EXCLUDED.unidad,
+      categoria = EXCLUDED.categoria;
+      
+    -- Crear índices
+    CREATE INDEX IF NOT EXISTS idx_parametros_codigo ON parametros_aire(codigo);
+    CREATE INDEX IF NOT EXISTS idx_parametros_categoria ON parametros_aire(categoria);
+    CREATE INDEX IF NOT EXISTS idx_parametros_activo ON parametros_aire(activo);
+  `;
+  
+  await pool.query(createTableSQL);
+  console.log('✅ Tabla parametros_aire creada/actualizada correctamente');
+}
+
+// Función para obtener información de un parámetro
+async function getParametroInfo(codigo) {
+  const result = await pool.query(
+    'SELECT codigo, nombre, descripcion, unidad, categoria FROM parametros_aire WHERE codigo = $1 AND activo = true',
+    [codigo.toUpperCase()]
+  );
+  return result.rows[0];
+}
+
+// Función para obtener todos los parámetros activos
+async function getAllParametros() {
+  const result = await pool.query(
+    'SELECT codigo, nombre, descripcion, unidad, categoria FROM parametros_aire WHERE activo = true ORDER BY categoria, codigo'
+  );
+  return result.rows;
+}
+
+// Función para obtener parámetros por categoría
+async function getParametrosByCategoria(categoria) {
+  const result = await pool.query(
+    'SELECT codigo, nombre, descripcion, unidad FROM parametros_aire WHERE categoria = $1 AND activo = true ORDER BY codigo',
+    [categoria]
+  );
+  return result.rows;
+}
+
 // Exportar la conexión y las funciones
 module.exports = {
     pool,
@@ -947,7 +1024,11 @@ module.exports = {
     getUserByValidResetToken,
     updateUserPassword,
     hasUserReceivedAlertToday,
-    hasAlertBeenSentForMeasurement
+    hasAlertBeenSentForMeasurement,
+    createParametrosAireTable,
+    getParametroInfo,
+    getAllParametros,
+    getParametrosByCategoria
 };
 
 // Solo ejecutar la inicialización si no estamos en un script de actualización
