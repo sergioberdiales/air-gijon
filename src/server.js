@@ -697,6 +697,32 @@ app.get('/api/debug/db-structure', async (req, res) => {
   }
 });
 
+// Endpoint temporal para ejecutar migración de roles en producción
+app.post('/api/debug/migrate-roles', async (req, res) => {
+  try {
+    console.log('🚀 Ejecutando migración de roles en producción...');
+    
+    // Importar y ejecutar la migración
+    const { migrateRolesSystem } = require('../scripts/migration/migrate_roles_production');
+    
+    await migrateRolesSystem();
+    
+    res.json({
+      success: true,
+      message: 'Migración de roles completada exitosamente',
+      timestamp: new Date().toISOString()
+    });
+    
+  } catch (error) {
+    console.error('❌ Error ejecutando migración:', error);
+    res.status(500).json({ 
+      error: 'Error ejecutando migración de roles',
+      details: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
 // Inicialización del servidor simplificada
 async function initializeServer() {
   try {
