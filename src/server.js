@@ -1,7 +1,8 @@
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 const { pool, createTables, createIndexes, testConnection } = require('./database/db');
-const { ejecutarMigracionEstructuraPromedios } = require('../scripts/migration/migrate_promedios_estructura');
+const { ejecutarMigracionEstructuraPromedios } = require(path.join(__dirname, '../scripts/migration/migrate_promedios_estructura'));
 const { verifyEmailConfig } = require('./services/email_service');
 
 const app = express();
