@@ -1013,7 +1013,7 @@ async function getParametrosByCategoria(categoria) {
 // Funciones para administración
 async function getAllUsers() {
   const result = await pool.query(`
-    SELECT u.id, u.email, u.name, u.is_confirmed, u.created_at, u.last_login, r.name as role_name
+    SELECT u.id, u.email, u.name, u.is_confirmed, u.created_at, u.last_login, u.role_id, r.name as role_name, u.email_alerts, u.daily_predictions
     FROM users u
     LEFT JOIN roles r ON u.role_id = r.id
     ORDER BY u.created_at DESC
@@ -1026,6 +1026,43 @@ async function updateUserRole(userId, roleId) {
     'UPDATE users SET role_id = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING id, email, role_id',
     [roleId, userId]
   );
+  return result.rows[0];
+}
+
+// Eliminar usuario
+async function deleteUser(userId) {
+  try {
+    // Primero eliminar registros relacionados en notificaciones_enviadas
+    await pool.query('DELETE FROM notificaciones_enviadas WHERE user_id = $1', [userId]);
+    
+    // Luego eliminar el usuario
+    const result = await pool.query(
+      'DELETE FROM users WHERE id = $1 RETURNING id, email',
+      [userId]
+    );
+    
+    if (result.rows.length === 0) {
+      throw new Error('Usuario no encontrado');
+    }
+    
+    return result.rows[0];
+  } catch (error) {
+    console.error('Error eliminando usuario:', error);
+    throw error;
+  }
+}
+
+// Actualizar notificaciones de usuario
+async function updateUserNotifications(userId, emailAlerts, dailyPredictions) {
+  const result = await pool.query(
+    'UPDATE users SET email_alerts = $1, daily_predictions = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3 RETURNING id, email, email_alerts, daily_predictions',
+    [emailAlerts, dailyPredictions, userId]
+  );
+  
+  if (result.rows.length === 0) {
+    throw new Error('Usuario no encontrado');
+  }
+  
   return result.rows[0];
 }
 
@@ -1106,6 +1143,8 @@ module.exports = {
     getParametrosByCategoria,
     getAllUsers,
     updateUserRole,
+    deleteUser,
+    updateUserNotifications,
     getAdminDashboardStats,
     getRoles
 };

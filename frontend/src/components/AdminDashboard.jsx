@@ -1,44 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { config } from '../config';
 import './AdminDashboard.css';
 
 const AdminDashboard = () => {
   const { user, token } = useAuth();
-  const [activeTab, setActiveTab] = useState('dashboard');
-  const [dashboardData, setDashboardData] = useState(null);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Función para obtener datos del dashboard
-  const fetchDashboardData = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch(`${config.API_BASE}/api/admin/dashboard`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setDashboardData(data);
-      } else {
-        setError('Error cargando dashboard');
-      }
-    } catch (err) {
-      setError('Error de conexión');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   // Función para obtener lista de usuarios
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     try {
       setLoading(true);
+      setError(null);
       const response = await fetch(`${config.API_BASE}/api/admin/users`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -57,10 +32,11 @@ const AdminDashboard = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [token]);
 
   // Función para cambiar rol de usuario
   const changeUserRole = async (userId, newRoleId) => {
+    console.log('🔄 Cambiando rol:', { userId, newRoleId });
     try {
       const response = await fetch(`${config.API_BASE}/api/admin/users/${userId}/role`, {
         method: 'PUT',
@@ -71,49 +47,108 @@ const AdminDashboard = () => {
         body: JSON.stringify({ role_id: newRoleId })
       });
 
+      console.log('📊 Response status:', response.status);
+      
       if (response.ok) {
-        // Recargar lista de usuarios para reflejar cambios
+        const data = await response.json();
+        console.log('✅ Rol cambiado exitosamente:', data);
+        // Recargar lista de usuarios
         fetchUsers();
-        // También recargar dashboard para actualizar contadores
-        fetchDashboardData();
       } else {
+        const errorText = await response.text();
+        console.error('❌ Error cambiando rol:', errorText);
         setError('Error cambiando rol de usuario');
       }
     } catch (err) {
+      console.error('❌ Error de conexión:', err);
       setError('Error de conexión');
     }
   };
 
-  // Cargar datos según la pestaña activa
+  // Función para eliminar usuario
+  const deleteUser = async (userId) => {
+    if (!window.confirm('¿Estás seguro de que quieres eliminar este usuario? Esta acción no se puede deshacer.')) {
+      return;
+    }
+    
+    console.log('🗑️ Eliminando usuario:', userId);
+    try {
+      const response = await fetch(`${config.API_BASE}/api/admin/users/${userId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      console.log('📊 Delete response status:', response.status);
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('✅ Usuario eliminado exitosamente:', data);
+        // Recargar lista de usuarios
+        fetchUsers();
+      } else {
+        const errorText = await response.text();
+        console.error('❌ Error eliminando usuario:', errorText);
+        setError('Error eliminando usuario');
+      }
+    } catch (err) {
+      console.error('❌ Error de conexión:', err);
+      setError('Error de conexión');
+    }
+  };
+
+  // Función para gestionar notificaciones
+  const toggleNotifications = async (userId, currentEmailAlerts, currentDailyPredictions) => {
+    const newEmailAlerts = !currentEmailAlerts;
+    const newDailyPredictions = !currentDailyPredictions;
+    
+    console.log('🔔 Gestionando notificaciones:', { 
+      userId, 
+      emailAlerts: newEmailAlerts, 
+      dailyPredictions: newDailyPredictions 
+    });
+    
+    try {
+      const response = await fetch(`${config.API_BASE}/api/admin/users/${userId}/notifications`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ 
+          email_alerts: newEmailAlerts,
+          daily_predictions: newDailyPredictions
+        })
+      });
+
+      console.log('📊 Notifications response status:', response.status);
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('✅ Notificaciones actualizadas exitosamente:', data);
+        // Recargar lista de usuarios
+        fetchUsers();
+      } else {
+        const errorText = await response.text();
+        console.error('❌ Error actualizando notificaciones:', errorText);
+        setError('Error actualizando notificaciones');
+      }
+    } catch (err) {
+      console.error('❌ Error de conexión:', err);
+      setError('Error de conexión');
+    }
+  };
+
+  // Cargar usuarios al montar el componente
   useEffect(() => {
-    if (activeTab === 'dashboard') {
-      fetchDashboardData();
-    } else if (activeTab === 'users') {
+    if (token) {
       fetchUsers();
     }
-  }, [activeTab]);
+  }, [token, fetchUsers]);
 
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('es-ES', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
-  const getUserRoleInfo = (user) => {
-    const isAdmin = user.role_id === 2;
-    return {
-      isAdmin,
-      label: isAdmin ? 'Admin' : 'Usuario',
-      icon: isAdmin ? '👑' : '👤',
-      className: isAdmin ? 'role-admin' : 'role-user'
-    };
-  };
-
-  // Verificar si es admin DESPUÉS de definir las funciones
+  // Verificar si es admin
   if (!user || user.role_name !== 'admin') {
     return (
       <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
@@ -126,31 +161,14 @@ const AdminDashboard = () => {
     <div className="admin-dashboard">
       <div className="admin-header">
         <h1>Panel de Administración</h1>
-        <p>Gestión del sistema Air Gijón</p>
+        <p>Gestión de usuarios del sistema Air Gijón</p>
       </div>
 
-      {/* Navegación por pestañas */}
-      <div className="admin-tabs">
-        <button 
-          className={`tab-button ${activeTab === 'dashboard' ? 'active' : ''}`}
-          onClick={() => setActiveTab('dashboard')}
-        >
-          📊 Dashboard
-        </button>
-        <button 
-          className={`tab-button ${activeTab === 'users' ? 'active' : ''}`}
-          onClick={() => setActiveTab('users')}
-        >
-          👥 Usuarios
-        </button>
-      </div>
-
-      {/* Contenido */}
       <div className="admin-content">
         {loading && (
           <div className="loading-message">
             <div className="spinner"></div>
-            Cargando...
+            Cargando usuarios...
           </div>
         )}
         
@@ -161,147 +179,114 @@ const AdminDashboard = () => {
           </div>
         )}
 
-        {/* Dashboard Tab */}
-        {activeTab === 'dashboard' && dashboardData && (
-          <div className="dashboard-content">
-            <div className="stats-grid">
-              <div className="stat-card">
-                <div className="stat-icon">👥</div>
-                <div className="stat-content">
-                  <div className="stat-number">{dashboardData.total_users}</div>
-                  <div className="stat-label">Total Usuarios</div>
-                </div>
-              </div>
-              
-              <div className="stat-card">
-                <div className="stat-icon">✅</div>
-                <div className="stat-content">
-                  <div className="stat-number">{dashboardData.confirmed_users}</div>
-                  <div className="stat-label">Usuarios Confirmados</div>
-                </div>
-              </div>
-              
-              <div className="stat-card">
-                <div className="stat-icon">🆕</div>
-                <div className="stat-content">
-                  <div className="stat-number">{dashboardData.new_users_today}</div>
-                  <div className="stat-label">Nuevos Hoy</div>
-                </div>
-              </div>
-              
-              <div className="stat-card">
-                <div className="stat-icon">👑</div>
-                <div className="stat-content">
-                  <div className="stat-number">{dashboardData.admin_count}</div>
-                  <div className="stat-label">Administradores</div>
-                </div>
-              </div>
-            </div>
-
-            <div className="system-info">
-              <h3>Información del Sistema</h3>
-              <div className="info-grid">
-                <div className="info-item">
-                  <span className="info-label">Estado del Sistema</span>
-                  <span className="info-value status-active">🟢 Operativo</span>
-                </div>
-                <div className="info-item">
-                  <span className="info-label">Última Actualización</span>
-                  <span className="info-value">{formatDate(new Date())}</span>
-                </div>
-              </div>
-            </div>
+        <div className="users-section">
+          <div className="users-header">
+            <h2>Usuarios Registrados</h2>
+            <button 
+              className="refresh-button"
+              onClick={fetchUsers}
+              disabled={loading}
+            >
+              🔄 Actualizar
+            </button>
           </div>
-        )}
 
-        {/* Users Tab */}
-        {activeTab === 'users' && (
-          <div className="users-content">
-            <div className="users-header">
-              <h3>Gestión de Usuarios</h3>
-              <p>Lista de todos los usuarios registrados y sus roles.</p>
-              <button 
-                className="refresh-button"
-                onClick={fetchUsers}
-                disabled={loading}
-              >
-                🔄 Actualizar
-              </button>
-            </div>
-
-            {users.length > 0 ? (
-              <div className="users-table-container">
-                <table className="users-table">
-                  <thead>
-                    <tr>
-                      <th>Usuario</th>
-                      <th>Estado</th>
-                      <th>Rol</th>
-                      <th>Registro</th>
-                      <th>Acciones</th>
+          {users.length > 0 ? (
+            <div className="table-container">
+              <table className="users-table">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Nombre</th>
+                    <th>Email</th>
+                    <th>Rol</th>
+                    <th>Estado</th>
+                    <th>Notificaciones</th>
+                    <th>Registro</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {users.map((user) => (
+                    <tr key={user.id}>
+                      <td>{user.id}</td>
+                      <td>{user.name || 'Sin nombre'}</td>
+                      <td>{user.email}</td>
+                      <td>
+                        <span className={`role-badge ${user.role_id === 2 ? 'admin' : 'user'}`}>
+                          {user.role_id === 2 ? '👑 Admin' : '👤 Usuario'}
+                        </span>
+                      </td>
+                      <td>
+                        <span className={`status-badge ${user.is_confirmed ? 'confirmed' : 'pending'}`}>
+                          {user.is_confirmed ? '✅ Confirmado' : '⏳ Pendiente'}
+                        </span>
+                      </td>
+                      <td>
+                        <div className="notifications-cell">
+                          <span className={`notification-badge ${user.email_alerts ? 'enabled' : 'disabled'}`}>
+                            📧 {user.email_alerts ? 'Sí' : 'No'}
+                          </span>
+                          <span className={`notification-badge ${user.daily_predictions ? 'enabled' : 'disabled'}`}>
+                            📊 {user.daily_predictions ? 'Sí' : 'No'}
+                          </span>
+                        </div>
+                      </td>
+                      <td>{new Date(user.created_at).toLocaleDateString('es-ES')}</td>
+                      <td>
+                        <div className="action-buttons">
+                          {user.role_id === 2 ? (
+                            <button
+                              className="btn-demote"
+                              onClick={() => changeUserRole(user.id, 1)}
+                              disabled={loading}
+                              title="Quitar permisos de administrador"
+                            >
+                              👤 Quitar Admin
+                            </button>
+                          ) : (
+                            <button
+                              className="btn-promote"
+                              onClick={() => changeUserRole(user.id, 2)}
+                              disabled={loading}
+                              title="Dar permisos de administrador"
+                            >
+                              👑 Hacer Admin
+                            </button>
+                          )}
+                          
+                          <button
+                            className="btn-notifications"
+                            onClick={() => toggleNotifications(user.id, user.email_alerts, user.daily_predictions)}
+                            disabled={loading}
+                            title="Activar/Desactivar todas las notificaciones"
+                          >
+                            🔔 {(user.email_alerts || user.daily_predictions) ? 'Desactivar' : 'Activar'}
+                          </button>
+                          
+                          <button
+                            className="btn-delete"
+                            onClick={() => deleteUser(user.id)}
+                            disabled={loading}
+                            title="Eliminar usuario permanentemente"
+                          >
+                            🗑️ Eliminar
+                          </button>
+                        </div>
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {users.map((user) => {
-                      const roleInfo = getUserRoleInfo(user);
-                      return (
-                        <tr key={user.id} className="user-row">
-                          <td className="user-info">
-                            <div className="user-avatar">
-                              {user.name ? user.name.charAt(0).toUpperCase() : '👤'}
-                            </div>
-                            <div className="user-details">
-                              <div className="user-name">{user.name || 'Sin nombre'}</div>
-                              <div className="user-email">{user.email}</div>
-                            </div>
-                          </td>
-                          <td>
-                            <span className={`status-badge ${user.is_confirmed ? 'confirmed' : 'pending'}`}>
-                              {user.is_confirmed ? '✅ Confirmado' : '⏳ Pendiente'}
-                            </span>
-                          </td>
-                          <td>
-                            <span className={`role-badge ${roleInfo.className}`}>
-                              {roleInfo.icon} {roleInfo.label}
-                            </span>
-                          </td>
-                          <td className="date-cell">
-                            {formatDate(user.created_at)}
-                          </td>
-                          <td>
-                            {!roleInfo.isAdmin ? (
-                              <button
-                                className="action-button promote"
-                                onClick={() => changeUserRole(user.id, 2)}
-                                disabled={loading}
-                              >
-                                👑 Hacer Admin
-                              </button>
-                            ) : (
-                              <button
-                                className="action-button demote"
-                                onClick={() => changeUserRole(user.id, 1)}
-                                disabled={loading}
-                              >
-                                👤 Quitar Admin
-                              </button>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            !loading && (
               <div className="empty-state">
-                <div className="empty-icon">👥</div>
-                <h3>No hay usuarios</h3>
-                <p>No se encontraron usuarios en el sistema.</p>
+                <p>No hay usuarios registrados en el sistema.</p>
               </div>
-            )}
-          </div>
-        )}
+            )
+          )}
+        </div>
       </div>
     </div>
   );
