@@ -788,7 +788,6 @@ async function logNotificationSent(userId, type, email, subject, content, status
       INSERT INTO notificaciones_enviadas 
       (user_id, type, email, subject, content, status, fecha_medicion, parametro, valor, estacion_id)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-      ON CONFLICT (user_id, fecha_medicion, estacion_id, parametro, type) DO NOTHING
       RETURNING id
     `;
     params = [userId, type, email, subject, content, status, 
@@ -803,8 +802,19 @@ async function logNotificationSent(userId, type, email, subject, content, status
     params = [userId, type, email, subject, content, status];
   }
   
-  const result = await pool.query(query, params);
-  return result.rows[0];
+  try {
+    const result = await pool.query(query, params);
+    return result.rows[0];
+  } catch (error) {
+    // Si es un error de duplicado, lo ignoramos silenciosamente
+    if (error.code === '23505') {
+      console.log(`ℹ️ Notificación duplicada ignorada para usuario ${userId}, tipo ${type}`);
+      return null;
+    }
+    // Para otros errores, los logueamos pero no los lanzamos para no afectar el envío de email
+    console.error(`⚠️ Error registrando notificación (usuario ${userId}, tipo ${type}):`, error.message);
+    return null;
+  }
 }
 
 // Función para obtener promedios diarios anteriores

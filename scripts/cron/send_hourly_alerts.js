@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 // Cargar variables de entorno
-require('dotenv').config({ path: require('path').resolve(process.cwd(), '.env_local') });
+require('dotenv').config({ path: require('path').resolve(process.cwd(), 'config/.env_local') });
 
 const { pool, getUsersForDailyPredictions, hasAlertBeenSentForMeasurement } = require('../../src/database/db');
 const { sendAirQualityAlert } = require('../../src/services/email_service');
