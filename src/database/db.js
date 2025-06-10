@@ -968,7 +968,7 @@ async function createParametrosAireTable() {
 // Función para obtener información de un parámetro
 async function getParametroInfo(codigo) {
   const result = await pool.query(
-    'SELECT codigo, nombre, descripcion, unidad, categoria FROM parametros_aire WHERE codigo = $1 AND activo = true',
+    'SELECT id, codigo, nombre, descripcion, unidad, categoria FROM parametros_aire WHERE codigo = $1 AND activo = true',
     [codigo.toUpperCase()]
   );
   return result.rows[0];
@@ -977,7 +977,7 @@ async function getParametroInfo(codigo) {
 // Función para obtener todos los parámetros activos
 async function getAllParametros() {
   const result = await pool.query(
-    'SELECT codigo, nombre, descripcion, unidad, categoria FROM parametros_aire WHERE activo = true ORDER BY categoria, codigo'
+    'SELECT id, codigo, nombre, descripcion, unidad, categoria FROM parametros_aire WHERE activo = true ORDER BY categoria, codigo'
   );
   return result.rows;
 }
@@ -985,7 +985,7 @@ async function getAllParametros() {
 // Función para obtener parámetros por categoría
 async function getParametrosByCategoria(categoria) {
   const result = await pool.query(
-    'SELECT codigo, nombre, descripcion, unidad FROM parametros_aire WHERE categoria = $1 AND activo = true ORDER BY codigo',
+    'SELECT id, codigo, nombre, descripcion, unidad FROM parametros_aire WHERE categoria = $1 AND activo = true ORDER BY codigo',
     [categoria]
   );
   return result.rows;
