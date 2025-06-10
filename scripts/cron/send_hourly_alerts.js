@@ -86,16 +86,17 @@ async function sendHighPM25Alerts() {
     let alertsSent = 0;
     let alertsSkipped = 0;
     
-    // Enviar alertas solo a usuarios que no han recibido una hoy
+    // Enviar alertas a todos los usuarios (sin restricción diaria)
     for (const user of users) {
       try {
-        const alreadyReceived = await hasUserReceivedAlertToday(user.id);
-        
-        if (alreadyReceived) {
-          console.log(`⏩ Usuario ${user.email}: Ya recibió alerta hoy (omitiendo)`);
-          alertsSkipped++;
-          continue;
-        }
+        // RESTRICCIÓN DIARIA TEMPORALMENTE DESACTIVADA
+        // const alreadyReceived = await hasUserReceivedAlertToday(user.id);
+        // 
+        // if (alreadyReceived) {
+        //   console.log(`⏩ Usuario ${user.email}: Ya recibió alerta hoy (omitiendo)`);
+        //   alertsSkipped++;
+        //   continue;
+        // }
         
         // Enviar alerta
         await sendAirQualityAlert(user.email, user.name, alertData, user.id);
