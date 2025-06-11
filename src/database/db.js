@@ -564,8 +564,12 @@ async function createNotificationsTable() {
           CHECK ( (type = 'alert' AND fecha_medicion IS NOT NULL AND estacion_id IS NOT NULL AND parametro IS NOT NULL) OR (type != 'alert') ),
           
       -- Restricción para notificaciones de bienvenida y reseteo (sin datos de medición)
+      -- La sintaxis (A IMPLIES B) se reescribe como (NOT A OR B) para compatibilidad con PostgreSQL
       CONSTRAINT chk_welcome_reset_no_measurement
-          CHECK ( type IN ('welcome', 'password_reset', 'prediction') IMPLIES (fecha_medicion IS NULL AND estacion_id IS NULL AND parametro IS NULL) )
+          CHECK ( 
+            (type NOT IN ('welcome', 'password_reset', 'prediction')) OR 
+            (fecha_medicion IS NULL AND estacion_id IS NULL AND parametro IS NULL) 
+          )
     );
   `;
   await pool.query(createNewTableSQL);
