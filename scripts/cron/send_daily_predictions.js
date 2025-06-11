@@ -83,21 +83,27 @@ async function sendDailyPredictionEmails() {
     console.log(`📧 Enviando a ${users.length} usuarios suscritos...`);
     
     // Formatear datos para cada usuario
-    const usersWithPredictions = users.map(user => ({
-      email: user.email,
-      user_name: user.name,
-      user_id: user.id,
-      hoy: predictions.hoy,
-      manana: predictions.manana,
-      fecha_hoy_format: new Date(predictions.hoy.fecha).toLocaleDateString('es-ES', { 
-        day: 'numeric', 
-        month: 'long' 
-      }),
-      fecha_manana_format: new Date(predictions.manana.fecha).toLocaleDateString('es-ES', { 
-        day: 'numeric', 
-        month: 'long' 
-      })
-    }));
+    const usersWithPredictions = users.map(user => {
+      // Asegurar que las fechas son correctas: hoy y mañana
+      const fechaHoy = new Date();
+      const fechaManana = new Date(Date.now() + 24 * 60 * 60 * 1000);
+      
+      return {
+        email: user.email,
+        user_name: user.name,
+        user_id: user.id,
+        hoy: predictions.hoy,
+        manana: predictions.manana,
+        fecha_hoy_format: fechaHoy.toLocaleDateString('es-ES', { 
+          day: 'numeric', 
+          month: 'long' 
+        }),
+        fecha_manana_format: fechaManana.toLocaleDateString('es-ES', { 
+          day: 'numeric', 
+          month: 'long' 
+        })
+      };
+    });
     
     // Enviar correos
     const results = await sendDailyPredictions(usersWithPredictions);
