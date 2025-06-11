@@ -18,40 +18,58 @@ async function getDailyPredictions() {
     
     console.log(`📅 Obteniendo predicciones para hoy (${hoy}) y mañana (${manana})`);
     
-    // Obtener predicciones de la tabla predicciones
+    // Obtener predicciones usando horizonte_dias para asegurar el mapeo correcto
     const result = await pool.query(`
       SELECT 
         p.fecha,
         p.valor,
+        p.horizonte_dias,
         m.nombre_modelo,
         m.roc_index
       FROM predicciones p
       JOIN modelos_prediccion m ON p.modelo_id = m.id
-      WHERE p.fecha IN ($1, $2) 
+      WHERE p.fecha >= $1 
         AND p.parametro = 'pm25'
         AND m.activo = true
-      ORDER BY p.fecha ASC
-    `, [hoy, manana]);
+        AND p.horizonte_dias IN (0, 1)
+      ORDER BY p.horizonte_dias ASC
+    `, [hoy]);
 
     if (result.rows.length < 2) {
       console.error(`❌ No se encontraron predicciones suficientes. Encontradas: ${result.rows.length}/2`);
+      result.rows.forEach(row => {
+        console.log(`   - Fecha: ${row.fecha}, Horizonte: ${row.horizonte_dias}, Valor: ${row.valor}`);
+      });
       return null;
     }
 
-    const [predHoy, predManana] = result.rows;
+    // Mapear correctamente basándose en horizonte_dias, no en fecha
+    const predHoy = result.rows.find(row => row.horizonte_dias === 0);
+    const predManana = result.rows.find(row => row.horizonte_dias === 1);
+    
+    if (!predHoy || !predManana) {
+      console.error('❌ No se encontraron predicciones para ambos horizontes');
+      console.log('Predicciones disponibles:');
+      result.rows.forEach(row => {
+        console.log(`   - Horizonte ${row.horizonte_dias}: ${row.fecha} = ${row.valor} µg/m³`);
+      });
+      return null;
+    }
     
     return {
       hoy: {
         fecha: predHoy.fecha,
         valor: Math.round(predHoy.valor),
         modelo: predHoy.nombre_modelo,
-        roc_index: predHoy.roc_index
+        roc_index: predHoy.roc_index,
+        horizonte_dias: predHoy.horizonte_dias
       },
       manana: {
         fecha: predManana.fecha,
         valor: Math.round(predManana.valor),
         modelo: predManana.nombre_modelo,
-        roc_index: predManana.roc_index
+        roc_index: predManana.roc_index,
+        horizonte_dias: predManana.horizonte_dias
       }
     };
     
