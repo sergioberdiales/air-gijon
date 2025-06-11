@@ -72,30 +72,33 @@ function EvolutionCard() {
   const getResponsiveConfig = () => {
     if (windowWidth <= 480) {
       return {
-        pointSpacing: 50,     // Aumentado de 45 a 50px
-        fontSize: 9,          // Texto más pequeño
-        valueOffset: 30,      // Menos offset para valores
-        svgPadding: 35,       // Padding ajustado
+        pointSpacing: 55,     // Aumentado para más espacio
+        fontSize: 9,          
+        valueOffset: 35,      // Más espacio para valores
+        svgPadding: 45,       // Más padding
         dateRotation: -90,    // Rotación vertical completa
-        dateYOffset: 8        // Offset extra para fechas rotadas
+        dateYOffset: 15,      // Más offset para fechas rotadas
+        svgHeight: 260        // Más altura para fechas rotadas
       };
     } else if (windowWidth <= 768) {
       return {
-        pointSpacing: 60,     // Aumentado de 55 a 60px
+        pointSpacing: 65,     
         fontSize: 10,
-        valueOffset: 32,
-        svgPadding: 40,
+        valueOffset: 35,      // Más espacio para valores
+        svgPadding: 45,       // Más padding
         dateRotation: 0,
-        dateYOffset: 0
+        dateYOffset: 0,
+        svgHeight: 220
       };
     } else {
       return {
-        pointSpacing: 70,
+        pointSpacing: 75,     // Más espacio entre puntos
         fontSize: 11,
-        valueOffset: 35,
-        svgPadding: 50,
+        valueOffset: 40,      // Más espacio para valores
+        svgPadding: 55,       // Más padding
         dateRotation: 0,
-        dateYOffset: 0
+        dateYOffset: 0,
+        svgHeight: 220
       };
     }
   };
@@ -178,7 +181,7 @@ function EvolutionCard() {
       </div>
 
       <div className="chart-container">
-        <svg viewBox={`0 0 ${svgWidth} 220`} className="evolution-chart">
+        <svg viewBox={`0 0 ${svgWidth} ${config.svgHeight}`} className="evolution-chart">
           {/* Grid lines */}
           {[0, 10, 15, 25, 50].map(value => (
             <g key={value}>
@@ -233,7 +236,7 @@ function EvolutionCard() {
                 cx={point.x}
                 cy={point.y}
                 r={point.tipo === 'prediccion' ? "7" : "5"}
-                fill={point.tipo === 'prediccion' ? "var(--status-moderada-color)" : getQualityColor(point.promedio_pm10)}
+                fill={point.tipo === 'prediccion' ? "var(--status-moderada-color)" : "var(--primary-accent)"}
                 stroke={point.tipo === 'prediccion' ? "var(--status-moderada-color)" : "white"}
                 strokeWidth="3"
                 className="data-point"
@@ -268,13 +271,13 @@ function EvolutionCard() {
               {/* Etiquetas de fecha */}
               <text
                 x={point.x}
-                y={210 + (config.dateYOffset || 0)}
+                y={config.svgHeight - 30 + (config.dateYOffset || 0)}
                 fontSize={config.fontSize}
                 fill="var(--text-secondary)"
                 textAnchor="middle"
                 className="date-label"
                 fontWeight={point.tipo === 'prediccion' ? "600" : "normal"}
-                transform={config.dateRotation !== 0 ? `rotate(${config.dateRotation} ${point.x} ${210 + (config.dateYOffset || 0)})` : ''}
+                transform={config.dateRotation !== 0 ? `rotate(${config.dateRotation} ${point.x} ${config.svgHeight - 30 + (config.dateYOffset || 0)})` : ''}
               >
                 {windowWidth <= 480 ? 
                   // En móvil: formato más corto y claro
