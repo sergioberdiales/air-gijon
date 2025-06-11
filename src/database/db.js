@@ -541,50 +541,61 @@ async function createPredictionMetricsTable() {
 
 // Crear tabla de notificaciones enviadas
 async function createNotificationsTable() {
-  const createTableSQL = `
+  // 1. Asegurarse de que la nueva tabla 'notificaciones_enviadas' exista.
+  const createNewTableSQL = `
     CREATE TABLE IF NOT EXISTS notificaciones_enviadas (
       id SERIAL PRIMARY KEY,
-      user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-      type VARCHAR(50) NOT NULL, -- 'daily_prediction', 'pm25_alert', 'welcome'
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      type VARCHAR(50) NOT NULL, -- 'alert', 'prediction', 'welcome', 'password_reset'
+      sent_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
       email VARCHAR(255) NOT NULL,
-      subject VARCHAR(255) NOT NULL,
+      subject VARCHAR(255),
       content TEXT,
-      fecha_medicion TIMESTAMP, -- Fecha de la medición original (para evitar duplicados)
-      parametro VARCHAR(10), -- 'pm25', 'pm10', 'no2', etc.
-      valor NUMERIC(5,2), -- Valor numérico del parámetro
-      estacion_id VARCHAR(10), -- ID de la estación de medición
-      sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      status VARCHAR(20) DEFAULT 'sent' CHECK (status IN ('sent', 'failed', 'pending'))
+      status VARCHAR(20) DEFAULT 'sent', -- 'sent', 'failed'
+      
+      -- Campos específicos para alertas de mediciones
+      fecha_medicion TIMESTAMP, 
+      estacion_id VARCHAR(50),
+      parametro VARCHAR(20),
+      valor_medicion REAL,
+
+      -- Restricción para asegurar que solo las alertas tengan datos de medición
+      CONSTRAINT chk_measurement_data_for_alerts
+          CHECK ( (type = 'alert' AND fecha_medicion IS NOT NULL AND estacion_id IS NOT NULL AND parametro IS NOT NULL) OR (type != 'alert') ),
+          
+      -- Restricción para notificaciones de bienvenida y reseteo (sin datos de medición)
+      CONSTRAINT chk_welcome_reset_no_measurement
+          CHECK ( type IN ('welcome', 'password_reset', 'prediction') IMPLIES (fecha_medicion IS NULL AND estacion_id IS NULL AND parametro IS NULL) )
     );
+  `;
+  await pool.query(createNewTableSQL);
+
+  // 2. Crear comentarios e índices en la nueva tabla.
+  const setupNewTableSQL = `
+    COMMENT ON TABLE notificaciones_enviadas IS 'Registro de todas las notificaciones enviadas a los usuarios.';
+    COMMENT ON COLUMN notificaciones_enviadas.type IS 'Tipo de notificación: alerta de calidad del aire, predicción diaria, etc.';
+    COMMENT ON COLUMN notificaciones_enviadas.fecha_medicion IS 'Para alertas, la fecha y hora de la medición que la disparó.';
     
-    -- Migrar datos de tabla antigua si existe
-    INSERT INTO notificaciones_enviadas (id, user_id, type, email, subject, content, sent_at, status)
-    SELECT id, user_id, type, email, subject, content, sent_at, status 
-    FROM notifications_sent 
-    WHERE NOT EXISTS (SELECT 1 FROM notificaciones_enviadas WHERE notificaciones_enviadas.id = notifications_sent.id)
-    ON CONFLICT (id) DO NOTHING;
-    
-    -- Eliminar tabla antigua después de migrar
-    DROP TABLE IF EXISTS notifications_sent;
-    
-    -- Crear índice único para evitar alertas duplicadas de la misma medición
     CREATE UNIQUE INDEX IF NOT EXISTS idx_notificaciones_medicion_unica 
     ON notificaciones_enviadas (user_id, fecha_medicion, estacion_id, parametro, type) 
     WHERE fecha_medicion IS NOT NULL AND estacion_id IS NOT NULL AND parametro IS NOT NULL;
     
-    -- Índices para consultas frecuentes
     CREATE INDEX IF NOT EXISTS idx_notificaciones_user_type_date 
     ON notificaciones_enviadas (user_id, type, sent_at);
     
     CREATE INDEX IF NOT EXISTS idx_notificaciones_fecha_medicion 
     ON notificaciones_enviadas (fecha_medicion) WHERE fecha_medicion IS NOT NULL;
     
-    -- Índice para consultas por parámetro
     CREATE INDEX IF NOT EXISTS idx_notificaciones_parametro 
     ON notificaciones_enviadas (parametro) WHERE parametro IS NOT NULL;
   `;
   
-  await pool.query(createTableSQL);
+  // Ejecutar cada comando de configuración por separado
+  const setupQueries = setupNewTableSQL.split(';').filter(q => q.trim());
+  for (const query of setupQueries) {
+    await pool.query(query);
+  }
+
   console.log('✅ Tabla notificaciones_enviadas creada/actualizada correctamente');
 }
 
