@@ -10,7 +10,8 @@ El cliente sería el Ayuntamiento de Gijón, cuya intención sería realizar un 
 
 ## 2. Alcance del sistema
 
-- Se utilizarán exclusivamente datos proporcionados por el Ayuntamiento de Gijón en su portal de transparencia.
+- Inicialmentes se iban a utilizar datos proporcionados por el Ayuntamiento de Gijón en su portal de transparencia, pero este punto se cambió durante el desarrollo del proyecto, ya que el Ayuntamiento de Gijón no ofrecía los datos con la frecuencia necesaria para realizar las predicciones. 
+La información de niveles de contaminación utilizada se obtuvo finalmente utilizando la API de la página web de la AQICN: https://aqicn.org/city/spain/asturias/constitucion/es/ 
 - El sistema se centrará en la estación de monitorización de la Avenida de la Constitución.
 - Se trabajará principalmente con el contaminante PM2.5 (PM10 y NO2 inicialmente considerados).
 - Los datos estarán agregados a nivel diario.

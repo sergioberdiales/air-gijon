@@ -31,6 +31,8 @@
 | lag14      | 488         |
 | lag21      | 487         |
 
+
+
 ### 3. Modelo ARIMA
 - **Configuración:** ARIMA(1, 1, 1) + variables exógenas
 - **MAE hold-out:** 13.92 µg/m³
@@ -38,4 +40,5 @@
 ## Conclusiones
 - El modelo LightGBM muestra el mejor rendimiento en el conjunto de hold-out con un MAE de 8.37 µg/m³
 - Las variables más importantes para el modelo LightGBM son principalmente tendencias y diferencias absolutas
-- El modelo ARIMA muestra un rendimiento inferior en comparación con los otros dos modelos
+- El modelo ARIMA muestra un rendimiento inferior en comparación con los otros dos modelos.
+- Modelo en producción. Vamos a poner el modelo LigthGbm en producción. 

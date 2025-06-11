@@ -4,7 +4,7 @@ const path = require('path');
 const { pool, createTables, createIndexes, testConnection, createUser } = require('./database/db');
 const { ejecutarMigracionEstructuraPromedios } = require(path.join(__dirname, '../scripts/migration/migrate_promedios_estructura'));
 const { verifyEmailConfig } = require('./services/email_service');
-const bcrypt = require('bcryptjs');
+const bcrypt = require('bcrypt');
 
 const app = express();
 
@@ -96,13 +96,20 @@ app.get('/api/air/constitucion/evolucion', async (req, res) => {
     
     console.log('📅 Fechas solicitadas:', fechas.map(f => `${f.fecha} (${f.tipo})`).join(', '));
     
-    // 1. Consultar datos históricos
+    // 1. Consultar datos históricos (priorizar csv_historical)
     const fechasHistoricas = fechas.filter(f => f.tipo === 'historico').map(f => f.fecha);
     const historicos = await pool.query(`
-      SELECT fecha, parametro, valor, estado
+      SELECT DISTINCT ON (fecha) fecha, parametro, valor, estado, source
       FROM promedios_diarios 
-      WHERE fecha = ANY($1) AND parametro = $2
-      ORDER BY fecha ASC
+      WHERE fecha::text = ANY($1) AND parametro = $2
+      ORDER BY fecha ASC, 
+        CASE source 
+          WHEN 'csv_historical' THEN 1
+          WHEN 'csv_historico' THEN 2  
+          WHEN 'mediciones_api' THEN 3
+          WHEN 'calculated' THEN 4
+          ELSE 5
+        END
     `, [fechasHistoricas, 'pm25']);
     
     console.log(`📈 Datos históricos PM2.5 encontrados: ${historicos.rows.length} de ${fechasHistoricas.length}`);
@@ -113,7 +120,7 @@ app.get('/api/air/constitucion/evolucion', async (req, res) => {
       SELECT p.fecha, p.valor, m.nombre_modelo, m.mae, m.roc_index
       FROM predicciones p
       JOIN modelos_prediccion m ON p.modelo_id = m.id
-      WHERE p.fecha = ANY($1) 
+      WHERE p.fecha::text = ANY($1) 
         AND p.estacion_id = '6699'
         AND p.parametro = 'pm25'
         AND m.activo = true
@@ -123,29 +130,45 @@ app.get('/api/air/constitucion/evolucion', async (req, res) => {
     console.log(`🔮 Predicciones encontradas: ${predicciones.rows.length} de ${fechasPredicciones.length}`);
     
     // 3. Combinar y completar datos faltantes
-    const datosCompletos = fechas.map(fechaInfo => {
+    const datosCompletos = [];
+    let ultimoValorHistorico = null;
+    
+    fechas.forEach(fechaInfo => {
       let datos = null;
       
       if (fechaInfo.tipo === 'historico') {
-        datos = historicos.rows.find(row => 
-          row.fecha.toISOString().split('T')[0] === fechaInfo.fecha
-        );
+        datos = historicos.rows.find(row => {
+          // Fix timezone: use local date components instead of ISO
+          const year = row.fecha.getFullYear();
+          const month = String(row.fecha.getMonth() + 1).padStart(2, '0');
+          const day = String(row.fecha.getDate()).padStart(2, '0');
+          const fechaLocal = `${year}-${month}-${day}`;
+          return fechaLocal === fechaInfo.fecha;
+        });
         
         if (datos) {
-          return {
+          const resultado = {
             fecha: fechaInfo.fecha,
             promedio_pm10: parseFloat(datos.valor),
             tipo: 'historico',
             estado: datos.estado
           };
+          datosCompletos.push(resultado);
+          ultimoValorHistorico = parseFloat(datos.valor); // Guardar para predicciones
         }
-      } else {
-        datos = predicciones.rows.find(row => 
-          row.fecha.toISOString().split('T')[0] === fechaInfo.fecha
-        );
+        // Si no hay dato histórico, simplemente no lo incluimos
+        
+      } else { // prediccion
+        datos = predicciones.rows.find(row => {
+          const year = row.fecha.getFullYear();
+          const month = String(row.fecha.getMonth() + 1).padStart(2, '0');
+          const day = String(row.fecha.getDate()).padStart(2, '0');
+          const fechaLocal = `${year}-${month}-${day}`;
+          return fechaLocal === fechaInfo.fecha;
+        });
         
         if (datos) {
-          return {
+          datosCompletos.push({
             fecha: fechaInfo.fecha,
             promedio_pm10: parseFloat(datos.valor),
             tipo: 'prediccion',
@@ -153,33 +176,21 @@ app.get('/api/air/constitucion/evolucion', async (req, res) => {
             modelo: datos.nombre_modelo,
             mae: datos.mae ? parseFloat(datos.mae) : null,
             roc_index: datos.roc_index ? parseFloat(datos.roc_index) : null
-          };
+          });
+        } else if (ultimoValorHistorico !== null) {
+          // Fallback inteligente: usar último valor histórico para predicciones
+          datosCompletos.push({
+            fecha: fechaInfo.fecha,
+            promedio_pm10: ultimoValorHistorico,
+            tipo: 'prediccion',
+            estado: getEstadoPM25(ultimoValorHistorico),
+            modelo: 'Fallback_Ultimo_Historico',
+            mae: null,
+            roc_index: null
+          });
         }
+        // Si no hay predicción ni último histórico, no incluimos nada
       }
-      
-      // Generar dato placeholder si no existe
-      const valorBase = fechaInfo.tipo === 'historico' ? 
-        (12 + Math.random() * 8) : // Históricos: 12-20
-        (15 + Math.random() * 10); // Predicciones: 15-25
-      
-      const valor = Math.round(valorBase * 100) / 100;
-      
-      console.log(`🔄 Generando dato placeholder para ${fechaInfo.fecha}: ${valor} µg/m³`);
-      
-      const resultado = {
-        fecha: fechaInfo.fecha,
-        promedio_pm10: valor,
-        tipo: fechaInfo.tipo,
-        estado: getEstadoPM25(valor)
-      };
-      
-      if (fechaInfo.tipo === 'prediccion') {
-        resultado.modelo = 'Modelo_1.0';
-        resultado.mae = 8.37;
-        resultado.roc_index = null;
-      }
-      
-      return resultado;
     });
     
     console.log('✅ Datos completos generados:', datosCompletos.length);

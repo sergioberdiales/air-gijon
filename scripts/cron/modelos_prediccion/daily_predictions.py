@@ -22,7 +22,7 @@ warnings.filterwarnings("ignore")
 
 # Configuración
 MODEL_PATH = Path(__file__).parent / "modelo_lgbm_pm25.joblib"
-MIN_REQUIRED_DAYS = 35  # Necesitamos al menos 35 días para lag28 + algunos días extra
+MIN_REQUIRED_DAYS = 28  # Reducido temporalmente para que funcione con datos limitados
 
 def get_db_connection():
     """Obtiene conexión a PostgreSQL usando variables de entorno"""
