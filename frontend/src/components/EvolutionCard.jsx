@@ -45,11 +45,18 @@ function EvolutionCard() {
   const getMaxValue = () => {
     if (!data?.datos) return 30;
     const maxPm25 = Math.max(...data.datos.map(d => d.promedio_pm10)); // API devuelve promedio_pm10 pero contiene datos PM2.5
-    return Math.max(30, Math.ceil(maxPm25 / 10) * 10);
+    // Añadir 20% de margen al valor máximo para mejor visualización
+    const maxWithMargin = maxPm25 * 1.2;
+    return Math.max(30, Math.ceil(maxWithMargin / 10) * 10);
   };
 
   const getYPosition = (value, maxValue) => {
-    return 180 - (value / maxValue) * 160; // 180 es la altura del gráfico, 160 el área útil
+    // Calcular altura dinámicamente con margen suficiente para valores
+    const topMargin = 60; // Margen superior aumentado para valores
+    const bottomMargin = 80; // Margen inferior para fechas
+    const usableHeight = 140; // Altura útil del gráfico
+    
+    return topMargin + (1 - (value / maxValue)) * usableHeight;
   };
 
   // Detectar tamaño de pantalla para responsive design
@@ -68,37 +75,42 @@ function EvolutionCard() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Configuración responsive
+  // Configuración responsive con altura dinámica
   const getResponsiveConfig = () => {
+    // Calcular altura dinámicamente basándose en el valor máximo
+    const maxValue = getMaxValue();
+    const baseHeight = 280; // Altura base aumentada
+    const extraHeight = Math.max(0, (maxValue - 30) * 2); // 2px por cada unidad extra
+    
     if (windowWidth <= 480) {
       return {
-        pointSpacing: 55,     // Aumentado para más espacio
+        pointSpacing: 55,     
         fontSize: 9,          
-        valueOffset: 35,      // Más espacio para valores
-        svgPadding: 45,       // Más padding
-        dateRotation: -90,    // Rotación vertical completa
-        dateYOffset: 15,      // Más offset para fechas rotadas
-        svgHeight: 260        // Más altura para fechas rotadas
+        valueOffset: 15,      // Reducido ya que tenemos más margen arriba
+        svgPadding: 45,       
+        dateRotation: -90,    
+        dateYOffset: 15,      
+        svgHeight: baseHeight + extraHeight + 40 // Extra para fechas rotadas
       };
     } else if (windowWidth <= 768) {
       return {
         pointSpacing: 65,     
         fontSize: 10,
-        valueOffset: 35,      // Más espacio para valores
-        svgPadding: 45,       // Más padding
+        valueOffset: 15,      
+        svgPadding: 45,       
         dateRotation: 0,
         dateYOffset: 0,
-        svgHeight: 220
+        svgHeight: baseHeight + extraHeight
       };
     } else {
       return {
-        pointSpacing: 75,     // Más espacio entre puntos
+        pointSpacing: 75,     
         fontSize: 11,
-        valueOffset: 40,      // Más espacio para valores
-        svgPadding: 55,       // Más padding
+        valueOffset: 15,      
+        svgPadding: 55,       
         dateRotation: 0,
         dateYOffset: 0,
-        svgHeight: 220
+        svgHeight: baseHeight + extraHeight
       };
     }
   };
@@ -242,30 +254,18 @@ function EvolutionCard() {
                 className="data-point"
               />
               
-              {/* Indicador de predicción más visible */}
+              {/* Indicador de predicción simplificado - sin iconos */}
               {point.tipo === 'prediccion' && (
-                <>
-                  <circle
-                    cx={point.x}
-                    cy={point.y}
-                    r="11"
-                    fill="none"
-                    stroke="var(--status-moderada-color)"
-                    strokeWidth="2"
-                    strokeDasharray="4,2"
-                    opacity="0.8"
-                  />
-                  {/* Icono de predicción */}
-                  <text
-                    x={point.x}
-                    y={point.y - 20}
-                    fontSize="12"
-                    textAnchor="middle"
-                    fill="var(--status-moderada-color)"
-                  >
-                    🔮
-                  </text>
-                </>
+                <circle
+                  cx={point.x}
+                  cy={point.y}
+                  r="11"
+                  fill="none"
+                  stroke="var(--status-moderada-color)"
+                  strokeWidth="2"
+                  strokeDasharray="4,2"
+                  opacity="0.8"
+                />
               )}
 
               {/* Etiquetas de fecha */}
@@ -289,7 +289,7 @@ function EvolutionCard() {
               {/* Valores PM2.5 */}
               <text
                 x={point.x}
-                y={point.y - (point.tipo === 'prediccion' ? config.valueOffset : 12)}
+                y={point.y - config.valueOffset}
                 fontSize={config.fontSize}
                 fill={point.tipo === 'prediccion' ? "var(--status-moderada-color)" : "var(--text-primary)"}
                 textAnchor="middle"
