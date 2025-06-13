@@ -11,14 +11,13 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// La ruta ahora debe retroceder un nivel para llegar a la raíz del proyecto
-// y luego entrar a `frontend/dist`
+// Path relative from src -> root -> frontend/dist
 app.use(express.static(path.join(__dirname, '../frontend/dist')));
 
 const apiRoutes = require('./routes/index.js');
 app.use('/api', apiRoutes);
 
-// La ruta para el fallback de React también debe corregirse
+// Fallback for React Router
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../frontend/dist', 'index.html'));
 });
