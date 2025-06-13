@@ -1,11 +1,15 @@
 #!/usr/bin/env node
 
-// Cargar variables de entorno
-require('dotenv').config({ path: require('path').resolve(process.cwd(), 'config/.env_local') });
-
-const { pool } = require('../../src/database/db');
+// Configuración para producción - NO cargar .env local
+const { Pool } = require('pg');
 const fs = require('fs');
 const path = require('path');
+
+// Pool directo para producción
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+});
 
 /**
  * Script para poblar promedios_diarios desde CSV de calidad del aire
