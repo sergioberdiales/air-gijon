@@ -11,6 +11,44 @@
  */
 
 const { Pool } = require('pg');
+const fs = require('fs');
+const path = require('path');
+
+// --- INICIO DEL PARCHE ---
+// Esta función corrige el archivo server.js en el servidor de Render
+function patchServerFile() {
+  const serverPath = path.join(__dirname, 'src', 'server.js');
+  try {
+    console.log(`PATCH: Leyendo ${serverPath}...`);
+    let content = fs.readFileSync(serverPath, 'utf8');
+
+    const corrections = {
+      "./database/db": "./database/db.js",
+      "./auth/auth": "./auth/auth.js",
+      "./routes": "./routes/index.js"
+    };
+
+    let modified = false;
+    for (const [original, replacement] of Object.entries(corrections)) {
+      if (content.includes(`require('${original}')`)) {
+        content = content.replace(`require('${original}')`, `require('${replacement}')`);
+        console.log(`PATCH: Reemplazando '${original}' por '${replacement}'`);
+        modified = true;
+      }
+    }
+
+    if (modified) {
+      fs.writeFileSync(serverPath, content, 'utf8');
+      console.log(`PATCH: Archivo ${serverPath} corregido y guardado.`);
+    } else {
+      console.log(`PATCH: No se necesitaron correcciones en ${serverPath}.`);
+    }
+  } catch (error) {
+    console.error(`PATCH: Fallo al intentar parchear ${serverPath}:`, error);
+    // No lanzamos error para no detener el proceso principal
+  }
+}
+// --- FIN DEL PARCHE ---
 
 // Configuración BD producción
 const pool = new Pool({
@@ -109,8 +147,11 @@ async function cargarDatos() {
 
 // Ejecutar si es llamado directamente
 if (require.main === module) {
-  cargarDatos().catch(() => {
-    // La función ya maneja los logs de error
+  // Primero aplicamos el parche, luego cargamos datos
+  patchServerFile();
+  
+  cargarDatos().catch((e) => {
+    console.error("Error en la ejecución de carga de datos:", e);
     process.exit(1);
   });
 }
