@@ -1,7 +1,3 @@
-// Archivo de redirección para Render.com
-// Este archivo redirige a la nueva ubicación del server principal.
-// Render ejecuta `node server.js` y este archivo carga el servidor real desde /src.
-
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
@@ -15,11 +11,14 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
+// La ruta ahora debe retroceder un nivel para llegar a la raíz del proyecto
+// y luego entrar a `frontend/dist`
 app.use(express.static(path.join(__dirname, '../frontend/dist')));
 
 const apiRoutes = require('./routes/index.js');
 app.use('/api', apiRoutes);
 
+// La ruta para el fallback de React también debe corregirse
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../frontend/dist', 'index.html'));
 });
@@ -39,4 +38,5 @@ const startServer = async () => {
 };
 
 startServer();
+
 module.exports = app; 
