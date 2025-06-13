@@ -1,15 +1,15 @@
 {
   "name": "air-gijon-backend",
   "version": "1.0.0",
-  "description": "Backend para el proyecto de calidad del aire de Gijón",
+  "description": "Backend for Air Gijón project",
   "main": "src/server.js",
   "scripts": {
-    "dev": "vite",
+    "dev": "nodemon src/server.js",
     "build": "vite build",
     "preview": "vite preview",
     "start": "node load_production_data.js && node src/server.js",
     "postinstall": "pip3 install -r config/requirements.txt || echo 'Python dependencies install failed, but continuing...'",
-    "test": "jest",
+    "test": "echo \"Error: no test specified\" && exit 1",
     "update-aqicn": "node scripts/maintenance/update_aqicn.js",
     "cron-update": "node scripts/cron/cron_update.js",
     "cron-predictions": "node scripts/cron/cron_predictions_fixed.js",
