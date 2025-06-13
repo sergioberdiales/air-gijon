@@ -14,7 +14,7 @@ app.use(express.json());
 // Path relative from src -> root -> frontend/dist
 app.use(express.static(path.join(__dirname, '../frontend/dist')));
 
-const apiRoutes = require(path.join(__dirname, 'routes', 'index.js'));
+const apiRoutes = require('./routes/index.js');
 app.use('/api', apiRoutes);
 
 // Fallback for React Router
