@@ -18,6 +18,7 @@
     "migrate-predictions": "node scripts/migration/migrate_to_new_predictions.js",
     "populate-historical": "node scripts/maintenance/load_historical_data.js",
     "populate-production": "node scripts/maintenance/populate_production_from_csv.js",
+    "recreate-production-table": "node recreate_and_populate_production.js",
     "generate-historical": "node scripts/maintenance/generate_synthetic_hourly_data.js"
   },
   "keywords": [],

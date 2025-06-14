@@ -1,15 +1,10 @@
 #!/usr/bin/env node
 
-// Configuración para producción - NO cargar .env local
-const { Pool } = require('pg');
+// Cargar configuración del proyecto
+require('dotenv').config();
+const { pool } = require('../../src/database/db.js');
 const fs = require('fs');
 const path = require('path');
-
-// Pool directo para producción
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
-});
 
 /**
  * Script para poblar promedios_diarios desde CSV de calidad del aire
@@ -36,7 +31,7 @@ async function poblarPromediosDiarios() {
     console.log('📊 Poblando promedios_diarios desde CSV...');
     
     // Ruta al CSV
-    const csvPath = path.join(process.cwd(), 'modelos_prediccion/constitucion_asturias_air_quality_20250611.csv');
+    const csvPath = path.join(process.cwd(), 'modelos_prediccion/constitucion_asturias_air_quality_20250614.csv');
     
     if (!fs.existsSync(csvPath)) {
       throw new Error(`CSV no encontrado: ${csvPath}`);
@@ -51,9 +46,9 @@ async function poblarPromediosDiarios() {
     
     console.log(`📄 Total líneas en CSV: ${dataLines.length}`);
     
-    // Filtrar desde 1 mayo 2025
+    // Filtrar desde 1 mayo 2025 hasta 14 junio 2025
     const fechaMinima = new Date('2025-05-01');
-    const fechaMaxima = new Date('2025-06-10'); // Excluir día 11 (incompleto)
+    const fechaMaxima = new Date('2025-06-14'); // Incluir hasta el 14 de junio
     
     let registrosInsertados = 0;
     let registrosOmitidos = 0;
@@ -148,8 +143,6 @@ async function poblarPromediosDiarios() {
   } catch (error) {
     console.error('❌ Error poblando promedios_diarios:', error);
     process.exit(1);
-  } finally {
-    await pool.end();
   }
 }
 

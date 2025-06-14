@@ -2,8 +2,8 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 require('dotenv').config();
-const { pool } = require('./database/db.js');
-const { ensureAdminUser } = require('./auth/auth.js');
+const { pool } = require(path.resolve(__dirname, './database/db.js'));
+const { ensureAdminUser } = require(path.resolve(__dirname, './auth/auth.js'));
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -14,7 +14,7 @@ app.use(express.json());
 // Path relative from src -> root -> frontend/dist
 app.use(express.static(path.join(__dirname, '../frontend/dist')));
 
-const apiRoutes = require('./routes/index.js');
+const apiRoutes = require(path.resolve(__dirname, './routes/index.js'));
 app.use('/api', apiRoutes);
 
 // Fallback for React Router
