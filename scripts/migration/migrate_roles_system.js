@@ -2,7 +2,7 @@
 
 // Script de migración para implementar sistema de roles normalizado
 const { pool } = require('../../src/database/db');
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 
 async function migrateRolesSystem() {
   const client = await pool.connect();

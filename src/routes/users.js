@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const bcrypt = require('bcrypt'); // Para hashear la nueva contraseña
+const bcrypt = require('bcryptjs'); // Para hashear la nueva contraseña
 const crypto = require('crypto'); // Para generar el token de reseteo
 const { 
   registerUser, 
