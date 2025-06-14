@@ -40,42 +40,143 @@ router.get('/constitucion/pm25', async (req, res) => {
   }
 });
 
-// Endpoint de evolución con fallback simple
+// Endpoint de evolución actualizado para nueva arquitectura (sin Math.random)
 router.get('/constitucion/evolucion', async (req, res) => {
   try {
-    console.log('📊 Solicitando evolución de PM2.5...');
+    console.log('📊 Solicitando evolución de PM2.5 (nueva arquitectura)...');
     
-    // Generar datos de fallback por ahora (como funcionaba el 11 de junio)
+    // Calcular las fechas que necesitamos: 5 días históricos + hoy + mañana
+    const fechas = [];
     const hoy = new Date();
-    const datosEmergencia = [];
     
-    for (let i = 5; i >= -1; i--) {
+    // 5 días históricos (desde hace 5 días hasta ayer)
+    for (let i = 5; i >= 1; i--) {
       const fecha = new Date();
       fecha.setDate(hoy.getDate() - i);
-      const fechaStr = fecha.toISOString().split('T')[0];
-      const tipo = i > 0 ? 'historico' : 'prediccion';
-      const valor = 15 + Math.random() * 10;
-      
-      const dato = {
-        fecha: fechaStr,
-        promedio_pm10: Math.round(valor * 100) / 100,
-        tipo: tipo,
-        estado: getEstadoPM25(valor)
-      };
-      
-      if (tipo === 'prediccion') {
-        dato.modelo = 'Modelo_0.0';
-        dato.roc_index = 0.65;
-      }
-      
-      datosEmergencia.push(dato);
+      fechas.push({
+        fecha: fecha.toISOString().split('T')[0],
+        tipo: 'historico'
+      });
     }
+    
+    // Hoy y mañana (predicciones)
+    fechas.push({
+      fecha: hoy.toISOString().split('T')[0],
+      tipo: 'prediccion'
+    });
+    
+    const manana = new Date();
+    manana.setDate(hoy.getDate() + 1);
+    fechas.push({
+      fecha: manana.toISOString().split('T')[0],
+      tipo: 'prediccion'
+    });
+    
+    console.log('📅 Fechas solicitadas:', fechas.map(f => `${f.fecha} (${f.tipo})`).join(', '));
+    
+    // 1. Consultar datos históricos (priorizar csv_historical)
+    const fechasHistoricas = fechas.filter(f => f.tipo === 'historico').map(f => f.fecha);
+    const historicos = await pool.query(`
+      SELECT DISTINCT ON (fecha) fecha, parametro, valor, estado, source
+      FROM promedios_diarios 
+      WHERE fecha::text = ANY($1) AND parametro = $2
+      ORDER BY fecha ASC, 
+        CASE source 
+          WHEN 'csv_historical' THEN 1
+          WHEN 'csv_historico' THEN 2  
+          WHEN 'mediciones_api' THEN 3
+          WHEN 'calculated' THEN 4
+          ELSE 5
+        END
+    `, [fechasHistoricas, 'pm25']);
+    
+    console.log(`📈 Datos históricos PM2.5 encontrados: ${historicos.rows.length} de ${fechasHistoricas.length}`);
+    
+    // 2. Consultar predicciones con el modelo activo
+    const fechasPredicciones = fechas.filter(f => f.tipo === 'prediccion').map(f => f.fecha);
+    const predicciones = await pool.query(`
+      SELECT p.fecha, p.valor, m.nombre_modelo, m.mae, m.roc_index
+      FROM predicciones p
+      JOIN modelos_prediccion m ON p.modelo_id = m.id
+      WHERE p.fecha::text = ANY($1) 
+        AND p.estacion_id = '6699'
+        AND p.parametro = 'pm25'
+        AND m.activo = true
+      ORDER BY p.fecha ASC
+    `, [fechasPredicciones]);
+    
+    console.log(`🔮 Predicciones encontradas: ${predicciones.rows.length} de ${fechasPredicciones.length}`);
+    
+    // 3. Combinar y completar datos faltantes
+    const datosCompletos = [];
+    let ultimoValorHistorico = null;
+    
+    fechas.forEach(fechaInfo => {
+      let datos = null;
+      
+      if (fechaInfo.tipo === 'historico') {
+        datos = historicos.rows.find(row => {
+          // Fix timezone: use local date components instead of ISO
+          const year = row.fecha.getFullYear();
+          const month = String(row.fecha.getMonth() + 1).padStart(2, '0');
+          const day = String(row.fecha.getDate()).padStart(2, '0');
+          const fechaLocal = `${year}-${month}-${day}`;
+          return fechaLocal === fechaInfo.fecha;
+        });
+        
+        if (datos) {
+          const resultado = {
+            fecha: fechaInfo.fecha,
+            promedio_pm10: parseFloat(datos.valor),
+            tipo: 'historico',
+            estado: datos.estado
+          };
+          datosCompletos.push(resultado);
+          ultimoValorHistorico = parseFloat(datos.valor); // Guardar para predicciones
+        }
+        // Si no hay dato histórico, simplemente no lo incluimos (NO Math.random)
+        
+      } else { // prediccion
+        datos = predicciones.rows.find(row => {
+          const year = row.fecha.getFullYear();
+          const month = String(row.fecha.getMonth() + 1).padStart(2, '0');
+          const day = String(row.fecha.getDate()).padStart(2, '0');
+          const fechaLocal = `${year}-${month}-${day}`;
+          return fechaLocal === fechaInfo.fecha;
+        });
+        
+        if (datos) {
+          datosCompletos.push({
+            fecha: fechaInfo.fecha,
+            promedio_pm10: parseFloat(datos.valor),
+            tipo: 'prediccion',
+            estado: getEstadoPM25(datos.valor),
+            modelo: datos.nombre_modelo,
+            mae: datos.mae ? parseFloat(datos.mae) : null,
+            roc_index: datos.roc_index ? parseFloat(datos.roc_index) : null
+          });
+        } else if (ultimoValorHistorico !== null) {
+          // Fallback inteligente: usar último valor histórico para predicciones (SIN Math.random)
+          datosCompletos.push({
+            fecha: fechaInfo.fecha,
+            promedio_pm10: ultimoValorHistorico,
+            tipo: 'prediccion',
+            estado: getEstadoPM25(ultimoValorHistorico),
+            modelo: 'Fallback_Ultimo_Historico',
+            mae: null,
+            roc_index: null
+          });
+        }
+        // Si no hay predicción ni último histórico, no incluimos nada (NO Math.random)
+      }
+    });
+    
+    console.log('✅ Datos completos generados:', datosCompletos.length);
     
     res.json({
       estacion: "Avenida Constitución",
-      datos: datosEmergencia,
-      total_dias: datosEmergencia.length,
-      fallback: true,
+      datos: datosCompletos,
+      total_dias: datosCompletos.length,
       generado_en: new Date().toISOString()
     });
     
