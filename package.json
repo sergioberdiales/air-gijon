@@ -17,6 +17,7 @@
     "create-manager": "node scripts/setup/create_manager.js",
     "migrate-predictions": "node scripts/migration/migrate_to_new_predictions.js",
     "populate-historical": "node scripts/maintenance/load_historical_data.js",
+    "populate-production": "node scripts/maintenance/populate_production_from_csv.js",
     "generate-historical": "node scripts/maintenance/generate_synthetic_hourly_data.js"
   },
   "keywords": [],

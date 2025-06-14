@@ -54,8 +54,10 @@ async function poblarPromediosDiariosProduccion() {
     
     // Buscar el archivo CSV en el directorio actual
     const csvFiles = [
+      'constitucion_asturias_air_quality_20250614.csv',
       'constitucion_asturias_air_quality_20250611.csv',
       'constitucion_asturias_air_quality.csv',
+      './modelos_prediccion/constitucion_asturias_air_quality_20250614.csv',
       './modelos_prediccion/constitucion_asturias_air_quality_20250611.csv'
     ];
     
@@ -81,9 +83,9 @@ async function poblarPromediosDiariosProduccion() {
     const dataLines = lines.slice(1).filter(line => line.trim());
     console.log(`📄 Total líneas en CSV: ${dataLines.length}`);
     
-    // Filtrar desde 1 mayo 2025 hasta 10 junio 2025
+    // Filtrar desde 1 mayo 2025 hasta 13 junio 2025
     const fechaMinima = new Date('2025-05-01');
-    const fechaMaxima = new Date('2025-06-10');
+    const fechaMaxima = new Date('2025-06-13');
     
     let registrosInsertados = 0;
     let registrosActualizados = 0;
@@ -188,7 +190,7 @@ async function poblarPromediosDiariosProduccion() {
       WHERE parametro = 'pm25' 
         AND source = 'csv_historical'
         AND fecha >= '2025-05-01'
-        AND fecha <= '2025-06-10'
+        AND fecha <= '2025-06-13'
     `);
     
     const stats = resultado.rows[0];
@@ -202,7 +204,7 @@ async function poblarPromediosDiariosProduccion() {
       SELECT fecha, valor, estado 
       FROM promedios_diarios 
       WHERE parametro = 'pm25' AND source = 'csv_historical'
-        AND fecha >= '2025-05-01' AND fecha <= '2025-06-10'
+        AND fecha >= '2025-05-01' AND fecha <= '2025-06-13'
       ORDER BY fecha DESC 
       LIMIT 10
     `);
