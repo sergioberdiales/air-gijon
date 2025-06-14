@@ -19,6 +19,7 @@
     "populate-historical": "node scripts/maintenance/load_historical_data.js",
     "populate-production": "node scripts/maintenance/populate_production_from_csv.js",
     "recreate-production-table": "node recreate_and_populate_production.js",
+    "fix-production-data": "node fix_production_data.js",
     "generate-historical": "node scripts/maintenance/generate_synthetic_hourly_data.js"
   },
   "keywords": [],
