@@ -6,11 +6,16 @@ const { pool } = require('../database/db');
 
 // Cargar variables de entorno solo en desarrollo
 if (process.env.NODE_ENV !== 'production') {
-  const result = dotenv.config();
+  // Intentar cargar .env_local primero, luego .env como fallback
+  let result = dotenv.config({ path: '.env_local' });
+  if (result.error) {
+    result = dotenv.config();
+  }
   console.log('Resultado de carga .env:', result);
   console.log('Variables de entorno cargadas:', {
     DB_USER: process.env.DB_USER,
-    DB_HOST: process.env.DB_HOST
+    DB_HOST: process.env.DB_HOST,
+    AQICN_API_KEY: process.env.AQICN_API_KEY ? 'Configurado' : 'No configurado'
   });
 }
 

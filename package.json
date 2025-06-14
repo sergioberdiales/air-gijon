@@ -11,7 +11,7 @@
     "postinstall": "pip3 install -r config/requirements.txt || echo 'Python dependencies install failed, but continuing...'",
     "update-aqicn": "node scripts/maintenance/update_aqicn.js",
     "cron-update": "node scripts/cron/cron_update.js",
-    "cron-predictions": "node scripts/cron/cron_predictions_fixed.js",
+    "cron-predictions": "node scripts/cron/cron_predictions.js",
     "update-promedios": "node scripts/maintenance/update_promedios.js",
     "stats": "node scripts/maintenance/stats.js",
     "create-manager": "node scripts/setup/create_manager.js",
@@ -30,6 +30,7 @@
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "jsonwebtoken": "^9.0.2",
+    "node-fetch": "^2.7.0",
     "nodemailer": "^6.9.15",
     "pg": "^8.12.0"
   },

@@ -2,17 +2,14 @@
 
 // Cargar variables de entorno para ejecución directa del cron
 if (process.env.NODE_ENV !== 'production') {
-  // Asumimos que tienes un .env_local o .env en la raíz para desarrollo
   try {
     require('dotenv').config({ path: require('path').resolve(process.cwd(), '.env_local') });
     console.log('📄 Variables de .env_local cargadas para el cron.');
     if (!process.env.MAIL_USER) {
-      // Si .env_local no existe o no tiene las variables, intenta con .env
       require('dotenv').config(); 
       console.log('📄 Variables de .env cargadas para el cron (fallback).');
     }
   } catch (e) {
-    // Si .env_local no existe, intenta con .env por defecto
     try {
         require('dotenv').config(); 
         console.log('📄 Variables de .env cargadas para el cron.');
@@ -23,8 +20,6 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 // Script para generar predicciones diarias usando LightGBM
-// Se ejecuta automáticamente para generar predicciones de PM2.5
-
 const { exec } = require('child_process');
 const { promisify } = require('util');
 const path = require('path');
@@ -33,8 +28,8 @@ const {
   getUsersForDailyPredictions, 
   createTables,      
   createIndexes      
-} = require('./db');
-const { sendNotificationEmail } = require('./mailer');
+} = require('../../src/database/db');
+const { sendNotificationEmail } = require('../../src/utils/mailer');
 
 const execAsync = promisify(exec);
 
@@ -59,7 +54,7 @@ function getEstadoOMS(pm25) {
 async function obtenerModeloActivo() {
   try {
     const result = await pool.query(`
-      SELECT id, nombre_modelo, roc_index
+      SELECT id, nombre_modelo, mae, roc_index
       FROM modelos_prediccion
       WHERE activo = true
       ORDER BY id DESC
@@ -85,37 +80,23 @@ async function ejecutarPrediccionesPython(fechaObjetivo) {
     const command = `python3 ${scriptPath} ${fechaObjetivo}`;
     
     const { stdout, stderr } = await execAsync(command, { 
-      timeout: 60000, // 60 segundos timeout
-      maxBuffer: 1024 * 1024 // 1MB buffer
+      timeout: 60000,
+      maxBuffer: 1024 * 1024
     });
     
     if (stderr && !stderr.includes('warnings.filterwarnings')) {
       console.warn('⚠️ Warning desde Python:', stderr);
     }
     
-    // Parsear JSON de la salida
-    const lines = stdout.trim().split('\n');
+    // Extraer JSON de forma simple y robusta
+    const lastBraceIndex = stdout.lastIndexOf('}');
+    const firstBraceIndex = stdout.indexOf('{');
     
-    // Buscar el JSON que empieza con { y termina con }
-    let jsonStart = -1;
-    let jsonEnd = -1;
-    
-    for (let i = 0; i < lines.length; i++) {
-      if (lines[i].trim().startsWith('{')) {
-        jsonStart = i;
-      }
-      if (lines[i].trim() === '}' && jsonStart >= 0) {
-        jsonEnd = i;
-        break;
-      }
-    }
-    
-    if (jsonStart === -1 || jsonEnd === -1) {
+    if (firstBraceIndex === -1 || lastBraceIndex === -1) {
       throw new Error('No se encontró JSON válido en la salida de Python');
     }
     
-    const jsonLines = lines.slice(jsonStart, jsonEnd + 1);
-    const jsonString = jsonLines.join('\n');
+    const jsonString = stdout.substring(firstBraceIndex, lastBraceIndex + 1);
     
     console.log('🔍 JSON encontrado:', jsonString.substring(0, 100) + '...');
     
@@ -126,12 +107,6 @@ async function ejecutarPrediccionesPython(fechaObjetivo) {
     
   } catch (error) {
     console.error('❌ Error ejecutando predicciones Python:', error);
-    
-    // Mostrar información detallada para debuggear
-    console.error('📝 Salida completa stdout:', stdout);
-    console.error('📝 Salida completa stderr:', stderr);
-    console.error('📝 Comando ejecutado:', command);
-    
     throw error;
   }
 }
@@ -176,18 +151,17 @@ async function inicializarBDParaCron() {
 
 async function generarPrediccionesDiarias() {
   try {
-    // Asegurar que la BD esté lista ANTES de cualquier otra operación
     await inicializarBDParaCron();
 
     console.log('🔮 Iniciando generación de predicciones diarias con LightGBM...');
     
     // 1. Obtener modelo activo
     const modelo = await obtenerModeloActivo();
-    console.log(`📊 Usando modelo: ${modelo.nombre_modelo} (ID: ${modelo.id}, ROC: ${modelo.roc_index})`);
+    console.log(`📊 Usando modelo: ${modelo.nombre_modelo} (ID: ${modelo.id}, MAE: ${modelo.mae} µg/m³)`);
     
     // 2. Ejecutar predicciones Python con LightGBM
     const hoy = new Date();
-    const fechaObjetivo = hoy.toISOString().split('T')[0]; // Hoy
+    const fechaObjetivo = hoy.toISOString().split('T')[0];
     
     console.log(`📅 Generando predicciones para objetivo: ${fechaObjetivo}`);
     const predictions = await ejecutarPrediccionesPython(fechaObjetivo);
@@ -195,9 +169,9 @@ async function generarPrediccionesDiarias() {
     console.log(`🤖 Modelo utilizado: ${predictions.modelo_info.tipo} con ${predictions.modelo_info.variables_utilizadas} variables`);
     
     // 3. Insertar predicciones en la base de datos
-    const estacionId = '6699'; // Avenida Constitución
+    const estacionId = '6699';
     const parametro = 'pm25';
-    const UMBRAL_ALERTA_PM25 = 25; // µg/m³ (Moderada o peor)
+    const UMBRAL_ALERTA_PM25 = 25;
     
     let prediccionesGeneradas = 0;
     let alertasEnviadas = 0;
@@ -244,7 +218,7 @@ async function generarPrediccionesDiarias() {
       if (pred.valor > UMBRAL_ALERTA_PM25) {
         console.log(`🔔 ALERTA: PM2.5 (${pred.valor} µg/m³) supera el umbral de ${UMBRAL_ALERTA_PM25} µg/m³ para el ${pred.fecha}`);
         
-        const usuariosSuscritos = await getUsersForDailyPredictions();
+        const usuariosSuscritos = await getUsersForDailyPredictions('alerts');
         
         if (usuariosSuscritos.length > 0) {
           console.log(`📨 Enviando alertas a ${usuariosSuscritos.length} usuarios...`);
@@ -261,8 +235,7 @@ Predicción generada por modelo ${predictions.modelo_info.tipo} el ${new Date(pr
 Para más detalles, visita la web.
 
 Saludos,
-Equipo Air Gijón.`
-          ;
+Equipo Air Gijón.`;
 
           for (const usuario of usuariosSuscritos) {
             await sendNotificationEmail(usuario.email, asunto, mensajeTexto);
