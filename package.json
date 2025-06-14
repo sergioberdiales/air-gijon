@@ -8,7 +8,16 @@
     "dev": "nodemon server.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "migrate": "node src/database/migrate.js",
-    "postinstall": "pip3 install -r config/requirements.txt || echo 'Python dependencies install failed, but continuing...'"
+    "postinstall": "pip3 install -r config/requirements.txt || echo 'Python dependencies install failed, but continuing...'",
+    "update-aqicn": "node scripts/maintenance/update_aqicn.js",
+    "cron-update": "node scripts/cron/cron_update.js",
+    "cron-predictions": "node scripts/cron/cron_predictions_fixed.js",
+    "update-promedios": "node scripts/maintenance/update_promedios.js",
+    "stats": "node scripts/maintenance/stats.js",
+    "create-manager": "node scripts/setup/create_manager.js",
+    "migrate-predictions": "node scripts/migration/migrate_to_new_predictions.js",
+    "populate-historical": "node scripts/maintenance/load_historical_data.js",
+    "generate-historical": "node scripts/maintenance/generate_synthetic_hourly_data.js"
   },
   "keywords": [],
   "author": "Sergio Berdiales Nortes",
