@@ -200,5 +200,22 @@ module.exports = {
   requireManager,
   registerUser,
   loginUser,
-  validateRegistrationData
+  validateRegistrationData,
+  ensureAdminUser
 }; 
+// Función para asegurar que existe un usuario admin en el sistema
+async function ensureAdminUser() {
+  try {
+    const adminEmail = 'admin@air-gijon.es';
+    const existingAdmin = await getUserByEmail(adminEmail);
+    if (existingAdmin) {
+      console.log('✅ Usuario admin ya existe');
+      return existingAdmin;
+    }
+    console.log('🔧 Creando usuario admin automáticamente...');
+    const result = await registerUser(adminEmail, 'AdminAirGijon2025!', 2, 'Admin Air Gijón');
+    return result;
+  } catch (error) {
+    console.error('❌ Error creando admin:', error);
+  }
+}
