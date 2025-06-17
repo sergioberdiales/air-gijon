@@ -40,10 +40,10 @@ router.get('/constitucion/pm25', async (req, res) => {
   }
 });
 
-// Endpoint de evolución actualizado para nueva arquitectura (sin Math.random)
+// Endpoint de evolución simplificado
 router.get('/constitucion/evolucion', async (req, res) => {
   try {
-    console.log('📊 Solicitando evolución de PM2.5 (nueva arquitectura)...');
+    console.log('📊 Solicitando evolución de PM2.5...');
     
     // Calcular las fechas que necesitamos: 5 días históricos + hoy + mañana
     const fechas = [];
@@ -74,7 +74,7 @@ router.get('/constitucion/evolucion', async (req, res) => {
     
     console.log('📅 Fechas solicitadas:', fechas.map(f => `${f.fecha} (${f.tipo})`).join(', '));
     
-    // 1. Consultar datos históricos (priorizar csv_historical)
+    // 1. Consultar datos históricos
     const fechasHistoricas = fechas.filter(f => f.tipo === 'historico').map(f => f.fecha);
     const historicos = await pool.query(`
       SELECT DISTINCT ON (fecha) fecha, parametro, valor, estado, source
@@ -92,11 +92,9 @@ router.get('/constitucion/evolucion', async (req, res) => {
     
     console.log(`📈 Datos históricos PM2.5 encontrados: ${historicos.rows.length} de ${fechasHistoricas.length}`);
     
-    // 2. Consultar predicciones con el modelo activo y mapeo correcto por horizontes
+    // 2. Consultar predicciones usando la misma lógica que send_daily_predictions.js
     const hoyStr = hoy.toISOString().split('T')[0];
-    const mananaStr = manana.toISOString().split('T')[0];
     
-    // Consultar predicciones con lógica de horizontes (igual que send_daily_predictions.js)
     const predicciones = await pool.query(`
       SELECT p.fecha, p.valor, p.horizonte_dias, m.nombre_modelo, m.mae
       FROM predicciones p
@@ -109,24 +107,21 @@ router.get('/constitucion/evolucion', async (req, res) => {
       ORDER BY p.horizonte_dias ASC
     `, [hoyStr]);
     
-    // Mapear predicciones correctamente por horizonte (igual que send_daily_predictions.js)
+    // Mapear predicciones por horizonte (igual que send_daily_predictions.js)
     const predHoy = predicciones.rows.find(row => row.horizonte_dias === 0);
     const predManana = predicciones.rows.find(row => row.horizonte_dias === 1);
     
-    console.log(`🔮 Predicciones encontradas: ${predicciones.rows.length} total`);
+    console.log(`🔮 Predicciones encontradas: ${predicciones.rows.length}`);
     if (predHoy) console.log(`   - Hoy (horizonte 0): ${predHoy.valor} µg/m³`);
     if (predManana) console.log(`   - Mañana (horizonte 1): ${predManana.valor} µg/m³`);
     
-    // 3. Combinar y completar datos faltantes
+    // 3. Combinar datos
     const datosCompletos = [];
-    let ultimoValorHistorico = null;
     
     fechas.forEach(fechaInfo => {
-      let datos = null;
-      
       if (fechaInfo.tipo === 'historico') {
-        datos = historicos.rows.find(row => {
-          // Fix timezone: use local date components instead of ISO
+        // Buscar dato histórico
+        const datos = historicos.rows.find(row => {
           const year = row.fecha.getFullYear();
           const month = String(row.fecha.getMonth() + 1).padStart(2, '0');
           const day = String(row.fecha.getDate()).padStart(2, '0');
@@ -135,58 +130,34 @@ router.get('/constitucion/evolucion', async (req, res) => {
         });
         
         if (datos) {
-          const resultado = {
-            fecha: fechaInfo.fecha,
-            promedio_pm25: parseFloat(datos.valor),
-            tipo: 'historico',
-            estado: datos.estado
-          };
-          datosCompletos.push(resultado);
-          ultimoValorHistorico = parseFloat(datos.valor); // Guardar para predicciones
-        }
-        // Si no hay dato histórico, simplemente no lo incluimos (NO Math.random)
-        
-      } else { // prediccion
-        // Usar mapeo correcto por horizonte, no por fecha
-        if (fechaInfo.fecha === hoyStr && predHoy) {
-                     // Hoy: usar predicción con horizonte_dias = 0
-           datosCompletos.push({
-             fecha: fechaInfo.fecha,
-             promedio_pm25: Math.round(parseFloat(predHoy.valor)),
-             tipo: 'prediccion',
-             estado: getEstadoPM25(predHoy.valor),
-             modelo: predHoy.nombre_modelo,
-             mae: predHoy.mae ? parseFloat(predHoy.mae) : null,
-             horizonte_dias: predHoy.horizonte_dias
-           });
-        } else if (fechaInfo.fecha === mananaStr && predManana) {
-                     // Mañana: usar predicción con horizonte_dias = 1
-           datosCompletos.push({
-             fecha: fechaInfo.fecha,
-             promedio_pm25: Math.round(parseFloat(predManana.valor)),
-             tipo: 'prediccion',
-             estado: getEstadoPM25(predManana.valor),
-             modelo: predManana.nombre_modelo,
-             mae: predManana.mae ? parseFloat(predManana.mae) : null,
-             horizonte_dias: predManana.horizonte_dias
-           });
-        } else if (ultimoValorHistorico !== null) {
-          // Fallback inteligente: usar último valor histórico para predicciones (SIN Math.random)
           datosCompletos.push({
             fecha: fechaInfo.fecha,
-            promedio_pm25: ultimoValorHistorico,
-            tipo: 'prediccion',
-            estado: getEstadoPM25(ultimoValorHistorico),
-            modelo: 'Fallback_Ultimo_Historico',
-            mae: null,
-            horizonte_dias: null
+            promedio_pm10: parseFloat(datos.valor), // Mantener nombre original para compatibilidad
+            tipo: 'historico',
+            estado: datos.estado
           });
         }
-        // Si no hay predicción ni último histórico, no incluimos nada (NO Math.random)
+      } else {
+        // Predicciones: usar mapeo por horizonte
+        if (fechaInfo.fecha === hoyStr && predHoy) {
+          datosCompletos.push({
+            fecha: fechaInfo.fecha,
+            promedio_pm10: Math.round(parseFloat(predHoy.valor)), // Mantener nombre original
+            tipo: 'prediccion',
+            estado: getEstadoPM25(predHoy.valor)
+          });
+        } else if (fechaInfo.fecha === manana.toISOString().split('T')[0] && predManana) {
+          datosCompletos.push({
+            fecha: fechaInfo.fecha,
+            promedio_pm10: Math.round(parseFloat(predManana.valor)), // Mantener nombre original
+            tipo: 'prediccion',
+            estado: getEstadoPM25(predManana.valor)
+          });
+        }
       }
     });
     
-    console.log('✅ Datos completos generados:', datosCompletos.length);
+    console.log(`✅ Datos completos generados: ${datosCompletos.length}`);
     
     res.json({
       estacion: "Avenida Constitución",
