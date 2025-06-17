@@ -221,35 +221,62 @@ function getAlertTemplate(alertData) {
 
   const content = `
     <p>Hola ${userName || 'usuario'},</p>
-    <div style="background-color: #fff3cd; border: 1px solid #ffeaa7; padding: 20px; border-radius: 8px; margin: 20px 0;">
-      <p><strong>Se ha detectado un cambio significativo en la calidad del aire en la estación ${estacion}:</strong></p>
-    </div>
-
-    <div class="metric">
-      <div class="value">${valor}</div>
-      <div class="unit">µg/m³ PM2.5</div>
-    </div>
     
-    <div class="quality-badge" style="background-color: ${color.color}; color: white; padding: 8px 16px; border-radius: 20px; display: inline-block; font-weight: bold; margin: 10px 0;">
-      ${estado}
+    <!-- Alerta destacada de PM2.5 -->
+    <div style="background-color: #fee2e2; border: 2px solid #dc2626; padding: 25px; border-radius: 12px; margin: 25px 0; text-align: center;">
+      <div style="background-color: #dc2626; color: white; padding: 8px 20px; border-radius: 20px; display: inline-block; font-weight: bold; font-size: 16px; margin-bottom: 15px;">
+        🚨 ALERTA PM2.5
+      </div>
+      <p style="font-size: 18px; font-weight: bold; margin: 10px 0; color: #dc2626;">
+        Los niveles de <strong>partículas PM2.5</strong> han superado el umbral de seguridad
+      </p>
+      <p style="font-size: 16px; margin: 5px 0; color: #7f1d1d;">
+        Estación: <strong>${estacion}</strong>
+      </p>
     </div>
 
-    <p style="margin-top:10px; font-size:0.9em;">${comment}</p>
+    <!-- Valor destacado con PM2.5 muy visible -->
+    <div style="text-align: center; margin: 30px 0;">
+      <div style="background-color: #f8fafc; border: 3px solid ${color.color}; border-radius: 15px; padding: 25px; display: inline-block; min-width: 250px;">
+        <div style="font-size: 14px; font-weight: bold; color: #64748b; margin-bottom: 5px; letter-spacing: 1px;">
+          CONCENTRACIÓN ACTUAL
+        </div>
+        <div style="font-size: 48px; font-weight: bold; color: ${color.color}; line-height: 1; margin: 10px 0;">
+          ${valor}
+        </div>
+        <div style="font-size: 20px; font-weight: bold; color: #1e293b; margin-bottom: 15px;">
+          µg/m³ <span style="background-color: ${color.color}; color: white; padding: 4px 12px; border-radius: 8px; font-size: 16px;">PM2.5</span>
+        </div>
+        <div style="background-color: ${color.color}; color: white; padding: 10px 20px; border-radius: 25px; font-weight: bold; font-size: 16px;">
+          ${estado}
+        </div>
+      </div>
+    </div>
 
-    <p><strong>Estación:</strong> ${estacion}</p>
-    <p><strong>Fecha y hora:</strong> ${new Date(fecha).toLocaleString('es-ES')}</p>
+    <!-- Información sobre PM2.5 -->
+    <div style="background-color: #f1f5f9; border-left: 4px solid #0075FF; padding: 20px; margin: 25px 0; border-radius: 0 8px 8px 0;">
+      <h3 style="margin: 0 0 10px 0; color: #0052B2; font-size: 18px;">¿Qué son las partículas PM2.5?</h3>
+      <p style="margin: 0; font-size: 14px; color: #475569;">
+        Las PM2.5 son partículas muy pequeñas (≤2.5 micrómetros) que pueden penetrar profundamente en los pulmones y el torrente sanguíneo, representando el mayor riesgo para la salud.
+      </p>
+    </div>
 
-    <p style="margin-top:15px; font-size:0.9em;">Esta alerta se envía como máximo una vez al día. Te recomendamos seguir la evolución de los niveles en la aplicación.</p>
+    <p style="font-size: 16px; font-weight: 500; color: #1e293b;">${comment}</p>
+
+    <div style="background-color: #fef3c7; border: 1px solid #f59e0b; padding: 15px; border-radius: 8px; margin: 20px 0;">
+      <p style="margin: 0; font-size: 14px;"><strong>📅 Fecha y hora:</strong> ${new Date(fecha).toLocaleString('es-ES')}</p>
+      <p style="margin: 5px 0 0 0; font-size: 13px; color: #92400e;">Esta alerta se envía como máximo una vez al día cuando PM2.5 > 50 µg/m³</p>
+    </div>
 
     <div style="text-align: center; margin-top: 30px;">
-      <a href="${frontendBaseUrl}" class="button">
-        Ver Detalles en la Web
+      <a href="${frontendBaseUrl}" class="button" style="font-size: 16px; padding: 15px 30px;">
+        📊 Ver Evolución de PM2.5 en Tiempo Real
       </a>
     </div>
   `;
 
   return getBaseEmailTemplate(
-    '🚨 Alerta de Calidad del Aire - Air Gijón',
+    '🚨 ALERTA PM2.5 - Niveles Elevados en Gijón',
     content,
     '<p>Puedes gestionar tus <a href="' + frontendBaseUrl + '/cuenta">preferencias de notificación</a>.</p>'
   );
@@ -443,7 +470,7 @@ async function sendAirQualityAlert(userEmail, userName, alertData, userId) {
   const htmlContent = getAlertTemplate(enrichedAlertData);
   return sendEmail(
     userEmail, 
-    `🚨 Alerta de Calidad del Aire: ${alertData.estado} en ${alertData.estacion}`, 
+    `🚨 ALERTA PM2.5: ${alertData.valor} µg/m³ (${alertData.estado}) - Gijón`, 
     htmlContent, 
     userId, 
     'pm25_alert', 

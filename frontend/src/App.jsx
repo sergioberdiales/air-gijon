@@ -113,7 +113,7 @@ function AppContent() {
                 <div className="alert-types-section">
                   <h3>Tipos de Alertas Disponibles:</h3>
                   <ul className="alert-types-list">
-                    <li><strong>Alertas Automáticas:</strong> Cuando PM2.5 &gt; 50 μg/m³</li>
+                    <li><strong>🚨 Alertas Críticas:</strong> Solo cuando PM2.5 &gt; 50 μg/m³ (máximo 1 por día)</li>
                     <li><strong>Predicciones Diarias:</strong> Enviadas cada mañana a las 8:00</li>
                     <li><strong>Cambios Significativos:</strong> Cuando la calidad mejora o empeora bruscamente</li>
                   </ul>

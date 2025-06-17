@@ -80,6 +80,14 @@ async function sendHighPM25Alerts() {
       return;
     }
     
+    // CRÍTICO: Solo enviar alertas si realmente supera el umbral
+    if (!alertData.esAlerta) {
+      console.log(`✅ PM2.5 (${alertData.valor} µg/m³) está dentro del rango normal (≤${ALERT_THRESHOLD} µg/m³). No se envían alertas.`);
+      return;
+    }
+    
+    console.log(`🚨 PM2.5 (${alertData.valor} µg/m³) supera el umbral de ${ALERT_THRESHOLD} µg/m³. Procediendo con alertas...`);
+    
     // Obtener usuarios suscritos a alertas
     const users = await getUsersForDailyPredictions('alerts');
     
