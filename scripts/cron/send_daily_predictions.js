@@ -4,7 +4,7 @@
 require('dotenv').config({ path: require('path').resolve(process.cwd(), 'config/.env_local') });
 
 const { pool, getUsersForDailyPredictions } = require('../../src/database/db');
-const { sendDailyPredictions } = require('../../src/services/email_service');
+const { sendDailyPredictions, sendAdminReport } = require('../../src/services/email_service');
 
 /**
  * Script para enviar predicciones diarias por correo
@@ -24,8 +24,7 @@ async function getDailyPredictions() {
         p.fecha,
         p.valor,
         p.horizonte_dias,
-        m.nombre_modelo,
-        m.roc_index
+        m.nombre_modelo
       FROM predicciones p
       JOIN modelos_prediccion m ON p.modelo_id = m.id
       WHERE p.fecha >= $1 
@@ -61,14 +60,12 @@ async function getDailyPredictions() {
         fecha: predHoy.fecha,
         valor: Math.round(predHoy.valor),
         modelo: predHoy.nombre_modelo,
-        roc_index: predHoy.roc_index,
         horizonte_dias: predHoy.horizonte_dias
       },
       manana: {
         fecha: predManana.fecha,
         valor: Math.round(predManana.valor),
         modelo: predManana.nombre_modelo,
-        roc_index: predManana.roc_index,
         horizonte_dias: predManana.horizonte_dias
       }
     };
@@ -80,6 +77,8 @@ async function getDailyPredictions() {
 }
 
 async function sendDailyPredictionEmails() {
+  const startTime = Date.now();
+  
   try {
     console.log('🌅 Iniciando envío de predicciones diarias...');
     
@@ -87,6 +86,20 @@ async function sendDailyPredictionEmails() {
     const predictions = await getDailyPredictions();
     if (!predictions) {
       console.log('❌ No hay predicciones disponibles. Cancelando envío.');
+      
+      // Enviar reporte de error al administrador
+      const errorReportData = {
+        fecha: new Date().toLocaleDateString('es-ES'),
+        totalUsuarios: 0,
+        exitosos: 0,
+        fallidos: 0,
+        errores: [{ email: 'Sistema', error: 'No hay predicciones disponibles' }],
+        prediccionHoy: { valor: 'N/A', fecha: 'N/A', modelo: 'N/A' },
+        prediccionManana: { valor: 'N/A', fecha: 'N/A', modelo: 'N/A' },
+        tiempoEjecucion: `${Math.round((Date.now() - startTime) / 1000)}s`
+      };
+      
+      await sendAdminReport(errorReportData);
       return;
     }
     
@@ -95,6 +108,20 @@ async function sendDailyPredictionEmails() {
     
     if (users.length === 0) {
       console.log('📭 No hay usuarios suscritos a predicciones diarias.');
+      
+      // Enviar reporte al administrador indicando que no hay usuarios
+      const noUsersReportData = {
+        fecha: new Date().toLocaleDateString('es-ES'),
+        totalUsuarios: 0,
+        exitosos: 0,
+        fallidos: 0,
+        errores: [],
+        prediccionHoy: predictions.hoy,
+        prediccionManana: predictions.manana,
+        tiempoEjecucion: `${Math.round((Date.now() - startTime) / 1000)}s`
+      };
+      
+      await sendAdminReport(noUsersReportData);
       return;
     }
     
@@ -129,13 +156,29 @@ async function sendDailyPredictionEmails() {
     // Verificar si el envío fue exitoso
     if (!results) {
       console.log('❌ Error en el servicio de email. No se pudieron enviar predicciones.');
+      
+      // Enviar reporte de error al administrador
+      const errorReportData = {
+        fecha: new Date().toLocaleDateString('es-ES'),
+        totalUsuarios: users.length,
+        exitosos: 0,
+        fallidos: users.length,
+        errores: [{ email: 'Sistema', error: 'Error en el servicio de email' }],
+        prediccionHoy: predictions.hoy,
+        prediccionManana: predictions.manana,
+        tiempoEjecucion: `${Math.round((Date.now() - startTime) / 1000)}s`
+      };
+      
+      await sendAdminReport(errorReportData);
       return;
     }
     
-    // Mostrar resumen
+    // Procesar resultados
     const exitosos = results.filter(r => r.status === 'enviado').length;
     const fallidos = results.filter(r => r.status === 'error').length;
+    const errores = results.filter(r => r.status === 'error');
     
+    // Mostrar resumen en consola
     console.log(`\n📊 Resumen del envío:`);
     console.log(`   ✅ Exitosos: ${exitosos}`);
     console.log(`   ❌ Fallidos: ${fallidos}`);
@@ -143,13 +186,48 @@ async function sendDailyPredictionEmails() {
     
     if (fallidos > 0) {
       console.log('\n❌ Errores detectados:');
-      results.filter(r => r.status === 'error').forEach(r => {
+      errores.forEach(r => {
         console.log(`   ${r.email}: ${r.error}`);
       });
     }
     
+    // Preparar y enviar reporte al administrador
+    const reportData = {
+      fecha: new Date().toLocaleDateString('es-ES'),
+      totalUsuarios: users.length,
+      exitosos: exitosos,
+      fallidos: fallidos,
+      errores: errores,
+      prediccionHoy: predictions.hoy,
+      prediccionManana: predictions.manana,
+      tiempoEjecucion: `${Math.round((Date.now() - startTime) / 1000)}s`
+    };
+    
+    console.log('📧 Enviando reporte al administrador...');
+    await sendAdminReport(reportData);
+    console.log('✅ Reporte de administrador enviado');
+    
   } catch (error) {
     console.error('❌ Error en el proceso de envío:', error);
+    
+    // Enviar reporte de error crítico al administrador
+    const criticalErrorReportData = {
+      fecha: new Date().toLocaleDateString('es-ES'),
+      totalUsuarios: 'Error',
+      exitosos: 0,
+      fallidos: 'Error',
+      errores: [{ email: 'Sistema', error: `Error crítico: ${error.message}` }],
+      prediccionHoy: { valor: 'Error', fecha: 'Error', modelo: 'Error' },
+      prediccionManana: { valor: 'Error', fecha: 'Error', modelo: 'Error' },
+      tiempoEjecucion: `${Math.round((Date.now() - startTime) / 1000)}s`
+    };
+    
+    try {
+      await sendAdminReport(criticalErrorReportData);
+    } catch (reportError) {
+      console.error('❌ Error enviando reporte de error crítico:', reportError);
+    }
+    
     throw error;
   }
 }

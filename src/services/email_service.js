@@ -387,8 +387,8 @@ async function sendDailyPredictions(usersWithPredictions) {
     
     // Formatear fechas si es necesario (asumiendo que ya vienen formateadas o son objetos Date)
     const predictionDetails = {
-      hoy: { valor: hoy.valor, modelo: hoy.modelo, roc_index: hoy.roc_index },
-      manana: { valor: manana.valor, modelo: manana.modelo, roc_index: manana.roc_index },
+      hoy: { valor: hoy.valor, modelo: hoy.modelo },
+      manana: { valor: manana.valor, modelo: manana.modelo },
       fechaHoyFormat: fecha_hoy_format || new Date(hoy.fecha).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' }),
       fechaMananaFormat: fecha_manana_format || new Date(manana.fecha).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' }),
       userName: user_name
@@ -468,6 +468,78 @@ async function sendPasswordResetEmail(to, userName, resetLink, userId) {
   return result;
 }
 
+// Plantilla para reporte de administrador
+function getAdminReportTemplate(reportData) {
+  const { 
+    fecha, 
+    totalUsuarios, 
+    exitosos, 
+    fallidos, 
+    errores, 
+    prediccionHoy, 
+    prediccionManana,
+    tiempoEjecucion 
+  } = reportData;
+
+  const content = `
+    <h2>📊 Reporte Diario - Envío de Predicciones</h2>
+    
+    <p><strong>Fecha:</strong> ${fecha}</p>
+    <p><strong>Tiempo de ejecución:</strong> ${tiempoEjecucion}</p>
+    
+    <div class="prediction-card">
+      <h3>📈 Predicciones Enviadas</h3>
+      <p><strong>Hoy:</strong> ${prediccionHoy.valor} µg/m³ PM2.5 (${prediccionHoy.fecha})</p>
+      <p><strong>Mañana:</strong> ${prediccionManana.valor} µg/m³ PM2.5 (${prediccionManana.fecha})</p>
+      <p><strong>Modelo:</strong> ${prediccionHoy.modelo}</p>
+    </div>
+
+    <div class="prediction-card">
+      <h3>📧 Resultados del Envío</h3>
+      <p><strong>Total usuarios suscritos:</strong> ${totalUsuarios}</p>
+      <p><strong>✅ Envíos exitosos:</strong> ${exitosos}</p>
+      <p><strong>❌ Envíos fallidos:</strong> ${fallidos}</p>
+      <p><strong>📊 Tasa de éxito:</strong> ${totalUsuarios > 0 ? Math.round((exitosos / totalUsuarios) * 100) : 0}%</p>
+    </div>
+
+    ${errores.length > 0 ? `
+    <div style="background-color: #fff3cd; border: 1px solid #ffeaa7; padding: 20px; border-radius: 8px; margin: 20px 0;">
+      <h3>⚠️ Errores Detectados</h3>
+      <ul>
+        ${errores.map(error => `<li><strong>${error.email}:</strong> ${error.error}</li>`).join('')}
+      </ul>
+    </div>
+    ` : '<div style="background-color: #d4edda; border: 1px solid #c3e6cb; padding: 20px; border-radius: 8px; margin: 20px 0;"><p><strong>✅ Sin errores detectados</strong></p></div>'}
+  `;
+
+  return getBaseEmailTemplate(
+    '📊 Reporte Diario - Air Gijón Admin',
+    content,
+    '<p>Este es un reporte automático del sistema de predicciones diarias.</p>'
+  );
+}
+
+// Enviar reporte de administrador
+async function sendAdminReport(reportData) {
+  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+    console.error('❌ Faltan credenciales de email. No se enviará reporte de administrador.');
+    return { success: false, error: 'Missing email credentials' };
+  }
+
+  const adminEmail = 'airgijon@gmail.com';
+  const htmlContent = getAdminReportTemplate(reportData);
+  const subject = `📊 Reporte Diario - Predicciones ${reportData.fecha}`;
+  
+  try {
+    const result = await sendEmail(adminEmail, subject, htmlContent, null, 'admin_report');
+    console.log(`📧 Reporte de administrador enviado a ${adminEmail}`);
+    return result;
+  } catch (error) {
+    console.error(`❌ Error enviando reporte de administrador:`, error);
+    return { success: false, error: error.message };
+  }
+}
+
 // Comentarios según los rangos oficiales de la OMS para PM2.5
 function getOmsComment(pm25) {
   if (pm25 <= 15) {
@@ -490,10 +562,12 @@ module.exports = {
   sendAirQualityAlert,
   sendConfirmationEmail,
   sendPasswordResetEmail,
+  sendAdminReport,
   getDailyPredictionTemplate,
   getAlertTemplate,
   getWelcomeTemplate,
   getConfirmationTemplate,
   getPasswordResetTemplate,
+  getAdminReportTemplate,
   getOmsComment
 };
