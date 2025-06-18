@@ -191,31 +191,46 @@ router.put('/users/:userId/notifications', async (req, res) => {
     const { userId } = req.params;
     const { email_alerts, daily_predictions } = req.body;
 
-    console.log('🔔 Actualizando notificaciones:', { userId, email_alerts, daily_predictions });
+    console.log('🔔 Admin: Actualizando notificaciones:', { userId, email_alerts, daily_predictions });
 
+    // Validación de entrada
     if (typeof email_alerts !== 'boolean' || typeof daily_predictions !== 'boolean') {
+      console.error('❌ Admin: Tipos de datos incorrectos:', { email_alerts, daily_predictions });
       return res.status(400).json({
         success: false,
         error: 'email_alerts y daily_predictions deben ser valores booleanos'
       });
     }
 
-    const result = await updateUserNotifications(userId, email_alerts, daily_predictions);
-    
-    if (!result.success) {
-      return res.status(404).json({
+    // Validar que el userId sea un número válido
+    const userIdNum = parseInt(userId);
+    if (isNaN(userIdNum) || userIdNum <= 0) {
+      console.error('❌ Admin: ID de usuario inválido:', userId);
+      return res.status(400).json({
         success: false,
-        error: result.error || 'Usuario no encontrado'
+        error: 'ID de usuario inválido'
       });
     }
 
+    const result = await updateUserNotifications(userIdNum, email_alerts, daily_predictions);
+    
+    console.log('✅ Admin: Notificaciones actualizadas exitosamente:', result);
+    
     res.json({
       success: true,
       message: 'Notificaciones actualizadas exitosamente',
-      user: result.user
+      user: result
     });
   } catch (error) {
-    console.error('❌ Error actualizando notificaciones:', error);
+    console.error('❌ Admin: Error actualizando notificaciones:', error);
+    
+    if (error.message === 'Usuario no encontrado') {
+      return res.status(404).json({
+        success: false,
+        error: 'Usuario no encontrado'
+      });
+    }
+    
     res.status(500).json({
       success: false,
       error: 'Error interno del servidor'

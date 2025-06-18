@@ -87,21 +87,25 @@ const AdminDashboard = () => {
     }
   };
 
-  // Función para cambiar rol de usuario
+  // Función para cambiar el rol de un usuario
   const changeUserRole = async (userId, newRoleId) => {
-    console.log('🔄 Cambiando rol:', { userId, newRoleId });
+    console.log('🔄 Cambiando rol de usuario:', { userId, newRoleId });
+    
+    // Convertir userId a número para comparación consistente
+    const userIdNum = parseInt(userId);
     
     // Actualización optimista
+    const originalUsers = [...users];
     setUsers(prevUsers => 
       prevUsers.map(u => 
-        u.id === userId 
-          ? { ...u, role_id: newRoleId, role_name: newRoleId === 2 ? 'admin' : 'user' }
+        u.id === userIdNum 
+          ? { ...u, role_id: newRoleId }
           : u
       )
     );
     
     try {
-      const response = await fetch(`${config.API_BASE}/api/admin/users/${userId}/role`, {
+      const response = await fetch(`${config.API_BASE}/api/admin/users/${userIdNum}/role`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -110,32 +114,33 @@ const AdminDashboard = () => {
         body: JSON.stringify({ role_id: newRoleId })
       });
 
-      console.log('📊 Response status:', response.status);
+      console.log('📊 Role change response status:', response.status);
       
       if (response.ok) {
         const data = await response.json();
-        console.log('✅ Rol cambiado exitosamente:', data);
+        console.log('✅ Rol actualizado exitosamente:', data);
+        setError(null); // Limpiar cualquier error previo
         
         // Actualizar con datos reales del servidor
         setUsers(prevUsers => 
           prevUsers.map(u => 
-            u.id === userId ? { ...u, ...data.user } : u
+            u.id === userIdNum ? { ...u, ...data.user } : u
           )
         );
       } else {
-        const errorText = await response.text();
-        console.error('❌ Error cambiando rol:', errorText);
-        setError('Error cambiando rol de usuario');
+        const errorData = await response.json().catch(() => ({ error: 'Error desconocido' }));
+        console.error('❌ Error cambiando rol:', errorData);
+        setError(errorData.error || 'Error cambiando rol de usuario');
         
         // Revertir cambio optimista
-        fetchUsers();
+        setUsers(originalUsers);
       }
     } catch (err) {
       console.error('❌ Error de conexión:', err);
-      setError('Error de conexión');
+      setError('Error de conexión al cambiar rol');
       
       // Revertir cambio optimista
-      fetchUsers();
+      setUsers(originalUsers);
     }
   };
 
@@ -147,12 +152,15 @@ const AdminDashboard = () => {
     
     console.log('🗑️ Eliminando usuario:', userId);
     
+    // Convertir userId a número para comparación consistente
+    const userIdNum = parseInt(userId);
+    
     // Actualización optimista - remover de la lista
     const originalUsers = [...users];
-    setUsers(prevUsers => prevUsers.filter(u => u.id !== userId));
+    setUsers(prevUsers => prevUsers.filter(u => u.id !== userIdNum));
     
     try {
-      const response = await fetch(`${config.API_BASE}/api/admin/users/${userId}`, {
+      const response = await fetch(`${config.API_BASE}/api/admin/users/${userIdNum}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -190,19 +198,29 @@ const AdminDashboard = () => {
     
     console.log('📧 Cambiando alertas de email:', { userId, newValue });
     
+    // Convertir userId a número para comparación consistente
+    const userIdNum = parseInt(userId);
+    
     // Actualización optimista
     const originalUsers = [...users];
     setUsers(prevUsers => 
       prevUsers.map(u => 
-        u.id === userId 
+        u.id === userIdNum 
           ? { ...u, email_alerts: newValue }
           : u
       )
     );
     
     try {
-      const user = users.find(u => u.id === userId);
-      const response = await fetch(`${config.API_BASE}/api/admin/users/${userId}/notifications`, {
+      const user = users.find(u => u.id === userIdNum);
+      if (!user) {
+        console.error('❌ Usuario no encontrado en el array local:', userIdNum);
+        setError('Usuario no encontrado en el sistema');
+        setUsers(originalUsers);
+        return;
+      }
+      
+      const response = await fetch(`${config.API_BASE}/api/admin/users/${userIdNum}/notifications`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -222,7 +240,7 @@ const AdminDashboard = () => {
         // Actualizar con datos reales del servidor
         setUsers(prevUsers => 
           prevUsers.map(u => 
-            u.id === userId ? { ...u, ...data.user } : u
+            u.id === userIdNum ? { ...u, ...data.user } : u
           )
         );
       } else {
@@ -247,19 +265,29 @@ const AdminDashboard = () => {
     
     console.log('📊 Cambiando predicciones diarias:', { userId, newValue });
     
+    // Convertir userId a número para comparación consistente
+    const userIdNum = parseInt(userId);
+    
     // Actualización optimista
     const originalUsers = [...users];
     setUsers(prevUsers => 
       prevUsers.map(u => 
-        u.id === userId 
+        u.id === userIdNum 
           ? { ...u, daily_predictions: newValue }
           : u
       )
     );
     
     try {
-      const user = users.find(u => u.id === userId);
-      const response = await fetch(`${config.API_BASE}/api/admin/users/${userId}/notifications`, {
+      const user = users.find(u => u.id === userIdNum);
+      if (!user) {
+        console.error('❌ Usuario no encontrado en el array local:', userIdNum);
+        setError('Usuario no encontrado en el sistema');
+        setUsers(originalUsers);
+        return;
+      }
+      
+      const response = await fetch(`${config.API_BASE}/api/admin/users/${userIdNum}/notifications`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -279,7 +307,7 @@ const AdminDashboard = () => {
         // Actualizar con datos reales del servidor
         setUsers(prevUsers => 
           prevUsers.map(u => 
-            u.id === userId ? { ...u, ...data.user } : u
+            u.id === userIdNum ? { ...u, ...data.user } : u
           )
         );
       } else {
