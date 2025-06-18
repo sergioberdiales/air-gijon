@@ -518,4 +518,214 @@ python daily_predictions.py 2025-06-15
 
 ---
 
-*Documentación generada para Air Gijón - Sistema de Predicciones PM2.5* 
+## 🔧 **INTEGRACIÓN Y CONSUMO DE PREDICCIONES**
+
+### **⚠️ IMPORTANTE: MAPEO POR HORIZONTE_DIAS**
+
+**REGLA CRÍTICA**: Las predicciones se deben mapear por `horizonte_dias`, **NO por fecha**.
+
+#### **❌ INCORRECTO - Mapeo por fecha:**
+```javascript
+// MAL: Asumir que fecha determina si es hoy o mañana
+const predHoy = predicciones.find(row => row.fecha === fechaHoy);
+const predManana = predicciones.find(row => row.fecha === fechaManana);
+```
+
+**Problema**: Las fechas pueden no coincidir con el día real debido a zonas horarias, delays en ejecución, etc.
+
+#### **✅ CORRECTO - Mapeo por horizonte:**
+```javascript
+// BIEN: Usar horizonte_dias como referencia
+const predHoy = predicciones.find(row => row.horizonte_dias === 0);
+const predManana = predicciones.find(row => row.horizonte_dias === 1);
+```
+
+**¿Por qué es correcto?**
+- `horizonte_dias = 0` → Siempre es la predicción para "hoy"
+- `horizonte_dias = 1` → Siempre es la predicción para "mañana"
+- Independiente de fechas, zonas horarias o delays
+
+### **📝 CONSULTA SQL ESTÁNDAR PARA PREDICCIONES**
+
+**Template obligatorio para todos los componentes que consuman predicciones:**
+
+```sql
+SELECT p.fecha, p.valor, p.horizonte_dias, m.nombre_modelo, m.mae
+FROM predicciones p
+JOIN modelos_prediccion m ON p.modelo_id = m.id
+WHERE p.fecha >= $1                    -- Fecha base (normalmente hoy)
+  AND p.estacion_id = '6699'           -- Estación Avenida Constitución
+  AND p.parametro = 'pm25'             -- Parámetro PM2.5
+  AND m.activo = true                  -- Solo modelo activo
+  AND p.horizonte_dias IN (0, 1)       -- CRÍTICO: Solo hoy y mañana
+ORDER BY p.horizonte_dias ASC          -- Ordenar por horizonte
+```
+
+**Campos obligatorios en el WHERE:**
+- `p.horizonte_dias IN (0, 1)` → Filtro crítico para predicciones relevantes
+- `m.activo = true` → Solo modelo en producción
+- `p.estacion_id = '6699'` → Estación específica
+- `p.parametro = 'pm25'` → Parámetro específico
+
+### **🔄 PATRÓN DE PROCESAMIENTO ESTÁNDAR**
+
+```javascript
+async function obtenerPredicciones() {
+  // 1. CONSULTA UNIFICADA
+  const result = await pool.query(`
+    SELECT p.fecha, p.valor, p.horizonte_dias, m.nombre_modelo, m.mae
+    FROM predicciones p
+    JOIN modelos_prediccion m ON p.modelo_id = m.id
+    WHERE p.fecha >= $1
+      AND p.estacion_id = '6699'
+      AND p.parametro = 'pm25'
+      AND m.activo = true
+      AND p.horizonte_dias IN (0, 1)
+    ORDER BY p.horizonte_dias ASC
+  `, [fechaBase]);
+  
+  // 2. MAPEO POR HORIZONTE (NO POR FECHA)
+  const predHoy = result.rows.find(row => row.horizonte_dias === 0);
+  const predManana = result.rows.find(row => row.horizonte_dias === 1);
+  
+  // 3. VALIDACIÓN
+  if (!predHoy || !predManana) {
+    console.error('❌ Predicciones incompletas');
+    return null;
+  }
+  
+  // 4. FORMATEO CONSISTENTE
+  return {
+    hoy: {
+      fecha: predHoy.fecha,
+      valor: Math.round(parseFloat(predHoy.valor)),  // Redondeo consistente
+      modelo: predHoy.nombre_modelo,
+      horizonte_dias: predHoy.horizonte_dias
+    },
+    manana: {
+      fecha: predManana.fecha,
+      valor: Math.round(parseFloat(predManana.valor)), // Redondeo consistente
+      modelo: predManana.nombre_modelo,
+      horizonte_dias: predManana.horizonte_dias
+    }
+  };
+}
+```
+
+### **📊 COMPONENTES QUE USAN PREDICCIONES**
+
+#### **1. Sistema de Email (`send_daily_predictions.js`)**
+- ✅ **Estado**: Implementación correcta
+- **Uso**: Envío diario de predicciones a usuarios
+- **Patrón**: Mapeo por horizonte_dias
+
+#### **2. API Web (`/api/air/constitucion/evolucion`)**
+- ✅ **Estado**: Corregido (17 junio 2025)
+- **Uso**: Frontend de evolución PM2.5
+- **Patrón**: Mapeo por horizonte_dias
+
+#### **3. Futuras Integraciones**
+Para cualquier nuevo componente que consuma predicciones:
+- Usar la **consulta SQL estándar**
+- Mapear por **horizonte_dias**
+- Aplicar **redondeo consistente**
+- Validar **predicciones completas**
+
+### **⚙️ TESTING Y VALIDACIÓN**
+
+#### **Test de Consistencia entre Componentes:**
+```javascript
+async function testConsistenciaPredicciones() {
+  // Obtener predicciones del sistema email
+  const emailPreds = await getDailyPredictions();
+  
+  // Obtener predicciones del sistema web
+  const webResponse = await fetch('/api/air/constitucion/evolucion');
+  const webData = await webResponse.json();
+  const webPreds = webData.datos.filter(d => d.tipo === 'prediccion');
+  
+  // Verificar valores idénticos
+  const emailHoy = emailPreds.hoy.valor;
+  const webHoy = webPreds.find(p => p.fecha === emailPreds.hoy.fecha)?.promedio_pm10;
+  
+  if (emailHoy !== webHoy) {
+    console.error(`❌ Inconsistencia detectada: Email=${emailHoy}, Web=${webHoy}`);
+  } else {
+    console.log(`✅ Consistencia verificada: ${emailHoy} µg/m³`);
+  }
+}
+```
+
+### **🚨 ERRORES COMUNES A EVITAR**
+
+#### **1. Mapeo por Fecha en lugar de Horizonte**
+```javascript
+// ❌ MAL
+const predHoy = result.rows.find(row => row.fecha === hoyStr);
+
+// ✅ BIEN  
+const predHoy = result.rows.find(row => row.horizonte_dias === 0);
+```
+
+#### **2. Consulta sin Filtro de Horizonte**
+```sql
+-- ❌ MAL: Puede devolver predicciones de días lejanos
+WHERE p.fecha >= $1 AND p.parametro = 'pm25'
+
+-- ✅ BIEN: Solo predicciones relevantes
+WHERE p.fecha >= $1 AND p.parametro = 'pm25' AND p.horizonte_dias IN (0, 1)
+```
+
+#### **3. Redondeo Inconsistente**
+```javascript
+// ❌ MAL: Diferentes niveles de redondeo
+valor: parseFloat(pred.valor).toFixed(1)  // 34.7
+valor: Math.round(pred.valor)             // 35
+
+// ✅ BIEN: Redondeo unificado
+valor: Math.round(parseFloat(pred.valor)) // 35 (consistente)
+```
+
+#### **4. No Validar Predicciones Completas**
+```javascript
+// ❌ MAL: Asumir que siempre hay predicciones
+const hoy = predicciones[0].valor;
+
+// ✅ BIEN: Validar antes de usar
+if (!predHoy || !predManana) {
+  console.error('Predicciones incompletas');
+  return null;
+}
+```
+
+---
+
+## 📚 **CASO DE ESTUDIO: SOLUCIÓN DE INCONSISTENCIA (17 JUNIO 2025)**
+
+### **Problema Detectado:**
+- Email mostraba: Hoy 35, Mañana 41
+- Web mostraba: Hoy 41, Mañana 40
+- Base de datos: (34.66, h=0), (39.87, h=1)
+
+### **Causa Raíz:**
+- **Email**: Usaba mapeo correcto por horizonte_dias
+- **Web**: Usaba mapeo incorrecto por fecha + campo incorrecto
+
+### **Solución Aplicada:**
+1. **Unificar consultas SQL** con filtro `horizonte_dias IN (0,1)`
+2. **Mapeo consistente** por horizonte en ambos sistemas
+3. **Campo correcto** (`promedio_pm10` para compatibilidad frontend)
+4. **Redondeo unificado** con `Math.round()`
+
+### **Resultado:**
+- **Ambos sistemas**: Hoy 35, Mañana 40 (valores idénticos)
+- **Consistencia**: 100% entre email y web
+- **Confiabilidad**: Usuarios reciben información coherente
+
+### **Lección Clave:**
+> **El mapeo por `horizonte_dias` es la fuente de verdad, no las fechas.**
+
+---
+
+*Documentación actualizada - Air Gijón Sistema de Predicciones PM2.5*
+*Última actualización: 17 de Junio 2025* 
