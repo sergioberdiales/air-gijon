@@ -404,38 +404,41 @@ router.post('/test-email', authenticateToken, requireManager, async (req, res) =
 router.delete('/me', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
+    const userEmail = req.user.email;
 
-    // Lógica para eliminar el usuario de la base de datos
-    // Esto dependerá de cómo esté implementada tu función en db.js
-    // Supongamos que tienes una función deleteUserById(id)
+    console.log(`🗑️ Iniciando eliminación de cuenta para usuario: ${userEmail} (ID: ${userId})`);
+
+    // Eliminar el usuario de la base de datos
     const deletionResult = await deleteUserById(userId);
 
     if (!deletionResult || !deletionResult.success) {
-      // Si deleteUserById devuelve un objeto con { success: false, error: '...' }
-      // o simplemente no devuelve nada en caso de fallo sin error explícito.
       let errorMessage = 'No se pudo eliminar la cuenta.';
       if (deletionResult && deletionResult.error) {
         errorMessage = deletionResult.error;
       }
-      // Podrías querer loguear el error específico en el servidor aunque no lo devuelvas al cliente
-      console.error(`Error al intentar eliminar usuario ${userId}:`, errorMessage);
-      return res.status(500).json({ // Usar 500 si es un error del servidor, o 404 si el user no existiese (aunque authenticateToken ya lo valida)
+      
+      console.error(`❌ Error al intentar eliminar usuario ${userEmail} (ID: ${userId}):`, errorMessage);
+      
+      // Usar código de estado apropiado según el tipo de error
+      const statusCode = errorMessage.includes('no encontrado') ? 404 : 500;
+      
+      return res.status(statusCode).json({
         success: false,
         error: errorMessage
       });
     }
 
-    // Aquí podrías realizar acciones adicionales, como:
-    // - Invalidar tokens activos (si tienes un sistema de lista negra de tokens)
-    // - Enviar un email de despedida (opcional)
+    console.log(`✅ Usuario ${userEmail} (ID: ${userId}) eliminado exitosamente`);
 
+    // Respuesta exitosa
     res.status(200).json({
       success: true,
-      message: 'Tu cuenta ha sido eliminada exitosamente.'
+      message: 'Tu cuenta ha sido eliminada exitosamente.',
+      deleted_user: deletionResult.deletedUser || { id: userId, email: userEmail }
     });
 
   } catch (error) {
-    console.error('Error eliminando cuenta de usuario:', error);
+    console.error('❌ Error interno eliminando cuenta de usuario:', error);
     res.status(500).json({
       success: false,
       error: 'Error interno del servidor al intentar eliminar la cuenta.'

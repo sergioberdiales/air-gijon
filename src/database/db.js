@@ -855,18 +855,56 @@ async function getPromediosDiariosAnteriores(fechaReferencia, diasAtras, paramet
 }
 
 async function deleteUserById(userId) {
+  const client = await pool.connect();
   try {
-    const result = await pool.query('DELETE FROM users WHERE id = $1', [userId]);
-    if (result.rowCount > 0) {
-      console.log(`🗑️ Usuario con ID ${userId} eliminado exitosamente.`);
-      return { success: true, message: 'Usuario eliminado.' };
+    await client.query('BEGIN');
+    
+    console.log(`🗑️ Iniciando eliminación del usuario con ID: ${userId}`);
+    
+    // 1. Verificar que el usuario existe
+    const userCheck = await client.query('SELECT id, email FROM users WHERE id = $1', [userId]);
+    if (userCheck.rows.length === 0) {
+      console.warn(`⚠️ Usuario con ID ${userId} no encontrado.`);
+      await client.query('ROLLBACK');
+      return { success: false, error: 'Usuario no encontrado.' };
     }
-    // Esto no debería ocurrir si el ID proviene de un token JWT válido de un usuario existente
-    console.warn(`⚠️ Intento de eliminar usuario con ID ${userId} no encontrado.`);
-    return { success: false, error: 'Usuario no encontrado para eliminar.' };
+    
+    const userEmail = userCheck.rows[0].email;
+    console.log(`📧 Eliminando usuario: ${userEmail} (ID: ${userId})`);
+    
+    // 2. Eliminar registros relacionados en orden correcto
+    
+    // Eliminar notificaciones enviadas
+    const notificationsResult = await client.query('DELETE FROM notificaciones_enviadas WHERE user_id = $1', [userId]);
+    console.log(`🔔 Eliminadas ${notificationsResult.rowCount} notificaciones`);
+    
+    // 3. Eliminar el usuario principal
+    const userResult = await client.query('DELETE FROM users WHERE id = $1 RETURNING id, email', [userId]);
+    
+    if (userResult.rows.length === 0) {
+      console.error(`❌ Error: No se pudo eliminar el usuario con ID ${userId}`);
+      await client.query('ROLLBACK');
+      return { success: false, error: 'Error al eliminar el usuario.' };
+    }
+    
+    await client.query('COMMIT');
+    
+    console.log(`✅ Usuario ${userEmail} (ID: ${userId}) eliminado exitosamente`);
+    return { 
+      success: true, 
+      message: 'Usuario eliminado exitosamente.',
+      deletedUser: userResult.rows[0]
+    };
+    
   } catch (error) {
+    await client.query('ROLLBACK');
     console.error(`❌ Error al eliminar usuario con ID ${userId}:`, error);
-    return { success: false, error: 'Error en la base de datos al eliminar usuario.' };
+    return { 
+      success: false, 
+      error: 'Error en la base de datos al eliminar usuario.' 
+    };
+  } finally {
+    client.release();
   }
 }
 

@@ -69,26 +69,42 @@ function UserDashboard() {
   const handleDeleteAccount = async () => {
     setIsDeleting(true);
     setDeleteError(null);
+    
+    console.log('🗑️ Iniciando eliminación de cuenta...');
+    
     try {
       const response = await fetch(`${config.API_BASE}/api/users/me`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
         },
       });
 
-      const data = await response.json();
-
-      if (response.ok && data.success) {
+      console.log('📊 Delete account response status:', response.status);
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('✅ Cuenta eliminada exitosamente:', data);
+        
         setShowDeleteModal(false);
-        alert('Tu cuenta ha sido eliminada exitosamente.');
-        logout();
+        
+        // Mostrar mensaje de éxito antes de hacer logout
+        alert('✅ Tu cuenta ha sido eliminada exitosamente. Serás redirigido a la página principal.');
+        
+        // Hacer logout después de un breve delay
+        setTimeout(() => {
+          logout();
+        }, 1000);
+        
       } else {
-        setDeleteError(data.error || 'No se pudo eliminar la cuenta. Inténtalo de nuevo.');
+        const errorData = await response.json().catch(() => ({ error: 'Error desconocido' }));
+        console.error('❌ Error eliminando cuenta:', errorData);
+        setDeleteError(errorData.error || 'No se pudo eliminar la cuenta. Inténtalo de nuevo.');
       }
     } catch (err) {
-      console.error('Error eliminando cuenta:', err);
-      setDeleteError('Error de conexión al intentar eliminar la cuenta.');
+      console.error('❌ Error de conexión:', err);
+      setDeleteError('Error de conexión al intentar eliminar la cuenta. Verifica tu conexión a internet.');
     } finally {
       setIsDeleting(false);
     }
@@ -254,45 +270,107 @@ function UserDashboard() {
 
         {/* Modal de eliminación de cuenta */}
         {showDeleteModal && (
-          <Modal onClose={closeDeleteModal}>
-            <div className="modal-header">
-              <h2>⚠️ Confirmar Eliminación de Cuenta</h2>
-            </div>
-            <div className="modal-content">
-              <p>
-                <strong>¿Estás seguro de que quieres eliminar tu cuenta?</strong>
-              </p>
-              <p>
-                Esta acción es <strong>irreversible</strong> y eliminará permanentemente:
-              </p>
-              <ul>
-                <li>Tu perfil de usuario</li>
-                <li>Tus preferencias de notificación</li>
-                <li>Todo el historial asociado a tu cuenta</li>
-              </ul>
+          <Modal 
+            isOpen={showDeleteModal} 
+            onClose={closeDeleteModal}
+            title="⚠️ Eliminar Cuenta Permanentemente"
+          >
+            <div className="modal-delete-content">
+              <div className="warning-icon" style={{ 
+                textAlign: 'center', 
+                fontSize: '3rem', 
+                color: '#dc2626', 
+                marginBottom: '1rem' 
+              }}>
+                🗑️
+              </div>
+              
+              <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+                <p style={{ fontSize: '1.1rem', fontWeight: '600', color: '#dc2626', marginBottom: '0.5rem' }}>
+                  ¿Seguro que quieres eliminar tu cuenta de forma permanente?
+                </p>
+                <p style={{ color: '#6b7280', marginBottom: '1rem' }}>
+                  Esta acción <strong>NO se puede deshacer</strong>
+                </p>
+              </div>
+              
+              <div className="consequences-list" style={{ 
+                backgroundColor: '#fef2f2', 
+                padding: '1rem', 
+                borderRadius: '8px', 
+                marginBottom: '1.5rem',
+                border: '1px solid #fecaca'
+              }}>
+                <p style={{ fontWeight: '600', marginBottom: '0.5rem', color: '#991b1b' }}>
+                  Se eliminará permanentemente:
+                </p>
+                <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                  <li style={{ padding: '0.25rem 0', color: '#7f1d1d' }}>❌ Tu perfil de usuario</li>
+                  <li style={{ padding: '0.25rem 0', color: '#7f1d1d' }}>❌ Tus preferencias de notificación</li>
+                  <li style={{ padding: '0.25rem 0', color: '#7f1d1d' }}>❌ Todo el historial asociado a tu cuenta</li>
+                  <li style={{ padding: '0.25rem 0', color: '#7f1d1d' }}>❌ Acceso al sistema Air Gijón</li>
+                </ul>
+              </div>
               
               {deleteError && (
-                <div className="error-message">
-                  {deleteError}
+                <div className="error-message" style={{ 
+                  backgroundColor: '#fee', 
+                  color: '#dc2626', 
+                  padding: '0.75rem', 
+                  borderRadius: '6px', 
+                  marginBottom: '1rem',
+                  border: '1px solid #fca5a5'
+                }}>
+                  ❌ {deleteError}
                 </div>
               )}
-            </div>
-            <div className="modal-actions">
-              <button 
-                onClick={closeDeleteModal} 
-                className="btn btn-secondary"
-                disabled={isDeleting}
-              >
-                Cancelar
-              </button>
-              <button 
-                onClick={handleDeleteAccount} 
-                className="btn btn-danger"
-                disabled={isDeleting}
-              >
-                <Trash2 size={18} />
-                {isDeleting ? 'Eliminando...' : 'Eliminar Permanentemente'}
-              </button>
+              
+              <div className="modal-actions" style={{ 
+                display: 'flex', 
+                gap: '1rem', 
+                justifyContent: 'center',
+                marginTop: '1.5rem'
+              }}>
+                <button 
+                  onClick={closeDeleteModal} 
+                  className="btn btn-secondary"
+                  disabled={isDeleting}
+                  style={{
+                    padding: '0.75rem 1.5rem',
+                    backgroundColor: '#f3f4f6',
+                    color: '#374151',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontWeight: '500',
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  ✋ Cancelar
+                </button>
+                <button 
+                  onClick={handleDeleteAccount} 
+                  className="btn btn-danger"
+                  disabled={isDeleting}
+                  style={{
+                    padding: '0.75rem 1.5rem',
+                    backgroundColor: '#dc2626',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: isDeleting ? 'not-allowed' : 'pointer',
+                    fontWeight: '600',
+                    opacity: isDeleting ? 0.7 : 1,
+                    transition: 'all 0.2s ease',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem'
+                  }}
+                >
+                  <Trash2 size={18} />
+                  {isDeleting ? 'Eliminando...' : 'Sí, Eliminar Permanentemente'}
+                </button>
+              </div>
             </div>
           </Modal>
         )}
