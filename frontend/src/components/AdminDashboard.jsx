@@ -139,7 +139,7 @@ const AdminDashboard = () => {
     }
   };
 
-  // Función para eliminar usuario
+  // Función para eliminar usuario (corregida)
   const deleteUser = async (userId) => {
     if (!window.confirm('¿Estás seguro de que quieres eliminar este usuario? Esta acción no se puede deshacer.')) {
       return;
@@ -165,45 +165,43 @@ const AdminDashboard = () => {
       if (response.ok) {
         const data = await response.json();
         console.log('✅ Usuario eliminado exitosamente:', data);
-        // Ya eliminado optimísticamente
+        // El usuario ya fue eliminado optimísticamente
+        setError(null); // Limpiar cualquier error previo
       } else {
-        const errorText = await response.text();
-        console.error('❌ Error eliminando usuario:', errorText);
-        setError('Error eliminando usuario');
+        const errorData = await response.json().catch(() => ({ error: 'Error desconocido' }));
+        console.error('❌ Error eliminando usuario:', errorData);
+        setError(errorData.error || 'Error eliminando usuario');
         
         // Revertir eliminación optimista
         setUsers(originalUsers);
       }
     } catch (err) {
       console.error('❌ Error de conexión:', err);
-      setError('Error de conexión');
+      setError('Error de conexión al eliminar usuario');
       
       // Revertir eliminación optimista
       setUsers(originalUsers);
     }
   };
 
-  // Función para gestionar notificaciones (mejorada)
-  const toggleNotifications = async (userId, currentEmailAlerts, currentDailyPredictions) => {
-    const newEmailAlerts = !currentEmailAlerts;
-    const newDailyPredictions = !currentDailyPredictions;
+  // Función para gestionar notificaciones individuales
+  const toggleEmailAlerts = async (userId, currentValue) => {
+    const newValue = !currentValue;
     
-    console.log('🔔 Gestionando notificaciones:', { 
-      userId, 
-      emailAlerts: newEmailAlerts, 
-      dailyPredictions: newDailyPredictions 
-    });
+    console.log('📧 Cambiando alertas de email:', { userId, newValue });
     
     // Actualización optimista
+    const originalUsers = [...users];
     setUsers(prevUsers => 
       prevUsers.map(u => 
         u.id === userId 
-          ? { ...u, email_alerts: newEmailAlerts, daily_predictions: newDailyPredictions }
+          ? { ...u, email_alerts: newValue }
           : u
       )
     );
     
     try {
+      const user = users.find(u => u.id === userId);
       const response = await fetch(`${config.API_BASE}/api/admin/users/${userId}/notifications`, {
         method: 'PUT',
         headers: {
@@ -211,16 +209,15 @@ const AdminDashboard = () => {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({ 
-          email_alerts: newEmailAlerts,
-          daily_predictions: newDailyPredictions
+          email_alerts: newValue,
+          daily_predictions: user.daily_predictions // Mantener el valor actual
         })
       });
 
-      console.log('📊 Notifications response status:', response.status);
-      
       if (response.ok) {
         const data = await response.json();
-        console.log('✅ Notificaciones actualizadas exitosamente:', data);
+        console.log('✅ Alertas de email actualizadas:', data);
+        setError(null); // Limpiar cualquier error previo
         
         // Actualizar con datos reales del servidor
         setUsers(prevUsers => 
@@ -229,19 +226,76 @@ const AdminDashboard = () => {
           )
         );
       } else {
-        const errorText = await response.text();
-        console.error('❌ Error actualizando notificaciones:', errorText);
-        setError('Error actualizando notificaciones');
+        const errorData = await response.json().catch(() => ({ error: 'Error desconocido' }));
+        console.error('❌ Error actualizando alertas:', errorData);
+        setError(errorData.error || 'Error actualizando alertas de email');
         
         // Revertir cambio optimista
-        fetchUsers();
+        setUsers(originalUsers);
       }
     } catch (err) {
       console.error('❌ Error de conexión:', err);
-      setError('Error de conexión');
+      setError('Error de conexión al actualizar alertas');
       
       // Revertir cambio optimista
-      fetchUsers();
+      setUsers(originalUsers);
+    }
+  };
+
+  const toggleDailyPredictions = async (userId, currentValue) => {
+    const newValue = !currentValue;
+    
+    console.log('📊 Cambiando predicciones diarias:', { userId, newValue });
+    
+    // Actualización optimista
+    const originalUsers = [...users];
+    setUsers(prevUsers => 
+      prevUsers.map(u => 
+        u.id === userId 
+          ? { ...u, daily_predictions: newValue }
+          : u
+      )
+    );
+    
+    try {
+      const user = users.find(u => u.id === userId);
+      const response = await fetch(`${config.API_BASE}/api/admin/users/${userId}/notifications`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ 
+          email_alerts: user.email_alerts, // Mantener el valor actual
+          daily_predictions: newValue
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('✅ Predicciones diarias actualizadas:', data);
+        setError(null); // Limpiar cualquier error previo
+        
+        // Actualizar con datos reales del servidor
+        setUsers(prevUsers => 
+          prevUsers.map(u => 
+            u.id === userId ? { ...u, ...data.user } : u
+          )
+        );
+      } else {
+        const errorData = await response.json().catch(() => ({ error: 'Error desconocido' }));
+        console.error('❌ Error actualizando predicciones:', errorData);
+        setError(errorData.error || 'Error actualizando predicciones diarias');
+        
+        // Revertir cambio optimista
+        setUsers(originalUsers);
+      }
+    } catch (err) {
+      console.error('❌ Error de conexión:', err);
+      setError('Error de conexión al actualizar predicciones');
+      
+      // Revertir cambio optimista
+      setUsers(originalUsers);
     }
   };
 
@@ -337,12 +391,22 @@ const AdminDashboard = () => {
                       </td>
                       <td>
                         <div className="notifications-cell">
-                          <span className={`notification-badge ${userItem.email_alerts ? 'enabled' : 'disabled'}`}>
+                          <button 
+                            className={`notification-button ${userItem.email_alerts ? 'enabled' : 'disabled'}`}
+                            onClick={() => toggleEmailAlerts(userItem.id, userItem.email_alerts)}
+                            disabled={loading}
+                            title={`${userItem.email_alerts ? 'Desactivar' : 'Activar'} alertas por email`}
+                          >
                             📧 {userItem.email_alerts ? 'Sí' : 'No'}
-                          </span>
-                          <span className={`notification-badge ${userItem.daily_predictions ? 'enabled' : 'disabled'}`}>
+                          </button>
+                          <button 
+                            className={`notification-button ${userItem.daily_predictions ? 'enabled' : 'disabled'}`}
+                            onClick={() => toggleDailyPredictions(userItem.id, userItem.daily_predictions)}
+                            disabled={loading}
+                            title={`${userItem.daily_predictions ? 'Desactivar' : 'Activar'} predicciones diarias`}
+                          >
                             📊 {userItem.daily_predictions ? 'Sí' : 'No'}
-                          </span>
+                          </button>
                         </div>
                       </td>
                       <td>{new Date(userItem.created_at).toLocaleDateString('es-ES')}</td>
@@ -367,15 +431,6 @@ const AdminDashboard = () => {
                               👑 Hacer Admin
                             </button>
                           )}
-                          
-                          <button
-                            className="btn-notifications"
-                            onClick={() => toggleNotifications(userItem.id, userItem.email_alerts, userItem.daily_predictions)}
-                            disabled={loading}
-                            title="Activar/Desactivar todas las notificaciones"
-                          >
-                            🔔 {(userItem.email_alerts || userItem.daily_predictions) ? 'Desactivar' : 'Activar'}
-                          </button>
                           
                           <button
                             className="btn-delete"

@@ -412,68 +412,116 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
+  align-items: center;
 }
 
-.notification-badge {
-  display: inline-block;
-  padding: 2px 6px;
-  border-radius: 8px;
-  font-size: 11px;
+.notification-button {
+  padding: 4px 8px;
+  border: none;
+  border-radius: 4px;
+  font-size: 12px;
   font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
 }
 
-.notification-badge.enabled {
-  background: #dcfce7;
-  color: #166534;
+.notification-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-.notification-badge.disabled {
-  background: #f3f4f6;
+.notification-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+  transform: none;
+}
+
+.notification-button.enabled {
+  background-color: #10b981;
+  color: white;
+}
+
+.notification-button.enabled:hover:not(:disabled) {
+  background-color: #059669;
+}
+
+.notification-button.disabled {
+  background-color: #f3f4f6;
   color: #6b7280;
+  border: 1px solid #d1d5db;
+}
+
+.notification-button.disabled:hover:not(:disabled) {
+  background-color: #e5e7eb;
+  color: #374151;
 }
 
 /* Action Buttons Container */
 .action-buttons {
   display: flex;
   flex-direction: column;
+  gap: 6px;
+  align-items: center;
+}
+
+.btn-promote,
+.btn-demote,
+.btn-delete {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   gap: 4px;
 }
 
-/* Additional Buttons */
-.btn-notifications {
-  padding: 4px 8px;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 11px;
-  font-weight: 500;
-  background: #f59e0b;
+.btn-promote {
+  background-color: #3b82f6;
   color: white;
 }
 
-.btn-notifications:hover {
-  background: #d97706;
+.btn-promote:hover:not(:disabled) {
+  background-color: #2563eb;
+  transform: translateY(-1px);
+}
+
+.btn-demote {
+  background-color: #f59e0b;
+  color: white;
+}
+
+.btn-demote:hover:not(:disabled) {
+  background-color: #d97706;
+  transform: translateY(-1px);
 }
 
 .btn-delete {
-  padding: 4px 8px;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 11px;
-  font-weight: 500;
-  background: #dc2626;
+  background-color: #ef4444;
   color: white;
 }
 
-.btn-delete:hover {
-  background: #b91c1c;
+.btn-delete:hover:not(:disabled) {
+  background-color: #dc2626;
+  transform: translateY(-1px);
 }
 
-.btn-notifications:disabled,
+.btn-promote:disabled,
+.btn-demote:disabled,
 .btn-delete:disabled {
-  background: #9ca3af;
   cursor: not-allowed;
+  opacity: 0.6;
+  transform: none;
 }
 
 /* Responsive */
@@ -512,7 +560,6 @@
   
   .btn-promote,
   .btn-demote,
-  .btn-notifications,
   .btn-delete {
     font-size: 10px;
     padding: 3px 6px;
@@ -522,7 +569,7 @@
     gap: 2px;
   }
   
-  .notification-badge {
+  .notification-button {
     font-size: 10px;
     padding: 2px 4px;
   }
