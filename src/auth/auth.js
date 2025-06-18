@@ -90,7 +90,7 @@ function requireRole(role) {
 const requireManager = requireRole('manager');
 
 // Función para registrar usuario
-async function registerUser(email, password, role_id = 1, name = null) {
+async function registerUser(email, password, role_id = 1, name = null, is_confirmed = false, email_alerts = false, daily_predictions = false) {
   try {
     // Verificar que el usuario no existe
     const existingUser = await getUserByEmail(email);
@@ -104,12 +104,27 @@ async function registerUser(email, password, role_id = 1, name = null) {
     // Hash de la contraseña
     const passwordHash = await bcrypt.hash(password, 10);
     
-    // Generar token de confirmación
-    const confirmationToken = crypto.randomBytes(32).toString('hex');
-    const tokenExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 horas
+    // Generar token de confirmación (solo si no está confirmado)
+    let confirmationToken = null;
+    let tokenExpiresAt = null;
+    
+    if (!is_confirmed) {
+      confirmationToken = crypto.randomBytes(32).toString('hex');
+      tokenExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 horas
+    }
 
     // Crear usuario en la base de datos
-    const newUser = await createUser(email, passwordHash, role_id, name, confirmationToken, tokenExpiresAt);
+    const newUser = await createUser(
+      email, 
+      passwordHash, 
+      role_id, 
+      name, 
+      confirmationToken, 
+      tokenExpiresAt,
+      is_confirmed,
+      email_alerts,
+      daily_predictions
+    );
     
     return {
       success: true,

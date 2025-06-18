@@ -8,6 +8,15 @@ const AdminDashboard = () => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newUser, setNewUser] = useState({
+    email: '',
+    password: '',
+    name: '',
+    role_id: 1,
+    email_alerts: false,
+    daily_predictions: false
+  });
 
   // Función para obtener lista de usuarios
   const fetchUsers = useCallback(async () => {
@@ -34,9 +43,63 @@ const AdminDashboard = () => {
     }
   }, [token]);
 
+  // Función para crear nuevo usuario
+  const createUser = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const response = await fetch(`${config.API_BASE}/api/admin/users`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(newUser)
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('✅ Usuario creado exitosamente:', data);
+        
+        // Actualizar la lista de usuarios sin recargar
+        setUsers(prevUsers => [...prevUsers, data.user]);
+        
+        // Limpiar formulario y cerrar modal
+        setNewUser({
+          email: '',
+          password: '',
+          name: '',
+          role_id: 1,
+          email_alerts: false,
+          daily_predictions: false
+        });
+        setShowCreateModal(false);
+      } else {
+        const errorData = await response.json();
+        setError(errorData.error || 'Error creando usuario');
+      }
+    } catch (err) {
+      console.error('❌ Error de conexión:', err);
+      setError('Error de conexión');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Función para cambiar rol de usuario
   const changeUserRole = async (userId, newRoleId) => {
     console.log('🔄 Cambiando rol:', { userId, newRoleId });
+    
+    // Actualización optimista
+    setUsers(prevUsers => 
+      prevUsers.map(u => 
+        u.id === userId 
+          ? { ...u, role_id: newRoleId, role_name: newRoleId === 2 ? 'admin' : 'user' }
+          : u
+      )
+    );
+    
     try {
       const response = await fetch(`${config.API_BASE}/api/admin/users/${userId}/role`, {
         method: 'PUT',
@@ -52,16 +115,27 @@ const AdminDashboard = () => {
       if (response.ok) {
         const data = await response.json();
         console.log('✅ Rol cambiado exitosamente:', data);
-        // Recargar lista de usuarios
-        fetchUsers();
+        
+        // Actualizar con datos reales del servidor
+        setUsers(prevUsers => 
+          prevUsers.map(u => 
+            u.id === userId ? { ...u, ...data.user } : u
+          )
+        );
       } else {
         const errorText = await response.text();
         console.error('❌ Error cambiando rol:', errorText);
         setError('Error cambiando rol de usuario');
+        
+        // Revertir cambio optimista
+        fetchUsers();
       }
     } catch (err) {
       console.error('❌ Error de conexión:', err);
       setError('Error de conexión');
+      
+      // Revertir cambio optimista
+      fetchUsers();
     }
   };
 
@@ -72,6 +146,11 @@ const AdminDashboard = () => {
     }
     
     console.log('🗑️ Eliminando usuario:', userId);
+    
+    // Actualización optimista - remover de la lista
+    const originalUsers = [...users];
+    setUsers(prevUsers => prevUsers.filter(u => u.id !== userId));
+    
     try {
       const response = await fetch(`${config.API_BASE}/api/admin/users/${userId}`, {
         method: 'DELETE',
@@ -86,20 +165,25 @@ const AdminDashboard = () => {
       if (response.ok) {
         const data = await response.json();
         console.log('✅ Usuario eliminado exitosamente:', data);
-        // Recargar lista de usuarios
-        fetchUsers();
+        // Ya eliminado optimísticamente
       } else {
         const errorText = await response.text();
         console.error('❌ Error eliminando usuario:', errorText);
         setError('Error eliminando usuario');
+        
+        // Revertir eliminación optimista
+        setUsers(originalUsers);
       }
     } catch (err) {
       console.error('❌ Error de conexión:', err);
       setError('Error de conexión');
+      
+      // Revertir eliminación optimista
+      setUsers(originalUsers);
     }
   };
 
-  // Función para gestionar notificaciones
+  // Función para gestionar notificaciones (mejorada)
   const toggleNotifications = async (userId, currentEmailAlerts, currentDailyPredictions) => {
     const newEmailAlerts = !currentEmailAlerts;
     const newDailyPredictions = !currentDailyPredictions;
@@ -109,6 +193,15 @@ const AdminDashboard = () => {
       emailAlerts: newEmailAlerts, 
       dailyPredictions: newDailyPredictions 
     });
+    
+    // Actualización optimista
+    setUsers(prevUsers => 
+      prevUsers.map(u => 
+        u.id === userId 
+          ? { ...u, email_alerts: newEmailAlerts, daily_predictions: newDailyPredictions }
+          : u
+      )
+    );
     
     try {
       const response = await fetch(`${config.API_BASE}/api/admin/users/${userId}/notifications`, {
@@ -128,16 +221,27 @@ const AdminDashboard = () => {
       if (response.ok) {
         const data = await response.json();
         console.log('✅ Notificaciones actualizadas exitosamente:', data);
-        // Recargar lista de usuarios
-        fetchUsers();
+        
+        // Actualizar con datos reales del servidor
+        setUsers(prevUsers => 
+          prevUsers.map(u => 
+            u.id === userId ? { ...u, ...data.user } : u
+          )
+        );
       } else {
         const errorText = await response.text();
         console.error('❌ Error actualizando notificaciones:', errorText);
         setError('Error actualizando notificaciones');
+        
+        // Revertir cambio optimista
+        fetchUsers();
       }
     } catch (err) {
       console.error('❌ Error de conexión:', err);
       setError('Error de conexión');
+      
+      // Revertir cambio optimista
+      fetchUsers();
     }
   };
 
@@ -181,14 +285,23 @@ const AdminDashboard = () => {
 
         <div className="users-section">
           <div className="users-header">
-            <h2>Usuarios Registrados</h2>
-            <button 
-              className="refresh-button"
-              onClick={fetchUsers}
-              disabled={loading}
-            >
-              🔄 Actualizar
-            </button>
+            <h2>Usuarios Registrados ({users.length})</h2>
+            <div className="header-buttons">
+              <button 
+                className="create-user-button"
+                onClick={() => setShowCreateModal(true)}
+                disabled={loading}
+              >
+                ➕ Crear Usuario
+              </button>
+              <button 
+                className="refresh-button"
+                onClick={fetchUsers}
+                disabled={loading}
+              >
+                🔄 Actualizar
+              </button>
+            </div>
           </div>
 
           {users.length > 0 ? (
@@ -207,38 +320,38 @@ const AdminDashboard = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {users.map((user) => (
-                    <tr key={user.id}>
-                      <td>{user.id}</td>
-                      <td>{user.name || 'Sin nombre'}</td>
-                      <td>{user.email}</td>
+                  {users.map((userItem) => (
+                    <tr key={userItem.id}>
+                      <td>{userItem.id}</td>
+                      <td>{userItem.name || 'Sin nombre'}</td>
+                      <td>{userItem.email}</td>
                       <td>
-                        <span className={`role-badge ${user.role_id === 2 ? 'admin' : 'user'}`}>
-                          {user.role_id === 2 ? '👑 Admin' : '👤 Usuario'}
+                        <span className={`role-badge ${userItem.role_id === 2 ? 'admin' : 'user'}`}>
+                          {userItem.role_id === 2 ? '👑 Admin' : '👤 Usuario'}
                         </span>
                       </td>
                       <td>
-                        <span className={`status-badge ${user.is_confirmed ? 'confirmed' : 'pending'}`}>
-                          {user.is_confirmed ? '✅ Confirmado' : '⏳ Pendiente'}
+                        <span className={`status-badge ${userItem.is_confirmed ? 'confirmed' : 'pending'}`}>
+                          {userItem.is_confirmed ? '✅ Confirmado' : '⏳ Pendiente'}
                         </span>
                       </td>
                       <td>
                         <div className="notifications-cell">
-                          <span className={`notification-badge ${user.email_alerts ? 'enabled' : 'disabled'}`}>
-                            📧 {user.email_alerts ? 'Sí' : 'No'}
+                          <span className={`notification-badge ${userItem.email_alerts ? 'enabled' : 'disabled'}`}>
+                            📧 {userItem.email_alerts ? 'Sí' : 'No'}
                           </span>
-                          <span className={`notification-badge ${user.daily_predictions ? 'enabled' : 'disabled'}`}>
-                            📊 {user.daily_predictions ? 'Sí' : 'No'}
+                          <span className={`notification-badge ${userItem.daily_predictions ? 'enabled' : 'disabled'}`}>
+                            📊 {userItem.daily_predictions ? 'Sí' : 'No'}
                           </span>
                         </div>
                       </td>
-                      <td>{new Date(user.created_at).toLocaleDateString('es-ES')}</td>
+                      <td>{new Date(userItem.created_at).toLocaleDateString('es-ES')}</td>
                       <td>
                         <div className="action-buttons">
-                          {user.role_id === 2 ? (
+                          {userItem.role_id === 2 ? (
                             <button
                               className="btn-demote"
-                              onClick={() => changeUserRole(user.id, 1)}
+                              onClick={() => changeUserRole(userItem.id, 1)}
                               disabled={loading}
                               title="Quitar permisos de administrador"
                             >
@@ -247,7 +360,7 @@ const AdminDashboard = () => {
                           ) : (
                             <button
                               className="btn-promote"
-                              onClick={() => changeUserRole(user.id, 2)}
+                              onClick={() => changeUserRole(userItem.id, 2)}
                               disabled={loading}
                               title="Dar permisos de administrador"
                             >
@@ -257,16 +370,16 @@ const AdminDashboard = () => {
                           
                           <button
                             className="btn-notifications"
-                            onClick={() => toggleNotifications(user.id, user.email_alerts, user.daily_predictions)}
+                            onClick={() => toggleNotifications(userItem.id, userItem.email_alerts, userItem.daily_predictions)}
                             disabled={loading}
                             title="Activar/Desactivar todas las notificaciones"
                           >
-                            🔔 {(user.email_alerts || user.daily_predictions) ? 'Desactivar' : 'Activar'}
+                            🔔 {(userItem.email_alerts || userItem.daily_predictions) ? 'Desactivar' : 'Activar'}
                           </button>
                           
                           <button
                             className="btn-delete"
-                            onClick={() => deleteUser(user.id)}
+                            onClick={() => deleteUser(userItem.id)}
                             disabled={loading}
                             title="Eliminar usuario permanentemente"
                           >
@@ -288,6 +401,107 @@ const AdminDashboard = () => {
           )}
         </div>
       </div>
+
+      {/* Modal para crear usuario */}
+      {showCreateModal && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h3>Crear Nuevo Usuario</h3>
+              <button 
+                className="modal-close"
+                onClick={() => setShowCreateModal(false)}
+              >
+                ×
+              </button>
+            </div>
+            
+            <div className="modal-body">
+              <div className="form-group">
+                <label>Email:</label>
+                <input
+                  type="email"
+                  value={newUser.email}
+                  onChange={(e) => setNewUser({...newUser, email: e.target.value})}
+                  placeholder="usuario@ejemplo.com"
+                  required
+                />
+              </div>
+              
+              <div className="form-group">
+                <label>Contraseña:</label>
+                <input
+                  type="password"
+                  value={newUser.password}
+                  onChange={(e) => setNewUser({...newUser, password: e.target.value})}
+                  placeholder="Mínimo 6 caracteres"
+                  required
+                />
+              </div>
+              
+              <div className="form-group">
+                <label>Nombre completo:</label>
+                <input
+                  type="text"
+                  value={newUser.name}
+                  onChange={(e) => setNewUser({...newUser, name: e.target.value})}
+                  placeholder="Nombre del usuario"
+                />
+              </div>
+              
+              <div className="form-group">
+                <label>Rol:</label>
+                <select
+                  value={newUser.role_id}
+                  onChange={(e) => setNewUser({...newUser, role_id: parseInt(e.target.value)})}
+                >
+                  <option value={1}>👤 Usuario</option>
+                  <option value={2}>👑 Administrador</option>
+                </select>
+              </div>
+              
+              <div className="form-group">
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={newUser.email_alerts}
+                    onChange={(e) => setNewUser({...newUser, email_alerts: e.target.checked})}
+                  />
+                  📧 Recibir alertas por email
+                </label>
+              </div>
+              
+              <div className="form-group">
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={newUser.daily_predictions}
+                    onChange={(e) => setNewUser({...newUser, daily_predictions: e.target.checked})}
+                  />
+                  📊 Recibir predicciones diarias
+                </label>
+              </div>
+            </div>
+            
+            <div className="modal-footer">
+              <button
+                className="btn-cancel"
+                onClick={() => setShowCreateModal(false)}
+                disabled={loading}
+              >
+                Cancelar
+              </button>
+              <button
+                className="btn-create"
+                onClick={createUser}
+                disabled={loading || !newUser.email || !newUser.password}
+              >
+                {loading ? 'Creando...' : 'Crear Usuario'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

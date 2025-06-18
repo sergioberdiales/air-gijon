@@ -42,6 +42,74 @@ router.get('/users', async (req, res) => {
   }
 });
 
+// POST /api/admin/users - Crear nuevo usuario
+router.post('/users', async (req, res) => {
+  try {
+    const { email, password, name, role_id, email_alerts, daily_predictions } = req.body;
+    
+    console.log('➕ Creando nuevo usuario:', { email, name, role_id });
+
+    // Validaciones
+    if (!email || !password) {
+      return res.status(400).json({
+        success: false,
+        error: 'Email y contraseña son obligatorios'
+      });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({
+        success: false,
+        error: 'La contraseña debe tener al menos 6 caracteres'
+      });
+    }
+
+    if (role_id && role_id !== 1 && role_id !== 2) {
+      return res.status(400).json({
+        success: false,
+        error: 'role_id debe ser 1 (usuario) o 2 (admin)'
+      });
+    }
+
+    // Importar función de registro
+    const { registerUser } = require('../auth/auth');
+    
+    // Crear usuario con confirmación automática
+    const result = await registerUser(
+      email, 
+      password, 
+      role_id || 1, 
+      name || null,
+      true, // is_confirmed = true (usuario creado por admin)
+      email_alerts || false,
+      daily_predictions || false
+    );
+    
+    if (!result.success) {
+      return res.status(400).json({
+        success: false,
+        error: result.error
+      });
+    }
+
+    // Obtener datos completos del usuario creado
+    const { getUserById } = require('../database/db');
+    const newUser = await getUserById(result.user.id);
+
+    res.status(201).json({
+      success: true,
+      message: 'Usuario creado exitosamente',
+      user: newUser
+    });
+  } catch (error) {
+    console.error('❌ Error creando usuario:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error interno del servidor'
+    });
+  }
+});
+
 // PUT /api/admin/users/:userId/role - Cambiar rol de usuario
 router.put('/users/:userId/role', async (req, res) => {
   try {

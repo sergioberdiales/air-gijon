@@ -620,12 +620,12 @@ async function createUserIndexes() {
 }
 
 // Crear nuevo usuario
-async function createUser(email, passwordHash, role_id = 1, name = null, confirmationToken = null, tokenExpiresAt = null) {
+async function createUser(email, passwordHash, role_id = 1, name = null, confirmationToken = null, tokenExpiresAt = null, is_confirmed = false, email_alerts = false, daily_predictions = false) {
   const result = await pool.query(
-    `INSERT INTO users (email, password_hash, role_id, name, confirmation_token, confirmation_token_expires_at, is_confirmed)
-     VALUES ($1, $2, $3, $4, $5, $6, false)
-     RETURNING id, email, role_id, name, created_at, is_confirmed`,
-    [email, passwordHash, role_id, name, confirmationToken, tokenExpiresAt]
+    `INSERT INTO users (email, password_hash, role_id, name, confirmation_token, confirmation_token_expires_at, is_confirmed, email_alerts, daily_predictions)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+     RETURNING id, email, role_id, name, created_at, is_confirmed, email_alerts, daily_predictions`,
+    [email, passwordHash, role_id, name, confirmationToken, tokenExpiresAt, is_confirmed, email_alerts, daily_predictions]
   );
   return result.rows[0];
 }
