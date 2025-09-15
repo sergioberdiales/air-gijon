@@ -197,6 +197,43 @@ body {
   font-size: 1.125rem;
 }
 
+/* Botón hamburguesa para móvil */
+.mobile-menu-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 3.5rem;
+  height: 3.5rem;
+  border: none;
+  background: var(--background-card);
+  border-radius: var(--radius-lg);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: var(--transition-fast);
+  box-shadow: var(--shadow-md);
+  flex-shrink: 0;
+  position: relative;
+}
+
+/* En móvil, forzar posicionamiento específico */
+@media (max-width: 768px) {
+  .mobile-menu-btn {
+    order: 1;
+    align-self: center; /* Cambiar a center para alineación perfecta */
+  }
+}
+
+.mobile-menu-btn:hover {
+  background: var(--gray-100);
+  color: var(--primary-accent);
+  box-shadow: var(--shadow-lg);
+}
+
+.mobile-menu-btn:active {
+  transform: scale(0.92);
+  box-shadow: var(--shadow-sm);
+}
+
 .login-btn {
   background: var(--primary-accent);
   color: var(--text-on-accent);
@@ -742,6 +779,7 @@ body {
 
   .container {
     padding: 0 1rem;
+    width: 100%;
   }
 
   .header {
@@ -749,18 +787,24 @@ body {
   }
 
   .header-content {
-    flex-direction: row; /* Cambiar a row para mantener logo visible */
-    justify-content: center; /* Centrar el logo */
-    gap: 1rem;
+    display: flex !important;
+    flex-direction: row !important;
+    justify-content: space-between !important; /* Hamburguesa izquierda, logo derecha */
+    align-items: center !important;
     padding: 1rem 0;
-    display: flex !important; /* Forzar que sea visible */
+    width: 100% !important;
+    gap: 0 !important; /* Sin gap para evitar problemas */
+    min-height: 4rem; /* Altura mínima para centrado consistente */
   }
 
   .logo {
-    display: flex !important; /* Asegurar que se muestre en móvil */
+    display: flex !important;
     align-items: center;
-    justify-content: center; /* Centrar el logo en móvil */
-    visibility: visible !important; /* Forzar visibilidad */
+    justify-content: center;
+    visibility: visible !important;
+    order: 2; /* Asegurar que va al final (derecha) */
+    flex-shrink: 0;
+    align-self: center; /* Alineación vertical perfecta */
   }
 
   .logo-image {
@@ -769,8 +813,8 @@ body {
     visibility: visible !important; /* Forzar visibilidad */
   }
 
-  .nav:not(.bottom-nav) {
-    display: none; /* Ocultar navegación superior en móvil */
+  .nav {
+    display: none; /* Ocultar toda la navegación en móvil - usamos menú hamburguesa */
   }
   
   .login-btn {

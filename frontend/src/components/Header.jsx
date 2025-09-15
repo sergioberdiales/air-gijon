@@ -10,11 +10,14 @@ import SettingsIcon from './icons/SettingsIcon';
 import LogOutIcon from './icons/LogOutIcon';
 import CrownIcon from './icons/CrownIcon';
 import AdminIcon from './icons/AdminIcon';
+import MenuIcon from './icons/MenuIcon';
+import MobileMenu from './MobileMenu';
 
 function Header({ activeView, setActiveView, activeTab, setActiveTab, onAuthModalOpen }) {
   const { user, isAuthenticated, logout } = useAuth();
   const { isMobile } = useViewport();
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
 
   const handleNavClick = (view) => {
     if (setActiveView) {
@@ -57,6 +60,17 @@ function Header({ activeView, setActiveView, activeTab, setActiveTab, onAuthModa
       <header className="header">
         <div className="container">
           <div className="header-content">
+            {/* Botón hamburguesa para móvil - alineado a la izquierda */}
+            {isMobile && (
+              <button 
+                className="mobile-menu-btn"
+                onClick={() => setShowMobileMenu(true)}
+              >
+                <MenuIcon />
+              </button>
+            )}
+            
+            {/* Logo - alineado a la derecha en móvil, centrado en desktop */}
             <div className="logo">
               <img 
                 src="/logos/air_gijon_logo_v1.png" 
@@ -65,7 +79,9 @@ function Header({ activeView, setActiveView, activeTab, setActiveTab, onAuthModa
               />
             </div>
             
-            <nav className={`nav ${isMobile ? 'bottom-nav' : ''}`}>
+            {/* Navegación solo visible en desktop */}
+            {!isMobile && (
+              <nav className="nav">
               <button 
                 className={`nav-link ${isHomeActualActive ? 'active' : ''}`}
                 onClick={() => handleNavClick('home-actual')}
@@ -117,7 +133,8 @@ function Header({ activeView, setActiveView, activeTab, setActiveTab, onAuthModa
                   </span>
                 </button>
               )}
-            </nav>
+              </nav>
+            )}
 
             {!isMobile && (
               <div className="user-section">
@@ -191,6 +208,16 @@ function Header({ activeView, setActiveView, activeTab, setActiveTab, onAuthModa
           onClick={() => setShowUserMenu(false)}
         />
       )}
+
+      {/* Menú móvil hamburguesa */}
+      <MobileMenu
+        isOpen={showMobileMenu}
+        onClose={() => setShowMobileMenu(false)}
+        activeView={activeView}
+        activeTab={activeTab}
+        onNavClick={handleNavClick}
+        onAuthModalOpen={onAuthModalOpen}
+      />
     </>
   );
 }
