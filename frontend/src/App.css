@@ -1261,16 +1261,28 @@ body {
   }
   
   .chart-container {
-    padding: 1rem;
+    padding: 1.25rem; /* Aumentado de 1rem a 1.25rem para más espacio */
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+    font-size: 14px; /* Texto base más grande en móvil */
   }
   
   .evolution-chart {
-    max-height: 250px;
+    max-height: 350px; /* Aumentado de 250px a 350px para mejor visibilidad */
     width: 100%;
     height: auto;
     min-width: 300px;
+  }
+  
+  /* Mejorar legibilidad del texto en móvil */
+  .evolution-chart text {
+    font-size: 12px !important;
+    font-weight: 500;
+  }
+  
+  /* Hacer líneas más visibles en móvil */
+  .evolution-chart .recharts-line {
+    stroke-width: 3px !important;
   }
   
   .legend {
@@ -1311,7 +1323,7 @@ body {
   }
   
   .evolution-chart {
-    max-height: 220px;
+    max-height: 300px; /* Aumentado de 220px a 300px para mejor legibilidad */
     width: 100%;
     height: auto;
   }
