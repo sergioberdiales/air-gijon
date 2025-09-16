@@ -79,7 +79,7 @@ function EvolutionCard() {
   const getResponsiveConfig = () => {
     // Calcular altura dinámicamente basándose en el valor máximo
     const maxValue = getMaxValue();
-    const baseHeight = 260; // Altura base optimizada
+    const baseHeight = 220; // Altura base más compacta
     const extraHeight = Math.max(0, (maxValue - 30) * 2); // 2px por cada unidad extra
     
     if (windowWidth <= 480) {
@@ -89,8 +89,8 @@ function EvolutionCard() {
         valueOffset: 12,      // Reducido para menos espacio arriba
         svgPadding: 45,       
         dateRotation: -90,    
-        dateYOffset: 5,       // Reducido para acercar fechas al gráfico
-        svgHeight: baseHeight + extraHeight + 30 // Reducido espacio extra para fechas rotadas
+        dateYOffset: 0,       // Sin offset adicional
+        svgHeight: baseHeight + extraHeight + 50 // Espacio suficiente para fechas rotadas
       };
     } else if (windowWidth <= 768) {
       return {
@@ -99,8 +99,8 @@ function EvolutionCard() {
         valueOffset: 12,      // Reducido para menos espacio arriba
         svgPadding: 45,       
         dateRotation: 0,
-        dateYOffset: -5,      // Acercar fechas al gráfico
-        svgHeight: baseHeight + extraHeight - 10 // Altura reducida
+        dateYOffset: 0,       // Sin offset adicional
+        svgHeight: baseHeight + extraHeight + 35 // Espacio para fechas horizontales
       };
     } else {
       return {
@@ -109,8 +109,8 @@ function EvolutionCard() {
         valueOffset: 12,      // Reducido para menos espacio arriba
         svgPadding: 55,       
         dateRotation: 0,
-        dateYOffset: -5,      // Acercar fechas al gráfico
-        svgHeight: baseHeight + extraHeight - 10 // Altura reducida
+        dateYOffset: 0,       // Sin offset adicional
+        svgHeight: baseHeight + extraHeight + 35 // Espacio para fechas horizontales
       };
     }
   };
@@ -271,13 +271,13 @@ function EvolutionCard() {
               {/* Etiquetas de fecha */}
               <text
                 x={point.x}
-                y={config.svgHeight - 15 + (config.dateYOffset || 0)}
+                y={config.svgHeight - 25 + (config.dateYOffset || 0)}
                 fontSize={config.fontSize}
                 fill="var(--text-secondary)"
                 textAnchor="middle"
                 className="date-label"
                 fontWeight={point.tipo === 'prediccion' ? "600" : "normal"}
-                transform={config.dateRotation !== 0 ? `rotate(${config.dateRotation} ${point.x} ${config.svgHeight - 15 + (config.dateYOffset || 0)})` : ''}
+                transform={config.dateRotation !== 0 ? `rotate(${config.dateRotation} ${point.x} ${config.svgHeight - 25 + (config.dateYOffset || 0)})` : ''}
               >
                 {windowWidth <= 480 ? 
                   // En móvil: formato más corto y claro
