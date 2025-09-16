@@ -51,10 +51,10 @@ function EvolutionCard() {
   };
 
   const getYPosition = (value, maxValue) => {
-    // Calcular altura dinámicamente con margen suficiente para valores
-    const topMargin = 60; // Margen superior aumentado para valores
-    const bottomMargin = 80; // Margen inferior para fechas
-    const usableHeight = 140; // Altura útil del gráfico
+    // Calcular altura dinámicamente con márgenes optimizados
+    const topMargin = 35; // Margen superior reducido
+    const bottomMargin = 60; // Margen inferior para fechas
+    const usableHeight = 160; // Altura útil aumentada del gráfico
     
     return topMargin + (1 - (value / maxValue)) * usableHeight;
   };
@@ -79,38 +79,38 @@ function EvolutionCard() {
   const getResponsiveConfig = () => {
     // Calcular altura dinámicamente basándose en el valor máximo
     const maxValue = getMaxValue();
-    const baseHeight = 280; // Altura base aumentada
+    const baseHeight = 260; // Altura base optimizada
     const extraHeight = Math.max(0, (maxValue - 30) * 2); // 2px por cada unidad extra
     
     if (windowWidth <= 480) {
       return {
         pointSpacing: 55,     
         fontSize: 9,          
-        valueOffset: 15,      // Reducido ya que tenemos más margen arriba
+        valueOffset: 12,      // Reducido para menos espacio arriba
         svgPadding: 45,       
         dateRotation: -90,    
-        dateYOffset: 15,      
-        svgHeight: baseHeight + extraHeight + 40 // Extra para fechas rotadas
+        dateYOffset: 5,       // Reducido para acercar fechas al gráfico
+        svgHeight: baseHeight + extraHeight + 30 // Reducido espacio extra para fechas rotadas
       };
     } else if (windowWidth <= 768) {
       return {
         pointSpacing: 65,     
         fontSize: 10,
-        valueOffset: 15,      
+        valueOffset: 12,      // Reducido para menos espacio arriba
         svgPadding: 45,       
         dateRotation: 0,
-        dateYOffset: 0,
-        svgHeight: baseHeight + extraHeight
+        dateYOffset: -5,      // Acercar fechas al gráfico
+        svgHeight: baseHeight + extraHeight - 10 // Altura reducida
       };
     } else {
       return {
         pointSpacing: 75,     
         fontSize: 11,
-        valueOffset: 15,      
+        valueOffset: 12,      // Reducido para menos espacio arriba
         svgPadding: 55,       
         dateRotation: 0,
-        dateYOffset: 0,
-        svgHeight: baseHeight + extraHeight
+        dateYOffset: -5,      // Acercar fechas al gráfico
+        svgHeight: baseHeight + extraHeight - 10 // Altura reducida
       };
     }
   };
@@ -271,13 +271,13 @@ function EvolutionCard() {
               {/* Etiquetas de fecha */}
               <text
                 x={point.x}
-                y={config.svgHeight - 30 + (config.dateYOffset || 0)}
+                y={config.svgHeight - 15 + (config.dateYOffset || 0)}
                 fontSize={config.fontSize}
                 fill="var(--text-secondary)"
                 textAnchor="middle"
                 className="date-label"
                 fontWeight={point.tipo === 'prediccion' ? "600" : "normal"}
-                transform={config.dateRotation !== 0 ? `rotate(${config.dateRotation} ${point.x} ${config.svgHeight - 30 + (config.dateYOffset || 0)})` : ''}
+                transform={config.dateRotation !== 0 ? `rotate(${config.dateRotation} ${point.x} ${config.svgHeight - 15 + (config.dateYOffset || 0)})` : ''}
               >
                 {windowWidth <= 480 ? 
                   // En móvil: formato más corto y claro
